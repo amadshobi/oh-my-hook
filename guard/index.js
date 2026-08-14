@@ -7,15 +7,17 @@ import { loadConfig } from "../share/config.js";
 import { modeHooks } from "./mode.js";
 import { securityHooks } from "./security.js";
 import { createReadGuard } from "./read-guard.js";
+import { toolPolicyHooks } from "./tool-policy.js";
 
 export async function guardHooks(input) {
   const { config } = loadConfig();
   const guardCfg = config.guard;
   const messagesCfg = config.messages;
-  const [mode, security, readGuard] = await Promise.all([
+  const [mode, security, readGuard, toolPolicy] = await Promise.all([
     modeHooks(input, { config: guardCfg, messages: messagesCfg }),
     securityHooks(input, { config: guardCfg, messages: messagesCfg }),
     createReadGuard({ ...input, config: guardCfg, messages: messagesCfg }),
+    toolPolicyHooks(input, { config: guardCfg, messages: messagesCfg }),
   ]);
-  return mergeHooks(mode, security, readGuard);
+  return mergeHooks(mode, security, readGuard, toolPolicy);
 }

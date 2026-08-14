@@ -40,6 +40,7 @@ export const DEFAULTS = {
     commitGuard: true,
     devServerGuard: true,
     dangerousBash: true,
+    tools: {},
   },
   context: {
     compactionSnapshot: true,

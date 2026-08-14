@@ -69,6 +69,11 @@ export const DEFAULT_MESSAGES = {
     reason: "Tugas ini butuh beberapa langkah. Buat checklist di .opencode/todos.json dulu.",
     suggestion: "Pecah task menjadi todo terstruktur.",
   },
+  toolBlocked: {
+    title: "Tool Diblokir",
+    reason: "Tool '{tool}' diblokir oleh kebijakan guardrail (kebijakan: {policy}).",
+    suggestion: "Cek konfigurasi omh.jsonc pada bagian guard.tools.",
+  },
 };
 
 function resolvePath(filePath, cwd = process.cwd()) {
