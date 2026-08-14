@@ -7,8 +7,10 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const STYLE_GUIDE_PATH = path.join(import.meta.dirname, "style-guide.md");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const STYLE_GUIDE_PATH = path.join(__dirname, "style-guide.md");
 
 let cachedStyleGuide = null;
 function styleGuide() {
