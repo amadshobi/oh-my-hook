@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "🚀 [pre-push] Running pre-push verification..."
+
+# 1. Run unit tests before pushing to remote
+npm test
+
+echo "✅ [pre-push] Ready to push."
