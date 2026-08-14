@@ -73,6 +73,9 @@ Error(blockMessage(...))` so the model sees a clear reason. Reminders use
   `toolArgs(input)`, `bashCommand(args)`, `filePathOf(args)`.
 - Block/warn messages follow `share/style-guide.md` — build them with
   `formatBlockMessage()` / `formatWarnMessage()` in `share/messages.js`.
+- When committing, follow Conventional Commits and append the appropriate co-author trailer:
+  - In OpenCode: `git commit -m "type(scope): description" -m "Co-authored-by: OpenCode <noreply@opencode.ai>"`
+  - In Command Code: `git commit -m "type(scope): description" -m "Co-authored-by: Command Code <noreply@commandcode.ai>"`
 
 ## Adding a new guardrail / hook
 
