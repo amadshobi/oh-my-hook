@@ -1,207 +1,274 @@
-# oh-my-hook
+<div align="center">
 
-Command Code-style workflow plugins for **OpenCode**. Brings the "terarah, gak asal-asalan" agent loop into OpenCode: mode enforcement, read-before-write, security guardrails, session context, and verification reminders.
+# 🪝 oh-my-hook
 
-## Install
+**Production-grade guardrails, execution discipline, and curated memory for OpenCode agents.**
 
-The plugin can be installed as a package or loaded from local directory in `opencode.jsonc`:
+[![CI](https://github.com/amadshobi/oh-my-hook/actions/workflows/ci.yml/badge.svg)](https://github.com/amadshobi/oh-my-hook/actions/workflows/ci.yml)
+[![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg?style=flat-square)](https://nodejs.org)
+[![Zero Dependencies](https://img.shields.io/badge/dependencies-0-blue.svg?style=flat-square)](package.json)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![OpenCode Plugin](https://img.shields.io/badge/ecosystem-opencode-purple.svg?style=flat-square)](https://opencode.ai)
+
+_Stop AI agents from hallucinating file writes, leaking credentials, executing destructive bash, or losing memory after context compaction._
+
+---
+
+[Key Pillars](#-key-pillars) •
+[Why oh-my-hook?](#-why-oh-my-hook) •
+[Architecture](#-architecture-flow) •
+[Installation](#-installation) •
+[Configuration](#-configuration-omhjsonc) •
+[Guardrail Suite](#-guardrail-suite) •
+[Curated Memory](#-curated-memory-engine) •
+[Development & Tests](#-testing--development)
+
+</div>
+
+---
+
+## ⚡ Key Pillars
+
+- 🔒 **Hard Enforcement (`tool.execute.before`)**: Strict pre-execution gates that reject destructive bash commands, unread file overrides, stale concurrent mutations, and credential leaks.
+- 🛡️ **Plan vs. Execute State Machine**: Deterministic prompt intent classifier (`plan`/`mikir` vs `gas`/`bikin`) that locks down mutating tools during architecture and design phases.
+- 🧠 **Curated Distilled Memory (`/capture`)**: Zero-noise memory engine. Only loads curated bullets into the primary agent, keeping subagent contexts clean and compaction snapshots lossless.
+- 🔔 **Autonomous Verification Loop**: Runs typechecking, linter auto-fixes, and tests immediately after edits while automatically refreshing ledger state.
+- 🪶 **Zero Dependencies**: 100% pure Node.js ESM built-ins (`node:fs`, `node:path`, `node:child_process`). Lightweight, instant startup, zero supply-chain risk.
+
+---
+
+## 🥊 Why oh-my-hook?
+
+| Risk / Scenario                | Raw OpenCode Agent                                               | With `oh-my-hook` 🪝                                                          |
+| :----------------------------- | :--------------------------------------------------------------- | :---------------------------------------------------------------------------- |
+| **Overwriting Unread Files**   | Model guesses structure and rewrites entire files blindly.       | **🚫 Blocked**: `readBeforeWrite` forces `read` before `edit`/`write`.        |
+| **Concurrent File Mutation**   | Overwrites changes made by user or external scripts.             | **🚫 Blocked**: `staleWrite` checks `mtime` & byte size before mutation.      |
+| **Accidental Secret Leaks**    | API keys, JWTs, and AWS tokens written to public code.           | **🚫 Blocked**: `secretScanner` scans payloads with regex AST patterns.       |
+| **Plan Phase Runaway**         | Agent starts editing codebase while asked to brainstorm.         | **🚫 Blocked**: `planMode` disables mutating tools until explicit trigger.    |
+| **Destructive Terminal Ops**   | Commands like `rm -rf /`, `curl \| sh`, or detached dev servers. | **🚫 Blocked**: `dangerousBash` & `devServerGuard` stop dangerous ops.        |
+| **Context Loss on Compaction** | Agent forgets git state, active tasks, and project rules.        | **💡 Injected**: `compactionSnapshot` injects git state + todos into summary. |
+| **Session Memory Drift**       | Auto-memory logs conversational spam and hallucinates.           | **🧠 Curated**: Markdown storage + AI session distillation via `/capture`.    |
+
+---
+
+## 📐 Architecture Flow
+
+```
+                     ┌────────────────────────────────────────────────────────┐
+                     │                   User Prompt / Event                  │
+                     └───────────────────────────┬────────────────────────────┘
+                                                 │
+                                     [Intent State Analyzer]
+                                  (Sets Session Mode: Plan/Exec)
+                                                 │
+                    ┌────────────────────────────┼────────────────────────────┐
+                    │                            │                            │
+            [system.transform]          [tool.execute.before]         [command.execute]
+                    │                            │                            │
+         • Inject Curated Memory         • Read-Before-Write Guard       • /remember
+         • Session Compaction Snapshot   • Stale-Write Checker           • /memory
+         • Agent Boundary Isolation      • Secret AST Scanner            • /capture (AI Distill)
+                                         • Dangerous Bash Barrier
+                                         • Commit Message Guard
+                                                 │
+                                           [Tool Runs]
+                                                 │
+                                        [tool.execute.after]
+                                                 │
+                                         • Typecheck (TS/TSX)
+                                         • Lint & Auto-fixer
+                                         • Ledger State Sync
+```
+
+---
+
+## 📦 Installation
+
+Add `oh-my-hook` to your OpenCode configuration in `~/.config/opencode/opencode.jsonc`:
+
+### Production (Package)
 
 ```jsonc
 {
-  "plugin": ["@slkiser/opencode-quota@latest", "oh-my-hook"],
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["oh-my-hook"],
 }
 ```
 
-Or for local development:
+### Local Development / Monorepo
 
 ```jsonc
 {
-  "plugin": [
-    "@slkiser/opencode-quota@latest",
-    "./projects/oh-my-hook/index.js",
-  ],
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["/absolute/path/to/oh-my-hook/index.js"],
 }
 ```
 
-Restart OpenCode after adding it. To verify it loaded:
+Verify the plugin loads properly:
 
 ```bash
 opencode run --print-logs --log-level DEBUG "reply OK" 2>&1 | grep -i "oh.my.hook"
 ```
 
-## Config
+---
 
-oh-my-hook reads its own config from `~/.config/opencode/omh.jsonc` — **not**
-from `opencode.jsonc`, so plugin settings never clutter the main config.
-Multifile: rename the extension to `.json`, `.yaml`, or `.yml` — whichever
-you prefer; first existing wins (`.jsonc` > `.json` > `.yaml` > `.yml`).
-If the file is missing, all features use defaults (enabled).
+## ⚙️ Configuration (`omh.jsonc`)
+
+`oh-my-hook` keeps your main `opencode.jsonc` uncluttered by maintaining its configuration in a dedicated file: `~/.config/opencode/omh.jsonc`.
+
+Supports multiple formats with automatic priority resolution:
+`omh.jsonc` > `omh.json` > `omh.yaml` > `omh.yml`
 
 ```jsonc
-// ~/.config/opencode/omh.jsonc
 {
+  // 🧠 Curated Memory & Session Distillation
   "memory": {
     "enabled": true,
-    "captureAdapter": "commandcode",
+    "captureAdapter": "commandcode", // "commandcode" | "opencode" | "omp"
     "captureModels": {
       "commandcode": "",
       "opencode": "omp/hy3:free",
       "omp": "gemini-3.6-flash",
     },
     "maxBullets": 10,
-    "injectToSubagents": false,
-    "captureAuto": false,
+    "injectToSubagents": false, // Keep subagents isolated & lightweight
+    "captureAuto": false, // Auto-distill on session idle
   },
+
+  // 🔒 Hard Blocking Guardrails
   "guard": {
-    "readBeforeWrite": true,
-    "staleWrite": true,
-    "planMode": true,
-    "secretScanner": true,
-    "commitGuard": true,
-    "devServerGuard": true,
-    "dangerousBash": true,
+    "readBeforeWrite": true, // Enforce READ -> UNDERSTAND -> EDIT loop
+    "staleWrite": true, // Prevent race conditions on changed files
+    "planMode": true, // Freeze file mutation during planning phase
+    "secretScanner": true, // Block hardcoded API keys, JWTs, private keys
+    "commitGuard": true, // Enforce Conventional Commits format
+    "devServerGuard": true, // Prevent orphan background servers outside tmux
+    "dangerousBash": true, // Block rm -rf, fork bombs, disk overwrites
   },
+
+  // 🧠 Context & Compaction Engine
   "context": {
-    "compactionSnapshot": true,
-    "promptCheck": true,
+    "compactionSnapshot": true, // Inject git diff & pending todos into compaction
+    "promptCheck": true, // Warn on ambiguous / single-word prompts
     "compactThreshold": 50,
   },
-  "reminder": { "verify": true, "checklist": true },
+
+  // 🔔 Post-Execution Verification
+  "reminder": {
+    "verify": true, // Run auto-typecheck & linter after edits
+    "checklist": true, // Nudge agents to split complex steps into todos
+  },
+
+  // 💬 Dynamic Custom Block & Warning Messages
   "messages": {
-    "dangerousBash": "Perintah '{command}' dilarang demi keamanan!",
+    "dangerousBash": "Perintah '{command}' dilarang demi keamanan sistem!",
     "modePlanTool": "{file:~/.config/opencode/prompts/plan-blocked.md}",
   },
 }
 ```
 
-See the installed `~/.config/opencode/omh.jsonc` for a commented template.
+---
 
-## Structure
+## 🔒 Guardrail Suite
 
-```
-oh-my-hook/
-├── index.js                 # single entry — assembles all hooks into one object
-├── package.json             # npm test / test:e2e / test:all
-├── share/                   # reusable helpers & state
-│   ├── notify.js            # createNotifier structured logger
-│   ├── block.js             # blockMessage / warnMessage (+ style guide)
-│   ├── messages.js          # hybrid message dictionary, interpolation & {file:...} loader
-│   ├── state.js             # per-session read-ledger, mode-state, json helpers
-│   ├── agent.js             # agent & subagent role helpers
-│   ├── merge.js             # combine multiple hooks objects into one
-│   ├── hook.js              # extract toolArgs / command / filePath from hook input
-│   └── style-guide.md       # guardrail message format (🚫 block / ⚠️ warn / 💡 info)
-├── guard/                   # 🔒 hard enforcement (blocks)
-│   ├── mode.js              # plan/execute mode enforcement
-│   ├── security.js          # secret scanner, commit guard, dev server, push
-│   ├── read-guard.js        # read-before-write + stale-write (per-session)
-│   └── index.js
-├── context/                 # 🧠 session context
-│   ├── context.js           # session tracking, compaction snapshot, prompt check
-│   ├── agent-context.js     # agent-specific context boundaries
-│   └── index.js
-├── reminder/                # 🔔 soft nudges
-│   ├── verify.js            # typecheck/lint/auto-fix/test/bundle after edit
-│   ├── checklist.js         # multi-step task → checklist nudge
-│   └── index.js
-├── memory/                  # 🧠 curated memory (auto-load per session + compaction)
-│   ├── store.js             # read/write MEMORY.md (global + per-project)
-│   ├── index.js             # inject hooks + /remember /memory /capture commands
-│   └── ai/                  # pluggable AI adapters for /capture
-│       ├── commandcode.js   # default — calls `cmd -p` (Command Code headless)
-│       ├── opencode.js      # calls `opencode run` (auto-deletes session)
-│       └── omp.js           # calls `omp` agent CLI
-└── tests/
-    ├── merge.test.js        # unit tests for merge-hooks
-    ├── state.test.js        # unit tests for ledger/stale detection
-    └── e2e/
-        ├── read-guard.e2e.js       # E2E against real headless OpenCode
-        └── stale-write.hook.e2e.js # deterministic hook-pipeline test
-```
+### 1. Read-Before-Write & Stale-Write Protection
 
-## Features
-
-### 🔒 Guard — hard blocks (throw from `tool.execute.before`)
-
-| Feature               | What it does                                                                                                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Plan/execute mode** | Detects intent from prompts (`plan`, `mikir` → plan; `gas`, `bikin` → execute). In plan mode, all mutating tools & mutating bash are blocked. State persists per-session. |
-| **Read-before-write** | Blocks `write`/`edit`/`patch` on existing files that were never read this session. Forces the READ → UNDERSTAND → CHANGE → CHECK loop.                                    |
-| **Stale-write**       | Blocks writes when the on-disk file changed after the model read it (mtime/size mismatch). Prevents lost updates from concurrent edits.                                   |
-| **Secret scanner**    | Blocks write/edit containing API keys, tokens, private keys, DB URLs, JWTs.                                                                                               |
-| **Commit guard**      | Blocks `git commit` with non-conventional-commit messages.                                                                                                                |
-| **Dangerous bash**    | Blocks `rm -rf /`, fork bombs, `dd` to disk, `curl                                                                                                                        | sh`, etc. |
-| **Dev server guard**  | Blocks dev server commands outside tmux/screen (prevents orphan processes).                                                                                               |
-
-### 🧠 Context — session awareness
-
-- **Compaction snapshot** — injects git status + pending todos + reminders into the compaction prompt so the model doesn't lose context after compact.
-- **Session tracking** — records package manager, edit counts, per-day learning log.
-- **Prompt check** — warns on vague / too-short prompts.
-
-### 🔔 Reminder — soft nudges (warn, not block)
-
-- **Verify loop** — after each edit: typecheck (ts/tsx), lint + auto-fix, run related tests, check bundle size. Results land in tool output metadata.
-- **Checklist** — detects multi-step prompts and reminds the model to break them into a checklist (`.opencode/todos.json`).
-
-### 🧠 Memory — curated, auto-load
-
-Memory is **curated only** — never auto-logged from conversation. It auto-loads into the main agent's system prompt on every turn and into the compaction context. **Subagents do NOT get memory automatically** (keeps their context focused); to pass memory to a subagent, include it in the task prompt.
-
-| Command                | What it does                                                          |
-| ---------------------- | --------------------------------------------------------------------- |
-| `/remember <note>`     | Append a memory entry (project by default; `--global` for global)     |
-| `/memory`              | Show current global + project memory                                  |
-| `/capture [sessionID]` | Distill the last OpenCode session (or a given one) into memory via AI |
-
-**Storage:**
+Forces the agent to read and understand the file in the current session before applying any modifications. If another process or developer modifies the file on disk after the agent read it, the write is immediately rejected.
 
 ```
-~/.config/opencode/memory/MEMORY.md                  # global
-~/.config/opencode/memory/projects/<path>/MEMORY.md  # per-project
+#### 🚫 GUARDRAIL BLOCK: Read-Before-Write
+> *File 'src/auth/token.js' belum pernah dibaca dalam session ini.*
+> *Gunakan tool read/grep terlebih dahulu sebelum memodifikasi file.*
 ```
 
-Format: markdown, one `- ` bullet per topic (easy to hand-edit).
+### 2. Plan vs. Execute State Machine
 
-**Capture AI is pluggable** (`memory/ai/`): `commandcode.js` calls
-`cmd -p --no-session` (Command Code headless, ephemeral — nothing saved).
-`opencode.js` calls `opencode run` (auto-deletes its session). `omp.js`
-calls `omp -p --no-session --mode json` (Pi agent). All capture calls run
-with `--no-session` so they never pollute session logs. Add more adapters
-in `memory/ai/index.js`.
+Detects intent keywords in prompts:
 
-## State files
+- **Plan Mode Trigger**: `plan`, `mikir`, `analisa`, `review`, `arsitektur`
+- **Execute Mode Trigger**: `gas`, `gasken`, `bikin`, `execute`, `implement`
 
-| File                                                  | Purpose                                |
-| ----------------------------------------------------- | -------------------------------------- |
-| `~/.config/opencode/oh-my-hook-read-ledger.json`      | Read-before-write / stale-write ledger |
-| `~/.config/opencode/oh-my-hook-mode.json`             | Plan/execute mode per session          |
-| `~/.opencode/session-context.json`                    | Session tracking (shared with context) |
-| `~/.config/opencode/memory/MEMORY.md`                 | Global curated memory                  |
-| `~/.config/opencode/memory/projects/<path>/MEMORY.md` | Per-project curated memory             |
+In Plan Mode, all file writes, edits, and mutating bash commands (`touch`, `mkdir`, `rm`, `sed`, `git`) are strictly blocked.
 
-## Adding a new guardrail
+### 3. Secret Scanner
 
-1. Create a file in the matching module, e.g. `guard/my-rule.js`.
-2. Export a hook object (`tool.execute.before` / `tool.execute.after` / `event`).
-3. Wire it in the module's `index.js` via `mergeHooks`.
-4. Add a test in `tests/`.
+Scans tool input arguments (`write`, `edit`, `patch`) against production regex signatures for:
 
-## Tests
+- GitHub Personal Access Tokens (`ghp_`, `gho_`, `github_pat_`)
+- OpenAI / Anthropic / Google AI API keys
+- AWS Access Key IDs & Secret Access Keys
+- RSA / OpenSSH Private Keys
+- Database Connection Strings (`postgres://`, `mongodb+srv://`)
+- JSON Web Tokens (JWT)
+
+---
+
+## 🧠 Curated Memory Engine
+
+Unlike naive memory plugins that dump raw conversation transcripts into memory files, `oh-my-hook` uses **Curated Distillation**:
+
+```
+~/.config/opencode/memory/
+├── MEMORY.md                          # Global cross-project memory
+└── projects/
+    └── <project-slug>/
+        └── MEMORY.md                  # Project-specific curated rules
+```
+
+### Interactive Slash Commands:
+
+- `/remember <note>`: Append a curated bullet to current project memory (pass `--global` for global scope).
+- `/memory`: Inspect current active global + project memory bullets.
+- `/capture [sessionID]`: Run an ephemeral headless AI distillation worker to summarize lessons learned from the session into actionable bullet points.
+
+### Pluggable AI Adapters (`memory/ai/`):
+
+- `commandcode` (_Default_): Calls headless `cmd -p --no-session` (zero disk trace).
+- `opencode`: Invokes headless `opencode run` and automatically purges the session ID.
+- `omp`: Executes `omp -p --no-session --mode json`.
+
+---
+
+## 🧪 Testing & Development
+
+`oh-my-hook` includes an extensive test suite comprising unit tests and full headless E2E verification pipelines.
 
 ```bash
-npm test          # unit tests (merge, state)
-npm run test:e2e  # E2E: read-guard (real OpenCode) + stale-write (hook pipeline)
-npm run test:all  # both
+# Run unit tests (Node.js test runner)
+npm test
+
+# Run End-to-End headless OpenCode guardrail tests
+npm run test:e2e
+
+# Run all test suites
+npm run test:all
 ```
 
-E2E notes:
+### Continuous Integration
 
-- Uses the model `omp/hy3:free` by default (override with `node tests/e2e/read-guard.e2e.js "<model>"`).
-- Runs headless `opencode run --format json`, asserts the guard behavior, then **auto-deletes the session** (`opencode session delete <id>`) — OpenCode has no `--no-session` flag.
-- Requires an authenticated provider configured in OpenCode.
+Automated testing via GitHub Actions verifies matrix builds across:
 
-## Not part of oh-my-hook
+- **Node.js 18.x**
+- **Node.js 20.x**
+- **Node.js 22.x**
 
-- `plugins/pixtuoid.ts` — generated by pixtuoid daemon, do not touch.
-- `plugins/sounds/` — separate concern.
+---
+
+## 🤝 Contributing
+
+Contributions, bug reports, and feature requests are welcome!
+
+1. Check existing issues or open a new one to discuss changes.
+2. Ensure all tests pass (`npm test`).
+3. Follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`).
+4. See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+<div align="center">
+  <sub>Built with precision for the OpenCode Agent Ecosystem.</sub>
+</div>
