@@ -15,14 +15,14 @@ import { blockMessage, warnMessage } from "./block.js";
 
 export const DEFAULT_MESSAGES = {
   modePlanTool: {
-    title: "Mode Plan: Aksi Diblokir",
-    reason: 'Tool "{tool}" ({target}) mengubah file, tapi kamu lagi di mode plan.',
-    suggestion: "Jangan edit file. Cukup analisis dan susun rencana. Tunggu user bilang 'gas' untuk eksekusi.",
+    title: "Plan Mode",
+    reason: "On plan mode, don't write or edit files without a specific trigger.",
+    suggestion: "Use '/approve' or wait for explicit trigger before modifying code.",
   },
   modePlanBash: {
-    title: "Mode Plan: Aksi Diblokir",
-    reason: 'Command "{command}" mengubah state, tapi kamu lagi di mode plan.',
-    suggestion: "Jalankan hanya perintah read-only (git log, ls, cat, grep) untuk investigasi.",
+    title: "Plan Mode",
+    reason: 'Command "{command}" mutates state, but you are in plan mode.',
+    suggestion: "Run read-only commands for investigation. Use '/approve' to execute.",
   },
   readGuardUnread: {
     title: "File Belum Dibaca",

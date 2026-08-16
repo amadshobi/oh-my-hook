@@ -13,8 +13,9 @@ export async function guardHooks(input) {
   const { config } = loadConfig();
   const guardCfg = config.guard;
   const messagesCfg = config.messages;
+  const plansCfg = config.plans;
   const [mode, security, readGuard, toolPolicy] = await Promise.all([
-    modeHooks(input, { config: guardCfg, messages: messagesCfg }),
+    modeHooks(input, { config: { ...guardCfg, plans: plansCfg }, messages: messagesCfg }),
     securityHooks(input, { config: guardCfg, messages: messagesCfg }),
     createReadGuard({ ...input, config: guardCfg, messages: messagesCfg }),
     toolPolicyHooks(input, { config: guardCfg, messages: messagesCfg }),

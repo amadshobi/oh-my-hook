@@ -1,19 +1,27 @@
 {
   "name": "oh-my-hook",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Command Code-style workflow plugins for OpenCode: mode enforcement, read-before-write, security guardrails, session context, and verification reminders.",
   "main": "index.js",
   "exports": {
-    ".": "./index.js"
+    ".": "./index.js",
+    "./server": "./index.js",
+    "./tui": "./tui/dist/tui.js"
   },
+  "oc-plugin": [
+    "server",
+    "tui"
+  ],
   "files": [
     "index.js",
     "guard",
     "context",
     "reminder",
     "memory",
-    "share"
+    "plans",
+    "share",
+    "tui"
   ],
   "keywords": [
     "opencode",
@@ -30,8 +38,15 @@
   },
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "test:e2e": "node tests/e2e/read-guard.e2e.js && node tests/e2e/stale-write.hook.e2e.js",
-    "test:all": "npm test && npm run test:e2e",
+    "test:e2e": "npm run test:e2e:hooks && npm run test:e2e:read-guard",
+    "test:e2e:hooks": "node tests/e2e/stale-write.hook.e2e.js && node tests/e2e/tool-policy.hook.e2e.js && node tests/e2e/mode-intent.hook.e2e.js && node tests/e2e/security.hook.e2e.js && node tests/e2e/plans-commands.hook.e2e.js",
+    "test:e2e:read-guard": "node tests/e2e/read-guard.e2e.js",
+    "test:e2e:stale-write": "node tests/e2e/stale-write.hook.e2e.js",
+    "test:e2e:tool-policy": "node tests/e2e/tool-policy.hook.e2e.js",
+    "test:e2e:mode": "node tests/e2e/mode-intent.hook.e2e.js",
+    "test:e2e:security": "node tests/e2e/security.hook.e2e.js",
+    "test:e2e:plans": "node tests/e2e/plans-commands.hook.e2e.js",
+    "test:all": "npm test && npm run test:e2e:hooks",
     "prepare": "git config core.hooksPath .githooks || true"
   }
 }

@@ -1,0 +1,17 @@
+{
+  "name": "@oh-my-hook/tui",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "OpenCode TUI frontend module for oh-my-hook",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": "*",
+    "@opentui/core": "*",
+    "@opentui/solid": "*",
+    "solid-js": "*"
+  }
+}

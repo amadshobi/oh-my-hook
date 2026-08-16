@@ -2,7 +2,7 @@
 
 # 🪝 oh-my-hook
 
-**Production-grade guardrails, execution discipline, and curated memory for OpenCode agents.**
+**Production-grade guardrails, execution discipline, curated memory, and native TUI widgets for OpenCode agents.**
 
 [![CI](https://github.com/amadshobi/oh-my-hook/actions/workflows/ci.yml/badge.svg)](https://github.com/amadshobi/oh-my-hook/actions/workflows/ci.yml)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg?style=flat-square)](https://nodejs.org)
@@ -17,11 +17,13 @@ _Stop AI agents from hallucinating file writes, leaking credentials, executing d
 [Key Pillars](#-key-pillars) •
 [Why oh-my-hook?](#-why-oh-my-hook) •
 [Architecture](#-architecture-flow) •
+[TUI Experience](#-openCode-tui-experience) •
+[Planning Suite](#-dual-mode-planning-suite) •
 [Installation](#-installation) •
 [Configuration](#-configuration-omhjsonc) •
 [Guardrail Suite](#-guardrail-suite) •
 [Curated Memory](#-curated-memory-engine) •
-[Development & Tests](#-testing--development)
+[Testing](#-testing--development)
 
 </div>
 
@@ -30,10 +32,11 @@ _Stop AI agents from hallucinating file writes, leaking credentials, executing d
 ## ⚡ Key Pillars
 
 - 🔒 **Hard Enforcement (`tool.execute.before`)**: Strict pre-execution gates that reject destructive bash commands, unread file overrides, stale concurrent mutations, and credential leaks.
-- 🛡️ **Plan vs. Execute State Machine**: Deterministic prompt intent classifier (`plan`/`mikir` vs `gas`/`bikin`) that locks down mutating tools during architecture and design phases.
+- 🗺️ **Dual-Mode Planning Suite (`/plan`, `/design`, `/approve`)**: In-chat brainstorming or durable RFC file creation (`~/.opencode/plans/`) with auto-versioning and whitelist write boundaries.
+- 🖥️ **Native TUI Integration**: Real-time `🔒 [plan mode]` prompt badges and collapsible sidebar metrics rendered natively in OpenCode TUI via `@opentui/solid`.
 - 🧠 **Curated Distilled Memory (`/capture`)**: Zero-noise memory engine. Only loads curated bullets into the primary agent, keeping subagent contexts clean and compaction snapshots lossless.
 - 🔔 **Autonomous Verification Loop**: Runs typechecking, linter auto-fixes, and tests immediately after edits while automatically refreshing ledger state.
-- 🪶 **Zero Dependencies**: 100% pure Node.js ESM built-ins (`node:fs`, `node:path`, `node:child_process`). Lightweight, instant startup, zero supply-chain risk.
+- 🪶 **Zero Dependencies Core**: 100% pure Node.js ESM built-ins (`node:fs`, `node:path`, `node:child_process`). Lightweight, instant startup, zero supply-chain risk.
 
 ---
 
@@ -44,7 +47,7 @@ _Stop AI agents from hallucinating file writes, leaking credentials, executing d
 | **Overwriting Unread Files**   | Model guesses structure and rewrites entire files blindly.       | **🚫 Blocked**: `readBeforeWrite` forces `read` before `edit`/`write`.        |
 | **Concurrent File Mutation**   | Overwrites changes made by user or external scripts.             | **🚫 Blocked**: `staleWrite` checks `mtime` & byte size before mutation.      |
 | **Accidental Secret Leaks**    | API keys, JWTs, and AWS tokens written to public code.           | **🚫 Blocked**: `secretScanner` scans payloads with regex AST patterns.       |
-| **Plan Phase Runaway**         | Agent starts editing codebase while asked to brainstorm.         | **🚫 Blocked**: `planMode` disables mutating tools until explicit trigger.    |
+| **Plan Phase Runaway**         | Agent starts editing codebase while asked to brainstorm.         | **🚫 Blocked**: `planMode` disables mutating tools until `/approve`.          |
 | **Destructive Terminal Ops**   | Commands like `rm -rf /`, `curl \| sh`, or detached dev servers. | **🚫 Blocked**: `dangerousBash` & `devServerGuard` stop dangerous ops.        |
 | **Context Loss on Compaction** | Agent forgets git state, active tasks, and project rules.        | **💡 Injected**: `compactionSnapshot` injects git state + todos into summary. |
 | **Session Memory Drift**       | Auto-memory logs conversational spam and hallucinates.           | **🧠 Curated**: Markdown storage + AI session distillation via `/capture`.    |
@@ -55,21 +58,21 @@ _Stop AI agents from hallucinating file writes, leaking credentials, executing d
 
 ```
                      ┌────────────────────────────────────────────────────────┐
-                     │                   User Prompt / Event                  │
+                     │                   User Prompt / Slash Command          │
                      └───────────────────────────┬────────────────────────────┘
                                                  │
-                                     [Intent State Analyzer]
-                                  (Sets Session Mode: Plan/Exec)
+                                     [Intent & Command Router]
+                                (/plan, /design, /approve, /mode)
                                                  │
                     ┌────────────────────────────┼────────────────────────────┐
                     │                            │                            │
-            [system.transform]          [tool.execute.before]         [command.execute]
+            [system.transform]          [tool.execute.before]         [OpenCode TUI]
                     │                            │                            │
-         • Inject Curated Memory         • Read-Before-Write Guard       • /remember
-         • Session Compaction Snapshot   • Stale-Write Checker           • /memory
-         • Agent Boundary Isolation      • Secret AST Scanner            • /capture (AI Distill)
+         • Inject Curated Memory         • Read-Before-Write Guard       • [plan mode] Prompt Badge
+         • Session Compaction Snapshot   • Stale-Write Checker           • ▼ oh-my-hook Sidebar Widget
+         • Agent Boundary Isolation      • Secret AST Scanner            • Reactive State Watcher
+                                         • Plans Whitelist Gate
                                          • Dangerous Bash Barrier
-                                         • Commit Message Guard
                                                  │
                                            [Tool Runs]
                                                  │
@@ -82,42 +85,92 @@ _Stop AI agents from hallucinating file writes, leaking credentials, executing d
 
 ---
 
+## 🖥️ OpenCode TUI Experience
+
+`oh-my-hook` integrates directly into the OpenCode TUI surface using `@opentui/solid`:
+
+```text
+                                                            Context
+                                                            191,368 tokens (48% used)
+
+                                                            ▼ Quota
+                                                            [OpenRouter] 22% used
+
+                                                       ┌──► ▼ oh-my-hook (COLLAPSIBLE SIDEBAR)
+                                                       │    • Mode  : 🔒 Plan (Read-Only)
+                                                       │    • Guards: 7 Active
+                                                       │    • Memory: 3 Notes
+                                                       │
+                                                            ▼ MCP
+                                                            • github Connected
+ ▣  Assistant · Gemini 3.7 Flash · 9.3s
+┃
+┃
+┃
+┃  Assistant · Gemini 3.7 Flash omp gateway   🔒 [plan mode]   /~   ◄── [PROMPT BADGE]
+╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+```
+
+1. **`session_prompt_right` Slot**: Renders a dynamic warning badge `🔒 [plan mode]` when the active session is in plan mode. Hides automatically during execute mode to keep your input bar clean.
+2. **`sidebar_content` Slot**: A compact collapsible widget showing active mode, active guardrails count, and curated memory notes.
+3. **Resilient Reactive Watcher**: Debounced (50ms) directory watcher tracks session state without IPC or polling overhead.
+
+---
+
+## 🗺️ Dual-Mode Planning Suite
+
+Seamlessly switch between quick conversational brainstorming and durable RFC file generation:
+
+| Command                            | Mode                     | Behavior                                                                                                                                                  |
+| :--------------------------------- | :----------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`/plan [topic]`**                | **In-Chat (Ephemeral)**  | Locks file mutations, loads `plan.md`, and brainstorms directly in the chat transcript with zero disk footprint.                                          |
+| **`/plan to-file <name> [notes]`** | **File-Based (Durable)** | Targets `~/.opencode/plans/<name>.md`. Auto-archives previous drafts to `plans/versions/<name>-v<N>.md` and whitelists **only** the plan file for writes. |
+| **`/design [topic]`**              | **In-Chat (UI/UX)**      | Dedicated UI/UX design workflow loaded from `design.md`.                                                                                                  |
+| **`/design to-file <name>`**       | **File-Based (UI/UX)**   | Generates structured UI/UX component specs in `~/.opencode/plans/designs/<name>.md`.                                                                      |
+| **`/approve`** _(alias: `/exec`)_  | **Execution Transition** | Injects `approve.md` with active plan file reference, unlocks all project mutations, and readies the agent to build.                                      |
+| **`/mode`**                        | **Status Check**         | Inspect active mode and active plan file in the current session.                                                                                          |
+
+### 3-Level Prompt Template Precedence
+
+Prompt templates support custom overrides and dynamic macros (`{plan_file}`, `{plan_name}`, `{topic}`, `{session_id}`, `{target_dir}`):
+
+1. **Project-level**: `<workspace>/.opencode/prompts/<cmd>.md`
+2. **Global-level**: `~/.config/opencode/prompts/<cmd>.md`
+3. **Built-in default**: `plans/prompts/<cmd>.md`
+
+---
+
 ## 📦 Installation
 
-Add `oh-my-hook` to your OpenCode configuration in `~/.config/opencode/opencode.jsonc`:
+Add `oh-my-hook` to your OpenCode configuration files:
 
-### Production (Package)
-
-```jsonc
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": ["oh-my-hook"],
-}
-```
-
-### Local Development / Monorepo
+### 1. Server Hooks (`~/.config/opencode/opencode.jsonc`)
 
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["/absolute/path/to/oh-my-hook/index.js"],
+  "plugin": [
+    "oh-my-hook", // or "/path/to/oh-my-hook" for local development
+  ],
 }
 ```
 
-Verify the plugin loads properly:
+### 2. TUI Surface (`~/.config/opencode/tui.jsonc`)
 
-```bash
-opencode run --print-logs --log-level DEBUG "reply OK" 2>&1 | grep -i "oh.my.hook"
+```jsonc
+{
+  "$schema": "https://opencode.ai/tui.json",
+  "plugin": [
+    "oh-my-hook", // or "/path/to/oh-my-hook" for local development
+  ],
+}
 ```
 
 ---
 
 ## ⚙️ Configuration (`omh.jsonc`)
 
-`oh-my-hook` keeps your main `opencode.jsonc` uncluttered by maintaining its configuration in a dedicated file: `~/.config/opencode/omh.jsonc`.
-
-Supports multiple formats with automatic priority resolution:
-`omh.jsonc` > `omh.json` > `omh.yaml` > `omh.yml`
+Dedicated configuration file located at `~/.config/opencode/omh.jsonc`:
 
 ```jsonc
 {
@@ -144,6 +197,14 @@ Supports multiple formats with automatic priority resolution:
     "commitGuard": true, // Enforce Conventional Commits format
     "devServerGuard": true, // Prevent orphan background servers outside tmux
     "dangerousBash": true, // Block rm -rf, fork bombs, disk overwrites
+    "tools": {}, // Granular per-tool policies ("allow" | "deny" | "readonly")
+  },
+
+  // 🗺️ Plans & Archiving Configuration
+  "plans": {
+    "enabled": true,
+    "directory": "~/.opencode/plans",
+    "versionLimit": 20,
   },
 
   // 🧠 Context & Compaction Engine
@@ -158,12 +219,6 @@ Supports multiple formats with automatic priority resolution:
     "verify": true, // Run auto-typecheck & linter after edits
     "checklist": true, // Nudge agents to split complex steps into todos
   },
-
-  // 💬 Dynamic Custom Block & Warning Messages
-  "messages": {
-    "dangerousBash": "Perintah '{command}' dilarang demi keamanan sistem!",
-    "modePlanTool": "{file:~/.config/opencode/prompts/plan-blocked.md}",
-  },
 }
 ```
 
@@ -173,7 +228,7 @@ Supports multiple formats with automatic priority resolution:
 
 ### 1. Read-Before-Write & Stale-Write Protection
 
-Forces the agent to read and understand the file in the current session before applying any modifications. If another process or developer modifies the file on disk after the agent read it, the write is immediately rejected.
+Forces the agent to read and understand the file in the current session before applying any modifications. If another process modifies the file on disk after the agent read it, the write is immediately rejected.
 
 ```
 #### 🚫 GUARDRAIL BLOCK: Read-Before-Write
@@ -181,14 +236,16 @@ Forces the agent to read and understand the file in the current session before a
 > *Gunakan tool read/grep terlebih dahulu sebelum memodifikasi file.*
 ```
 
-### 2. Plan vs. Execute State Machine
+### 2. Plan Mode Whitelist Gate
 
-Detects intent keywords in prompts:
+When Plan Mode is active, all mutating tools (`edit`, `write`, `delete`, mutating `bash`) are blocked, **except** for files targeting `~/.opencode/plans/`.
 
-- **Plan Mode Trigger**: `plan`, `mikir`, `analisa`, `review`, `arsitektur`
-- **Execute Mode Trigger**: `gas`, `gasken`, `bikin`, `execute`, `implement`
+```
+GUARDRAIL BLOCK: Plan Mode
 
-In Plan Mode, all file writes, edits, and mutating bash commands (`touch`, `mkdir`, `rm`, `sed`, `git`) are strictly blocked.
+Alasan: On plan mode, don't write or edit files without a specific trigger.
+Saran: Use '/approve' or wait for explicit trigger before modifying code.
+```
 
 ### 3. Secret Scanner
 
@@ -221,47 +278,22 @@ Unlike naive memory plugins that dump raw conversation transcripts into memory f
 - `/memory`: Inspect current active global + project memory bullets.
 - `/capture [sessionID]`: Run an ephemeral headless AI distillation worker to summarize lessons learned from the session into actionable bullet points.
 
-### Pluggable AI Adapters (`memory/ai/`):
-
-- `commandcode` (_Default_): Calls headless `cmd -p --no-session` (zero disk trace).
-- `opencode`: Invokes headless `opencode run` and automatically purges the session ID.
-- `omp`: Executes `omp -p --no-session --mode json`.
-
 ---
 
 ## 🧪 Testing & Development
 
-`oh-my-hook` includes an extensive test suite comprising unit tests and full headless E2E verification pipelines.
+`oh-my-hook` includes 74 unit tests and 5 deterministic E2E hook pipeline test suites.
 
 ```bash
-# Run unit tests (Node.js test runner)
+# Run unit tests
 npm test
 
-# Run End-to-End headless OpenCode guardrail tests
-npm run test:e2e
+# Run modular E2E hook pipelines
+npm run test:e2e:hooks
 
 # Run all test suites
 npm run test:all
 ```
-
-### Continuous Integration
-
-Automated testing via GitHub Actions verifies matrix builds across:
-
-- **Node.js 18.x**
-- **Node.js 20.x**
-- **Node.js 22.x**
-
----
-
-## 🤝 Contributing
-
-Contributions, bug reports, and feature requests are welcome!
-
-1. Check existing issues or open a new one to discuss changes.
-2. Ensure all tests pass (`npm test`).
-3. Follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`).
-4. See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
 
 ---
 

@@ -4,7 +4,14 @@
  * user prompts, and blocks mutating tools/commands while in plan mode.
  */
 import { formatBlockMessage } from "../share/messages.js";
-import { loadModeState, saveModeState, currentMode } from "../share/state.js";
+import {
+  loadModeState,
+  saveModeState,
+  currentMode,
+  currentPlan,
+  resolvePlansDir,
+} from "../share/state.js";
+import { isPathInside } from "../share/path.js";
 import { createNotifier } from "../share/notify.js";
 
 const PLAN_TRIGGERS = [
@@ -47,9 +54,11 @@ function isMutatingBash(command) {
   return MUTATING_BASH_PATTERNS.some((re) => re.test(command));
 }
 
-export const modeHooks = async ({ client }, opts = {}) => {
+export const modeHooks = async ({ client, directory }, opts = {}) => {
   const planModeEnabled = opts?.config?.planMode ?? true;
   const messagesConfig = opts?.messages ?? opts?.config?.messages ?? {};
+  const plansConfig = opts?.config?.plans || opts?.config?.guard || {};
+  const plansDir = resolvePlansDir(plansConfig, directory || process.cwd());
   const notify = createNotifier(client, "mode", "info");
 
   return {
@@ -59,10 +68,13 @@ export const modeHooks = async ({ client }, opts = {}) => {
       if (event.type !== "message.part.updated") return;
       const part = event.properties?.part;
       if (part?.type !== "text" || !part.text) return;
+      const text = part.text.trim();
+      if (text.startsWith("/")) return; // Skip slash commands
+
       const sessionID = event.properties?.sessionID;
       if (!sessionID) return;
 
-      const intent = detectIntent(part.text.trim());
+      const intent = detectIntent(text);
       if (!intent) return;
 
       const state = loadModeState();
@@ -81,7 +93,8 @@ export const modeHooks = async ({ client }, opts = {}) => {
     "tool.execute.before": async (input) => {
       if (!planModeEnabled) return;
       const sessionID = input.sessionID;
-      const mode = currentMode(loadModeState(), sessionID);
+      const state = loadModeState();
+      const mode = currentMode(state, sessionID);
       if (mode !== "plan") return;
 
       const tool = input.tool;
@@ -89,6 +102,13 @@ export const modeHooks = async ({ client }, opts = {}) => {
 
       if (MUTATING_TOOLS.has(tool)) {
         const target = typeof args === "string" ? args : (args?.filePath ?? args?.path ?? "");
+        
+        // Whitelist: allow modifying active plan file or files within plans directory
+        const activePlan = currentPlan(state, sessionID);
+        if (target && (target === activePlan?.file || isPathInside(plansDir, target, directory))) {
+          return; // ALLOW writing/editing plan document
+        }
+
         throw new Error(
           formatBlockMessage("modePlanTool", { tool, target: target || "file" }, messagesConfig)
         );

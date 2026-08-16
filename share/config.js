@@ -42,6 +42,11 @@ export const DEFAULTS = {
     dangerousBash: true,
     tools: {},
   },
+  plans: {
+    enabled: true,
+    directory: "~/.opencode/plans",
+    versionLimit: 20,
+  },
   context: {
     compactionSnapshot: true,
     promptCheck: true,

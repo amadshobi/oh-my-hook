@@ -92,6 +92,16 @@ export function statOf(filePath) {
 // ---- mode-state ----
 
 const MODE_FILE = statePath("oh-my-hook-mode.json");
+export const DEFAULT_PLANS_DIR = path.join(os.homedir(), ".opencode", "plans");
+
+export function resolvePlansDir(config, directory) {
+  const custom = config?.plans?.directory || config?.guard?.plansDirectory;
+  if (custom) {
+    if (custom.startsWith("~")) return path.join(os.homedir(), custom.slice(1));
+    return path.isAbsolute(custom) ? custom : path.resolve(directory || process.cwd(), custom);
+  }
+  return DEFAULT_PLANS_DIR;
+}
 
 export function loadModeState() {
   return readJson(MODE_FILE, {});
@@ -103,4 +113,26 @@ export function saveModeState(state) {
 
 export function currentMode(state, sessionID) {
   return state[sessionID]?.mode ?? "execute";
+}
+
+export function setSessionMode(state, sessionID, mode, meta = {}) {
+  const existing = state[sessionID] || {};
+  state[sessionID] = {
+    ...existing,
+    mode,
+    ...meta,
+    updatedAt: new Date().toISOString(),
+  };
+  return state[sessionID];
+}
+
+export function currentPlan(state, sessionID) {
+  const entry = state[sessionID];
+  if (!entry?.planFile) return null;
+  return {
+    file: entry.planFile,
+    name: entry.planName || "",
+    kind: entry.planKind || "plan",
+    updatedAt: entry.updatedAt,
+  };
 }

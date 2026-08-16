@@ -181,7 +181,7 @@ export const securityHooks = async ({ client }, opts = {}) => {
         }
 
         if (devServerGuard && isDevServer(command)) {
-          const inTmux = Boolean(process.env.TMUX);
+          const inTmux = Boolean(process.env.TMUX) || command.trim().startsWith("tmux ") || command.trim().startsWith("screen ");
           const inScreen = Boolean(process.env.STY);
           if (!inTmux && !inScreen) {
             await notify(`Blocked dev server outside tmux/screen: ${command.slice(0, 80)}`);

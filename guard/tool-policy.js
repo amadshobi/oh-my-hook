@@ -27,29 +27,46 @@ function matchesPattern(tool, pattern) {
 }
 
 /**
+ * Calculate pattern specificity score.
+ * More specific patterns (longer literal prefix/content) get higher scores.
+ */
+function patternSpecificity(pattern) {
+  if (pattern === "*") return 0;
+  const literalChars = pattern.replace(/\*/g, "").length;
+  const prefixLength = pattern.indexOf("*") === -1 ? pattern.length : pattern.indexOf("*");
+  // Weight prefix length higher, then total literal length, then full pattern length
+  return prefixLength * 100 + literalChars * 10 + pattern.length;
+}
+
+/**
  * Resolve matching policy entry from tools config.
  * Priority:
  * 1. Exact match
- * 2. Specific wildcard match
+ * 2. Specific wildcard match (sorted by specificity: most-specific first)
  * 3. Catch-all `*`
  */
 function resolveToolPolicy(tool, toolsConfig = {}) {
   if (!toolsConfig || typeof toolsConfig !== "object") return null;
 
+  // 1. Exact match
   if (tool in toolsConfig) {
     return toolsConfig[tool];
   }
 
   const entries = Object.entries(toolsConfig);
 
-  // Check specific wildcards first (excluding single "*")
-  for (const [pattern, policy] of entries) {
-    if (pattern !== "*" && pattern.includes("*") && matchesPattern(tool, pattern)) {
+  // 2. Filter & sort wildcard patterns by descending specificity
+  const wildcards = entries
+    .filter(([pattern]) => pattern !== "*" && pattern.includes("*"))
+    .sort(([patA], [patB]) => patternSpecificity(patB) - patternSpecificity(patA));
+
+  for (const [pattern, policy] of wildcards) {
+    if (matchesPattern(tool, pattern)) {
       return policy;
     }
   }
 
-  // Check wildcard "*"
+  // 3. Check catch-all wildcard "*"
   if ("*" in toolsConfig) {
     return toolsConfig["*"];
   }
@@ -138,6 +155,16 @@ export function toolPolicyHooks(input, opts = {}) {
         if (normalizedPolicy === "allow" || normalizedPolicy === "readonly") {
           return;
         }
+
+        // Fail-closed on invalid policy strings (e.g. typos like "denyy")
+        await notify(`Tool '${tool}' memiliki konfigurasi policy tidak valid: '${policyRule}'`);
+        throw new Error(
+          formatBlockMessage(
+            "toolBlocked",
+            { tool, policy: `invalid (${policyRule})` },
+            messagesConfig
+          )
+        );
       }
 
       // Handle object policy
@@ -151,6 +178,17 @@ export function toolPolicyHooks(input, opts = {}) {
             formatBlockMessage(
               "toolBlocked",
               { tool, policy: reason || "deny" },
+              messagesConfig
+            )
+          );
+        }
+
+        if (policyType === "readonly" && MUTATING_TOOLS.has(tool)) {
+          await notify(`Tool '${tool}' diblokir oleh kebijakan readonly`);
+          throw new Error(
+            formatBlockMessage(
+              "toolBlocked",
+              { tool, policy: reason || "readonly" },
               messagesConfig
             )
           );

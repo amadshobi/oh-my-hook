@@ -13,13 +13,15 @@ import { guardHooks } from "./guard/index.js";
 import { contextModule } from "./context/index.js";
 import { reminderModule } from "./reminder/index.js";
 import { memoryHooks } from "./memory/index.js";
+import { planHooks } from "./plans/index.js";
 
 export default async function ohMyHook(input) {
-  const [guard, context, reminder, memory] = await Promise.all([
+  const [guard, context, reminder, memory, plans] = await Promise.all([
     guardHooks(input),
     contextModule(input),
     reminderModule(input),
     memoryHooks(input),
+    planHooks(input),
   ]);
-  return mergeHooks(guard, context, reminder, memory);
+  return mergeHooks(guard, context, reminder, memory, plans);
 }
