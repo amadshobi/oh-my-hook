@@ -5,7 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.1] - 2026-08-18
+
+### Added
+
+- **🧠 Self-Learning & Dynamic Relevance Memory Upgrade (Reflexio Architecture)**:
+  - **Auto-Detection & Distill**: Heuristic regex classifier (`memory/detect.js`) for user corrections and prohibitions with async throttled queue (`queue.jsonl`).
+  - **Dynamic BM25 Relevance Matcher**: Pure JS Okapi BM25 token scoring engine (`memory/matcher.js`) with zero external dependencies and bilingual stopwords (ID/EN) for prompt token safety.
+  - **Categorized Structured Store**: Automatic storage in `~/.config/opencode/memory/rules/` for preferences, project skills (SOPs), and shared skills.
+  - **Smart Session Injection**: Dynamic context injection (`memory/inject.js`) into `experimental.chat.system.transform` matching only relevant rules per prompt turn.
+  - **Jaccard Dedup & Contradiction Superseding**: Background distiller (`memory/distill.js`) merges similar rules and retires obsolete contradicted rules.
+- **🖥️ Native TUI Memory Inspector Modal (`tui/`)**:
+  - Direct `/memory` slash command dialog popup via `api.keymap.registerLayer` and `api.ui.dialog.replace`.
+  - Tabbed interactive browser (`[Semua]`, `[Preferences]`, `[Project Skills]`) with native scrollbox and `Esc` close handler.
+  - Live structured memory counters in the collapsible sidebar widget.
+- **New Memory Slash Commands**:
+  - `/memory-forget <id>`: Soft-delete / retract obsolete memory rules.
+  - `/memory-scan`: Force process pending background distill queue jobs.
+
+### Changed
+
+- Updated storage architecture to clean Markdown-centric layout in `~/.config/opencode/memory/` with automatic CWD detection (Home `~` ➔ Global `MEMORY.md`, Project ➔ `projects/<slug>/MEMORY.md`).
+- Increased test coverage to **89 passing unit tests** and full E2E hook pipeline verification.
 
 ## [0.2.0] - 2026-08-16
 
