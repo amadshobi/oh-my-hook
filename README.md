@@ -260,29 +260,37 @@ Scans tool input arguments (`write`, `edit`, `patch`) against production regex s
 
 ---
 
-## 🧠 Curated Memory Engine
+## 🧠 Curated Memory & Self-Learning Engine
 
-Unlike naive memory plugins that dump raw conversation transcripts into memory files, `oh-my-hook` uses **Curated Distillation**:
+`oh-my-hook` features a **hybrid continuous learning memory engine** (Reflexio-style architecture) that prevents prompt token bloat while automatically learning user preferences and project SOPs:
 
 ```
 ~/.config/opencode/memory/
-├── MEMORY.md                          # Global cross-project memory
+├── MEMORY.md                          # Global cross-project memory (auto-selected when running in ~)
 └── projects/
     └── <project-slug>/
-        └── MEMORY.md                  # Project-specific curated rules
+        └── MEMORY.md                  # Project-specific curated rules (auto-selected in workspace)
 ```
+
+### Key Highlights:
+- **Zero Token Bloat (BM25 Matcher)**: Uses pure JS Okapi BM25 scoring (`memory/matcher.js`) to inject only relevant rules matching the current prompt turn into `experimental.chat.system.transform`.
+- **Heuristic Auto-Learning**: Detects user corrections and prohibitions in real-time, queuing them for background AI distillation.
+- **Self-Healing & Dedup**: Automatically merges similar rules and supersedes contradictory rules using Jaccard similarity.
+- **🖥️ Native TUI Modal Inspector**: Trigger `/memory` to view an interactive popup modal with tab filtering (`[Semua]`, `[Preferences]`, `[Project Skills]`) without polluting chat transcripts.
 
 ### Interactive Slash Commands:
 
-- `/remember <note>`: Append a curated bullet to current project memory (pass `--global` for global scope).
-- `/memory`: Inspect current active global + project memory bullets.
-- `/capture [sessionID]`: Run an ephemeral headless AI distillation worker to summarize lessons learned from the session into actionable bullet points.
+- `/remember <note>`: Append a curated bullet to current project/global memory.
+- `/memory`: Open native TUI popup dialog to browse active memory rules.
+- `/memory-forget <id>`: Retract an obsolete rule by ID.
+- `/memory-scan`: Immediately drain and process background distillation queue jobs.
+- `/capture [sessionID]`: Run an ephemeral headless AI distillation worker to summarize session lessons.
 
 ---
 
 ## 🧪 Testing & Development
 
-`oh-my-hook` includes 74 unit tests and 5 deterministic E2E hook pipeline test suites.
+`oh-my-hook` includes **89 unit tests** and deterministic E2E hook pipeline test suites.
 
 ```bash
 # Run unit tests

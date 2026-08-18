@@ -84,3 +84,23 @@ npm run test:all  # both
 - E2E auto-deletes its session via `opencode session delete <id>` — never
   leave test sessions behind.
 - Hook E2E tests are deterministic and run without external LLM providers.
+
+### Manual / Headless E2E Verification Workflow
+
+Untuk menguji perilaku hook / memory generation secara live di terminal (tanpa TUI):
+
+```bash
+# 1. Test Project-Scoped Memory
+mkdir -p /tmp/test-my-project
+opencode run --dir /tmp/test-my-project "/remember Di repo ini wajib gunakan bun untuk testing"
+# Verifikasi hasil: cat ~/.config/opencode/memory/projects/tmp/test-my-project/MEMORY.md
+
+# 2. Test Global-Scoped Memory (dari Home ~)
+opencode run --dir ~ "/remember Panggil user dengan sebutan BOSS"
+# Verifikasi hasil: cat ~/.config/opencode/memory/MEMORY.md
+
+# 3. Cleanup test project setelah selesai
+rm -rf /tmp/test-my-project ~/.config/opencode/memory/projects/tmp/test-my-project
+```
+
+_Catatan: Pengujian antarmuka TUI (popup modal, esc key handler, sidebar widget) dilakukan secara manual dan langsung oleh user di TUI interactive session._
