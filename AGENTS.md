@@ -9,8 +9,8 @@ on this codebase.
 The plugin assembles multiple hook modules into ONE hooks object via
 `index.js`, alongside an OpenCode TUI surface module in `tui/`:
 
-- `guard/` — hard enforcement (mode, security, read-guard, tool-policy). Throws to block.
-- `plans/` — dual-mode planning suite (`/plan`, `/design`, `/approve`, `/exec`, `/mode`), auto-versioning in `plans/versions/`, 3-level prompt templates.
+- `sandbox/` — pre-execution security (secret-scanner, dangerous-bash, commit-guard, dev-server), read-guard (read-before-write, stale detection), permission bridge, subshell env isolation.
+- `plans/` — dual-mode planning suite (`/plan`, `/design`, `/approve`, `/exec`, `/mode`), plan-mode mutation barrier, auto-versioning in `plans/versions/`, 3-level prompt templates.
 - `context/` — session context & compaction snapshot.
 - `reminder/` — soft nudges (verify loop, checklist).
 - `memory/` — curated memory: auto-loads into system prompt (main agent only) + compaction; `/remember`, `/memory`, `/capture` slash commands; pluggable AI adapters in `memory/ai/` for capture.

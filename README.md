@@ -31,8 +31,8 @@ _Stop AI agents from hallucinating file writes, leaking credentials, executing d
 
 ## ⚡ Key Pillars
 
-- 🔒 **Hard Enforcement (`tool.execute.before`)**: Strict pre-execution gates that reject destructive bash commands, unread file overrides, stale concurrent mutations, and credential leaks.
-- 🗺️ **Dual-Mode Planning Suite (`/plan`, `/design`, `/approve`)**: In-chat brainstorming or durable RFC file creation (`~/.opencode/plans/`) with auto-versioning and whitelist write boundaries.
+- 🔒 **Sandbox Enforcement (`sandbox/`)**: Strict pre-execution gates that reject destructive bash commands, unread file overrides, stale concurrent mutations, and credential leaks. Native `permission.ask` and `shell.env` integration.
+- 🗺️ **Dual-Mode Planning Suite (`plans/`)**: In-chat brainstorming or durable RFC file creation (`~/.opencode/plans/`) with auto-versioning, plan mode write boundaries, and 3-level prompt templates.
 - 🖥️ **Native TUI Integration**: Real-time `🔒 [plan mode]` prompt badges and collapsible sidebar metrics rendered natively in OpenCode TUI via `@opentui/solid`.
 - 🧠 **Curated Distilled Memory (`/capture`)**: Zero-noise memory engine. Only loads curated bullets into the primary agent, keeping subagent contexts clean and compaction snapshots lossless.
 - 🔔 **Autonomous Verification Loop**: Runs typechecking, linter auto-fixes, and tests immediately after edits while automatically refreshing ledger state.
@@ -188,21 +188,20 @@ Dedicated configuration file located at `~/.config/opencode/omh.jsonc`:
     "captureAuto": false, // Auto-distill on session idle
   },
 
-  // 🔒 Hard Blocking Guardrails
-  "guard": {
+  // 🔒 Sandbox Pre-Execution Safety & Integrity
+  "sandbox": {
     "readBeforeWrite": true, // Enforce READ -> UNDERSTAND -> EDIT loop
     "staleWrite": true, // Prevent race conditions on changed files
-    "planMode": true, // Freeze file mutation during planning phase
     "secretScanner": true, // Block hardcoded API keys, JWTs, private keys
     "commitGuard": true, // Enforce Conventional Commits format
     "devServerGuard": true, // Prevent orphan background servers outside tmux
     "dangerousBash": true, // Block rm -rf, fork bombs, disk overwrites
-    "tools": {}, // Granular per-tool policies ("allow" | "deny" | "readonly")
   },
 
   // 🗺️ Plans & Archiving Configuration
   "plans": {
     "enabled": true,
+    "planMode": true, // Freeze file mutation during planning phase
     "directory": "~/.opencode/plans",
     "versionLimit": 20,
   },
@@ -224,11 +223,11 @@ Dedicated configuration file located at `~/.config/opencode/omh.jsonc`:
 
 ---
 
-## 🔒 Guardrail Suite
+## 🔒 Sandbox Suite
 
 ### 1. Read-Before-Write & Stale-Write Protection
 
-Forces the agent to read and understand the file in the current session before applying any modifications. If another process modifies the file on disk after the agent read it, the write is immediately rejected.
+Forces the agent to read and understand the file in the current session before applying any modifications. If another process modifies the file on disk after the agent read it, the write is immediately rejected. Auto-syncs read ledger on successful self-mutations to prevent self-stale lockouts.
 
 ```
 #### 🚫 GUARDRAIL BLOCK: Read-Before-Write
@@ -253,10 +252,15 @@ Scans tool input arguments (`write`, `edit`, `patch`) against production regex s
 
 - GitHub Personal Access Tokens (`ghp_`, `gho_`, `github_pat_`)
 - OpenAI / Anthropic / Google AI API keys
-- AWS Access Key IDs & Secret Access Keys
-- RSA / OpenSSH Private Keys
-- Database Connection Strings (`postgres://`, `mongodb+srv://`)
+- AWS Access Key IDs, Session STS Keys & Secret Access Keys
+- RSA / OpenSSH / PKCS#8 Private Keys (`-----BEGIN PRIVATE KEY-----`)
+- Database Connection Strings (`postgres://`, `postgresql://`, `mongodb+srv://`)
 - JSON Web Tokens (JWT)
+
+### 4. Native OpenCode Integration (`permission.ask` & `shell.env`)
+
+- **`permission.ask`**: Automatically intercepts and denies risky actions at the core permission gate before annoying modal popups appear.
+- **`shell.env`**: Propagates `OMH_SANDBOX=1`, `OMH_SESSION_ID`, and `NO_COLOR=1` into all subshells.
 
 ---
 
@@ -290,7 +294,7 @@ Scans tool input arguments (`write`, `edit`, `patch`) against production regex s
 
 ## 🧪 Testing & Development
 
-`oh-my-hook` includes **89 unit tests** and deterministic E2E hook pipeline test suites.
+`oh-my-hook` includes **84 unit tests** and deterministic E2E hook pipeline test suites.
 
 ```bash
 # Run unit tests
@@ -298,6 +302,9 @@ npm test
 
 # Run modular E2E hook pipelines
 npm run test:e2e:hooks
+
+# Run headless model E2E test (real OpenCode runner)
+npm run test:e2e:read-guard
 
 # Run all test suites
 npm run test:all

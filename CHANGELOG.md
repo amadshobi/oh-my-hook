@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-21
+
+### Added
+
+- **🔒 Dedicated Sandbox Module (`sandbox/`)**:
+  - Re-architected pre-execution security and runtime gate into a cohesive `sandbox/` module.
+  - **Native OpenCode Hook Integration**:
+    - `"permission.ask"`: Auto-denies risky operations at the core permission gate before annoying modal popups appear.
+    - `"shell.env"`: Injects runtime isolation environment variables (`OMH_SANDBOX=1`, `OMH_SESSION_ID`, `NO_COLOR=1`) into all subshells.
+  - **Advanced Secret AST Scanner**: Extended coverage to PKCS#8 private keys (`-----BEGIN PRIVATE KEY-----`), AWS STS Session Keys (`ASIA...`), and modern DB URI schemes (`postgresql://`).
+  - **Dangerous Bash Hardening**: Added patterns for `rm -fr /*`, `wget ... | bash`, and block storage rewrites (`/dev/nvme*`, `/dev/vd*`).
+  - **Chained Git Push Protection**: Detects and blocks force-pushing to main/master even in chained commands (`git add . && git push origin main --force`).
+  - **Anti Self-Stale Lockout**: Auto-refreshes session read ledger immediately upon successful `write`/`edit`/`patch` tool execution and post-edit linter autofixes.
+- **📁 XDG Base Directory Specification Separation**:
+  - Relocated runtime state and read ledgers (`oh-my-hook-read-ledger.json` & `oh-my-hook-mode.json`) to `~/.local/share/opencode/` (`XDG_DATA_HOME`), keeping `~/.config/opencode/` clean for configuration only.
+
+### Changed
+
+- **Planning Lifecycle Consolidation (`plans/`)**:
+  - Moved mode barrier enforcement and plan file whitelisting entirely into `plans/index.js`.
+- **Runtime Spec Alignment**:
+  - Normalized `toolArgs(input, output)` to prioritize OpenCode's `output.args` over `input.args`.
+  - Added robust `extractUserText(input, output)` helper for cross-version prompt turn extraction.
+- **Configuration**:
+  - Updated `omh.jsonc` schema and `share/config.js` to structure settings under `"sandbox"` and `"plans"`.
+- Removed legacy and redundant `guard/` module.
+
 ## [0.2.1] - 2026-08-18
 
 ### Added

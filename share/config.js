@@ -32,18 +32,17 @@ export const DEFAULTS = {
 		injectToSubagents: false,
 		captureAuto: false, // auto-capture on session idle (distill via AI)
 	},
-	guard: {
+	sandbox: {
 		readBeforeWrite: true,
 		staleWrite: true,
-		planMode: true,
 		secretScanner: true,
 		commitGuard: true,
 		devServerGuard: true,
 		dangerousBash: true,
-		tools: {},
 	},
 	plans: {
 		enabled: true,
+		planMode: true,
 		directory: "~/.opencode/plans",
 		versionLimit: 20,
 	},

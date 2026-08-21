@@ -14,12 +14,10 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const MEMORY_ROOT = path.join(
-	os.homedir(),
-	".config",
-	"opencode",
-	"memory",
-);
+export const MEMORY_ROOT =
+	process.env.OMH_MEMORY_ROOT ||
+	path.join(os.homedir(), ".config", "opencode", "memory");
+
 export const GLOBAL_FILE = path.join(MEMORY_ROOT, "MEMORY.md");
 
 /**

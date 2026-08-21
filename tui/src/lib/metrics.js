@@ -26,7 +26,7 @@ const BOOLEAN_GUARD_FLAGS = [
  */
 export function getActiveGuardsCount(config) {
 	const cfg = config || loadConfig().config;
-	const guard = cfg?.guard || {};
+	const guard = cfg?.sandbox || cfg?.guard || {};
 
 	let count = 0;
 	for (const flag of BOOLEAN_GUARD_FLAGS) {

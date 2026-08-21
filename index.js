@@ -9,19 +9,19 @@
  * package.json to its index file (index.js / index.ts).
  */
 import { mergeHooks } from "./share/merge.js";
-import { guardHooks } from "./guard/index.js";
+import { sandboxHooks } from "./sandbox/index.js";
 import { contextModule } from "./context/index.js";
 import { reminderModule } from "./reminder/index.js";
 import { memoryHooks } from "./memory/index.js";
 import { planHooks } from "./plans/index.js";
 
 export default async function ohMyHook(input) {
-  const [guard, context, reminder, memory, plans] = await Promise.all([
-    guardHooks(input),
-    contextModule(input),
-    reminderModule(input),
-    memoryHooks(input),
-    planHooks(input),
-  ]);
-  return mergeHooks(guard, context, reminder, memory, plans);
+	const [sandbox, context, reminder, memory, plans] = await Promise.all([
+		sandboxHooks(input),
+		contextModule(input),
+		reminderModule(input),
+		memoryHooks(input),
+		planHooks(input),
+	]);
+	return mergeHooks(sandbox, context, reminder, memory, plans);
 }
