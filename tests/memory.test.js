@@ -12,9 +12,21 @@ import {
 	parseBullets,
 } from "../memory/store.js";
 import { memoryHooks } from "../memory/index.js";
+import { isHandledError } from "../share/handled.js";
 
 function makeProject() {
 	return mkdtempSync(path.join(os.tmpdir(), "mem-"));
+}
+
+async function runCmd(hooks, cmd, args = "") {
+	try {
+		await hooks["command.execute.before"]({
+			command: cmd,
+			arguments: args,
+		});
+	} catch (e) {
+		if (!isHandledError(e)) throw e;
+	}
 }
 
 test("projectSlug strips leading slash", () => {
@@ -52,10 +64,7 @@ test("readAllMemory merges global + project", () => {
 test("memoryHooks: /memory add writes project memory", async () => {
 	const project = makeProject();
 	const hooks = await memoryHooks({ client: {}, directory: project });
-	await hooks["command.execute.before"]({
-		command: "memory",
-		arguments: "add pakai kebab-case",
-	});
+	await runCmd(hooks, "memory", "add pakai kebab-case");
 	const projFile = projectMemoryFile(project);
 	assert.ok(existsSync(projFile));
 	assert.ok(readFileSync(projFile, "utf8").includes("pakai kebab-case"));
@@ -65,14 +74,8 @@ test("memoryHooks: /memory add writes project memory", async () => {
 test("memoryHooks: /memory replace updates project memory", async () => {
 	const project = makeProject();
 	const hooks = await memoryHooks({ client: {}, directory: project });
-	await hooks["command.execute.before"]({
-		command: "memory",
-		arguments: "add pakai tabs",
-	});
-	await hooks["command.execute.before"]({
-		command: "memory",
-		arguments: "replace tabs -> pakai spaces",
-	});
+	await runCmd(hooks, "memory", "add pakai tabs");
+	await runCmd(hooks, "memory", "replace tabs -> pakai spaces");
 	const projFile = projectMemoryFile(project);
 	const content = readFileSync(projFile, "utf8");
 	assert.ok(content.includes("pakai spaces"));
@@ -83,14 +86,8 @@ test("memoryHooks: /memory replace updates project memory", async () => {
 test("memoryHooks: /memory remove deletes matching bullet", async () => {
 	const project = makeProject();
 	const hooks = await memoryHooks({ client: {}, directory: project });
-	await hooks["command.execute.before"]({
-		command: "memory",
-		arguments: "add temporary debug note",
-	});
-	await hooks["command.execute.before"]({
-		command: "memory",
-		arguments: "remove debug note",
-	});
+	await runCmd(hooks, "memory", "add temporary debug note");
+	await runCmd(hooks, "memory", "remove debug note");
 	const projFile = projectMemoryFile(project);
 	const content = readFileSync(projFile, "utf8");
 	assert.ok(!content.includes("temporary debug note"));
@@ -100,28 +97,16 @@ test("memoryHooks: /memory remove deletes matching bullet", async () => {
 test("memoryHooks: /memory (list all / project / global) handles queries cleanly", async () => {
 	const project = makeProject();
 	const hooks = await memoryHooks({ client: {}, directory: project });
-	await hooks["command.execute.before"]({
-		command: "memory",
-		arguments: "add rule-xyz",
-	});
+	await runCmd(hooks, "memory", "add rule-xyz");
 
 	// /memory project
-	await hooks["command.execute.before"]({
-		command: "memory",
-		arguments: "project",
-	});
+	await runCmd(hooks, "memory", "project");
 
 	// /memory global
-	await hooks["command.execute.before"]({
-		command: "memory",
-		arguments: "global",
-	});
+	await runCmd(hooks, "memory", "global");
 
 	// /memory all
-	await hooks["command.execute.before"]({
-		command: "memory",
-		arguments: "all",
-	});
+	await runCmd(hooks, "memory", "all");
 
 	rmSync(path.dirname(projectMemoryFile(project)), {
 		recursive: true,
@@ -132,10 +117,7 @@ test("memoryHooks: /memory (list all / project / global) handles queries cleanly
 test("memoryHooks: system.transform injects for main agent, not subagent", async () => {
 	const project = makeProject();
 	const hooks = await memoryHooks({ client: {}, directory: project });
-	await hooks["command.execute.before"]({
-		command: "memory",
-		arguments: "add memory-test-note",
-	});
+	await runCmd(hooks, "memory", "add memory-test-note");
 
 	const mainOut = { system: [] };
 	await hooks["experimental.chat.system.transform"](
@@ -163,10 +145,7 @@ test("memoryHooks: system.transform injects for main agent, not subagent", async
 test("memoryHooks: compaction injects memory", async () => {
 	const project = makeProject();
 	const hooks = await memoryHooks({ client: {}, directory: project });
-	await hooks["command.execute.before"]({
-		command: "memory",
-		arguments: "add compact-note",
-	});
+	await runCmd(hooks, "memory", "add compact-note");
 
 	const out = { context: [] };
 	await hooks["experimental.session.compacting"]({ sessionID: "s1" }, out);

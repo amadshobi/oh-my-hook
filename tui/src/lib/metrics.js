@@ -1,12 +1,8 @@
 /**
- * tui/src/lib/metrics.js — calculates active guard counts and markdown memory statistics.
+ * tui/src/lib/metrics.js — calculates active guards and memory stats for TUI.
  */
 import { loadConfig } from "../../../share/config.js";
-import {
-	readAllMemory,
-	parseBullets,
-	listMemoryEntries,
-} from "../../../memory/store.js";
+import { listMemoryEntries } from "../../../memory/store.js";
 import { loadModeState, currentPlan } from "../../../share/state.js";
 import { readPlanContent } from "../../../plans/store.js";
 import { parsePlanLines } from "../../../plans/parser.js";
@@ -112,15 +108,25 @@ export function getPlanReviewData(sessionID, directory) {
 }
 
 /**
- * Get comprehensive metrics for the TUI sidebar.
+ * Get comprehensive workspace metrics for the TUI sidebar.
  * @param {string} [projectDirectory] Target workspace directory.
  * @param {object} [config] Optional config override.
- * @returns {{ guardsActive: number, memoryNotes: number, memoryStats: object }}
+ * @returns {object}
  */
 export function getMetrics(projectDirectory, config) {
+	const cfg = config || loadConfig().config;
 	const memoryStats = getStructuredMemoryStats(projectDirectory);
+	const memoryEnabled = cfg?.memory?.enabled !== false;
+	const plansEnabled = cfg?.plans?.enabled !== false;
+	const sandboxEnabled = cfg?.sandbox?.enabled !== false;
+	const planModeEnabled = plansEnabled && cfg?.sandbox?.planMode !== false;
+
 	return {
-		guardsActive: getActiveGuardsCount(config),
+		config: cfg,
+		modeEnabled: planModeEnabled,
+		memoryEnabled,
+		sandboxEnabled,
+		guardsActive: getActiveGuardsCount(cfg),
 		memoryNotes: memoryStats.count,
 		memoryStats,
 	};

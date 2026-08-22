@@ -9,12 +9,14 @@ import { createElement as _$createElement } from "@opentui/solid";
 /**
  * tui/src/index.tsx — OpenCode TUI Plugin for oh-my-hook.
  */
-import { createSignal, Show, For } from "solid-js";
+import { createSignal, Show, For, onMount, onCleanup, createMemo } from "solid-js";
 import { watchModeState, currentMode } from "./lib/mode-watch.js";
-import { getMetrics, getMemoryRules, getPlanReviewData } from "./lib/metrics.js";
+import { getMetrics, getPlanReviewData } from "./lib/metrics.js";
 import { resolveActiveSessionID, createSessionSubscriber } from "./lib/session.js";
 import { loadConfig } from "../../share/config.js";
 import { formatReviewFeedback } from "../../plans/parser.js";
+import { currentPlan } from "../../share/state.js";
+import { appendMemory, replaceMemory, removeMemory, resolveTargetMemoryFile, getGlobalFile, listMemoryEntries } from "../../memory/store.js";
 function ModeBadge(props) {
   const [modeState, setModeState] = createSignal({});
   const unwatch = watchModeState(nextState => {
@@ -32,7 +34,7 @@ function ModeBadge(props) {
         _el$2 = _$createElement("text");
       _$insertNode(_el$, _el$2);
       _$setProp(_el$, "flexDirection", "row");
-      _$insertNode(_el$2, _$createTextNode(`🔒 [plan mode]`));
+      _$insertNode(_el$2, _$createTextNode(`PLAN MODE`));
       _$effect(_$p => _$setProp(_el$2, "fg", warningColor(), _$p));
       return _el$;
     }
@@ -47,96 +49,247 @@ function SidebarWidget(props) {
     setMetrics(getMetrics(props.directory));
   });
   const theme = () => props.api?.theme?.current || {};
-  const mode = () => props.sessionID() ? currentMode(modeState(), props.sessionID()) : "execute";
+  const sessID = () => props.sessionID();
+  const activePlan = () => sessID() ? currentPlan(modeState(), sessID()) : null;
+  const mode = () => sessID() ? currentMode(modeState(), sessID()) : "execute";
   const isPlan = () => mode() === "plan";
-  const modeText = () => isPlan() ? "🔒 Plan (Read-Only)" : "⚡ Execute";
-  const modeColor = () => isPlan() ? theme().warning || "#f59e0b" : theme().success || "#10b981";
+
+  // Status & Color Resolvers (No Emojis, Pure Color Coding)
+  const redColor = () => theme().error || "#ef4444";
+  const greenColor = () => theme().success || "#10b981";
+  const yellowColor = () => theme().warning || "#f59e0b";
+  const mutedColor = () => theme().textMuted || "#6b7280";
+  const textNormal = () => theme().text || "#f3f4f6";
+  const accentColor = () => theme().accent || "#8b5cf6";
+  const headerBadgeText = () => {
+    if (!metrics().modeEnabled) return "OFF";
+    return isPlan() ? "PLAN" : "EXEC";
+  };
+  const headerBadgeColor = () => {
+    if (!metrics().modeEnabled) return redColor();
+    return isPlan() ? yellowColor() : greenColor();
+  };
   return (() => {
     var _el$4 = _$createElement("box"),
       _el$5 = _$createElement("box"),
-      _el$6 = _$createElement("text"),
+      _el$6 = _$createElement("box"),
       _el$7 = _$createElement("text"),
-      _el$8 = _$createElement("b");
+      _el$8 = _$createElement("text"),
+      _el$9 = _$createElement("b"),
+      _el$1 = _$createElement("text");
     _$insertNode(_el$4, _el$5);
     _$setProp(_el$4, "flexDirection", "column");
+    _$setProp(_el$4, "gap", 0);
     _$insertNode(_el$5, _el$6);
-    _$insertNode(_el$5, _el$7);
+    _$insertNode(_el$5, _el$1);
     _$setProp(_el$5, "flexDirection", "row");
-    _$setProp(_el$5, "gap", 1);
+    _$setProp(_el$5, "justifyContent", "space-between");
+    _$setProp(_el$5, "width", "100%");
     _$setProp(_el$5, "onMouseDown", () => setOpen(x => !x));
-    _$insert(_el$6, () => open() ? "▼" : "▶");
-    _$insertNode(_el$7, _el$8);
-    _$insertNode(_el$8, _$createTextNode(`oh-my-hook`));
+    _$insertNode(_el$6, _el$7);
+    _$insertNode(_el$6, _el$8);
+    _$setProp(_el$6, "flexDirection", "row");
+    _$setProp(_el$6, "gap", 1);
+    _$insert(_el$7, () => open() ? "▼" : "▶");
+    _$insertNode(_el$8, _el$9);
+    _$insertNode(_el$9, _$createTextNode(`oh-my-hook`));
+    _$insert(_el$1, headerBadgeText);
     _$insert(_el$4, _$createComponent(Show, {
       get when() {
         return open();
       },
       get children() {
-        var _el$0 = _$createElement("box"),
-          _el$1 = _$createElement("box"),
-          _el$10 = _$createElement("text"),
+        var _el$10 = _$createElement("box"),
+          _el$11 = _$createElement("box"),
           _el$12 = _$createElement("text"),
-          _el$13 = _$createTextNode(`Mode: `),
-          _el$14 = _$createElement("span"),
-          _el$15 = _$createElement("box"),
-          _el$16 = _$createElement("text"),
-          _el$18 = _$createElement("text"),
-          _el$19 = _$createTextNode(`Guards: `),
-          _el$20 = _$createTextNode(` Active`),
-          _el$21 = _$createElement("box"),
-          _el$22 = _$createElement("text"),
+          _el$14 = _$createElement("text"),
+          _el$15 = _$createTextNode(`Mode: `),
+          _el$23 = _$createElement("box"),
           _el$24 = _$createElement("text"),
-          _el$25 = _$createTextNode(`Memory: `),
-          _el$26 = _$createTextNode(` Rules`);
-        _$insertNode(_el$0, _el$1);
-        _$insertNode(_el$0, _el$15);
-        _$insertNode(_el$0, _el$21);
-        _$setProp(_el$0, "flexDirection", "column");
-        _$setProp(_el$0, "gap", 0);
-        _$insertNode(_el$1, _el$10);
-        _$insertNode(_el$1, _el$12);
-        _$setProp(_el$1, "flexDirection", "row");
-        _$setProp(_el$1, "gap", 1);
-        _$insertNode(_el$10, _$createTextNode(`•`));
-        _$setProp(_el$10, "flexShrink", 0);
-        _$insertNode(_el$12, _el$13);
-        _$insertNode(_el$12, _el$14);
-        _$insert(_el$14, modeText);
-        _$insertNode(_el$15, _el$16);
-        _$insertNode(_el$15, _el$18);
-        _$setProp(_el$15, "flexDirection", "row");
-        _$setProp(_el$15, "gap", 1);
-        _$insertNode(_el$16, _$createTextNode(`•`));
-        _$setProp(_el$16, "flexShrink", 0);
-        _$insertNode(_el$18, _el$19);
-        _$insertNode(_el$18, _el$20);
-        _$insert(_el$18, () => metrics().guardsActive, _el$20);
-        _$insertNode(_el$21, _el$22);
-        _$insertNode(_el$21, _el$24);
-        _$setProp(_el$21, "flexDirection", "row");
-        _$setProp(_el$21, "gap", 1);
-        _$insertNode(_el$22, _$createTextNode(`•`));
-        _$setProp(_el$22, "flexShrink", 0);
-        _$insertNode(_el$24, _el$25);
-        _$insertNode(_el$24, _el$26);
-        _$insert(_el$24, () => metrics().memoryNotes, _el$26);
+          _el$26 = _$createElement("text"),
+          _el$27 = _$createTextNode(`Shields: `),
+          _el$31 = _$createElement("box"),
+          _el$32 = _$createElement("text"),
+          _el$34 = _$createElement("text"),
+          _el$35 = _$createTextNode(`Memory: `);
+        _$insertNode(_el$10, _el$11);
+        _$insertNode(_el$10, _el$23);
+        _$insertNode(_el$10, _el$31);
+        _$setProp(_el$10, "flexDirection", "column");
+        _$setProp(_el$10, "gap", 0);
+        _$setProp(_el$10, "paddingLeft", 1);
+        _$setProp(_el$10, "paddingTop", 0);
+        _$insertNode(_el$11, _el$12);
+        _$insertNode(_el$11, _el$14);
+        _$setProp(_el$11, "flexDirection", "row");
+        _$setProp(_el$11, "gap", 1);
+        _$insertNode(_el$12, _$createTextNode(`•`));
+        _$insertNode(_el$14, _el$15);
+        _$insert(_el$14, _$createComponent(Show, {
+          get when() {
+            return metrics().modeEnabled;
+          },
+          get fallback() {
+            return (() => {
+              var _el$41 = _$createElement("span");
+              _$insertNode(_el$41, _$createTextNode(`disabled`));
+              _$effect(_$p => _$setProp(_el$41, "style", {
+                fg: redColor()
+              }, _$p));
+              return _el$41;
+            })();
+          },
+          get children() {
+            var _el$17 = _$createElement("span");
+            _$insert(_el$17, () => isPlan() ? "plan (read-only)" : "execute");
+            _$effect(_$p => _$setProp(_el$17, "style", {
+              fg: isPlan() ? yellowColor() : greenColor()
+            }, _$p));
+            return _el$17;
+          }
+        }), null);
+        _$insert(_el$10, _$createComponent(Show, {
+          get when() {
+            return activePlan()?.file;
+          },
+          get children() {
+            var _el$18 = _$createElement("box"),
+              _el$19 = _$createElement("text"),
+              _el$21 = _$createElement("text"),
+              _el$22 = _$createElement("u");
+            _$insertNode(_el$18, _el$19);
+            _$insertNode(_el$18, _el$21);
+            _$setProp(_el$18, "flexDirection", "row");
+            _$setProp(_el$18, "gap", 1);
+            _$setProp(_el$18, "paddingLeft", 2);
+            _$setProp(_el$18, "onMouseDown", () => {
+              if (props.api.ui?.dialog?.replace) {
+                const sess = sessID() || "default";
+                props.api.ui.dialog.replace(() => _$createComponent(PlanReviewModal, {
+                  get api() {
+                    return props.api;
+                  },
+                  sessionID: sess,
+                  get directory() {
+                    return props.directory;
+                  }
+                }));
+                if (props.api.ui.dialog.setSize) {
+                  props.api.ui.dialog.setSize("large");
+                }
+              }
+            });
+            _$insertNode(_el$19, _$createTextNode(`↳`));
+            _$insertNode(_el$21, _el$22);
+            _$setProp(_el$21, "wrapMode", "none");
+            _$insert(_el$22, () => activePlan()?.name || "active plan");
+            _$effect(_p$ => {
+              var _v$ = accentColor(),
+                _v$2 = textNormal();
+              _v$ !== _p$.e && (_p$.e = _$setProp(_el$19, "fg", _v$, _p$.e));
+              _v$2 !== _p$.t && (_p$.t = _$setProp(_el$21, "fg", _v$2, _p$.t));
+              return _p$;
+            }, {
+              e: undefined,
+              t: undefined
+            });
+            return _el$18;
+          }
+        }), _el$23);
+        _$insertNode(_el$23, _el$24);
+        _$insertNode(_el$23, _el$26);
+        _$setProp(_el$23, "flexDirection", "row");
+        _$setProp(_el$23, "gap", 1);
+        _$insertNode(_el$24, _$createTextNode(`•`));
+        _$insertNode(_el$26, _el$27);
+        _$insert(_el$26, _$createComponent(Show, {
+          get when() {
+            return metrics().sandboxEnabled;
+          },
+          get fallback() {
+            return (() => {
+              var _el$43 = _$createElement("span");
+              _$insertNode(_el$43, _$createTextNode(`disabled`));
+              _$effect(_$p => _$setProp(_el$43, "style", {
+                fg: redColor()
+              }, _$p));
+              return _el$43;
+            })();
+          },
+          get children() {
+            var _el$29 = _$createElement("span"),
+              _el$30 = _$createTextNode(` active`);
+            _$insertNode(_el$29, _el$30);
+            _$insert(_el$29, () => metrics().guardsActive, _el$30);
+            _$effect(_$p => _$setProp(_el$29, "style", {
+              fg: greenColor()
+            }, _$p));
+            return _el$29;
+          }
+        }), null);
+        _$insertNode(_el$31, _el$32);
+        _$insertNode(_el$31, _el$34);
+        _$setProp(_el$31, "flexDirection", "row");
+        _$setProp(_el$31, "gap", 1);
+        _$setProp(_el$31, "onMouseDown", () => {
+          if (props.api.ui?.dialog?.replace && metrics().memoryEnabled) {
+            props.api.ui.dialog.replace(() => _$createComponent(MemoryModal, {
+              get api() {
+                return props.api;
+              },
+              get directory() {
+                return props.directory;
+              },
+              scope: "all"
+            }));
+            if (props.api.ui.dialog.setSize) {
+              props.api.ui.dialog.setSize("large");
+            }
+          }
+        });
+        _$insertNode(_el$32, _$createTextNode(`•`));
+        _$insertNode(_el$34, _el$35);
+        _$insert(_el$34, _$createComponent(Show, {
+          get when() {
+            return metrics().memoryEnabled;
+          },
+          get fallback() {
+            return (() => {
+              var _el$45 = _$createElement("span");
+              _$insertNode(_el$45, _$createTextNode(`disabled`));
+              _$effect(_$p => _$setProp(_el$45, "style", {
+                fg: redColor()
+              }, _$p));
+              return _el$45;
+            })();
+          },
+          get children() {
+            var _el$37 = _$createElement("span"),
+              _el$38 = _$createTextNode(` global · `),
+              _el$40 = _$createTextNode(` project`);
+            _$insertNode(_el$37, _el$38);
+            _$insertNode(_el$37, _el$40);
+            _$insert(_el$37, () => metrics().memoryStats.global, _el$38);
+            _$insert(_el$37, () => metrics().memoryStats.project, _el$40);
+            _$effect(_$p => _$setProp(_el$37, "style", {
+              fg: textNormal()
+            }, _$p));
+            return _el$37;
+          }
+        }), null);
         _$effect(_p$ => {
-          var _v$ = modeColor(),
-            _v$2 = theme().textMuted,
-            _v$3 = {
-              fg: modeColor()
-            },
-            _v$4 = theme().success || "#10b981",
-            _v$5 = theme().textMuted,
-            _v$6 = theme().textMuted,
-            _v$7 = theme().textMuted;
-          _v$ !== _p$.e && (_p$.e = _$setProp(_el$10, "fg", _v$, _p$.e));
-          _v$2 !== _p$.t && (_p$.t = _$setProp(_el$12, "fg", _v$2, _p$.t));
-          _v$3 !== _p$.a && (_p$.a = _$setProp(_el$14, "style", _v$3, _p$.a));
-          _v$4 !== _p$.o && (_p$.o = _$setProp(_el$16, "fg", _v$4, _p$.o));
-          _v$5 !== _p$.i && (_p$.i = _$setProp(_el$18, "fg", _v$5, _p$.i));
-          _v$6 !== _p$.n && (_p$.n = _$setProp(_el$22, "fg", _v$6, _p$.n));
-          _v$7 !== _p$.s && (_p$.s = _$setProp(_el$24, "fg", _v$7, _p$.s));
+          var _v$3 = mutedColor(),
+            _v$4 = mutedColor(),
+            _v$5 = mutedColor(),
+            _v$6 = mutedColor(),
+            _v$7 = mutedColor(),
+            _v$8 = mutedColor();
+          _v$3 !== _p$.e && (_p$.e = _$setProp(_el$12, "fg", _v$3, _p$.e));
+          _v$4 !== _p$.t && (_p$.t = _$setProp(_el$14, "fg", _v$4, _p$.t));
+          _v$5 !== _p$.a && (_p$.a = _$setProp(_el$24, "fg", _v$5, _p$.a));
+          _v$6 !== _p$.o && (_p$.o = _$setProp(_el$26, "fg", _v$6, _p$.o));
+          _v$7 !== _p$.i && (_p$.i = _$setProp(_el$32, "fg", _v$7, _p$.i));
+          _v$8 !== _p$.n && (_p$.n = _$setProp(_el$34, "fg", _v$8, _p$.n));
           return _p$;
         }, {
           e: undefined,
@@ -144,334 +297,548 @@ function SidebarWidget(props) {
           a: undefined,
           o: undefined,
           i: undefined,
-          n: undefined,
-          s: undefined
+          n: undefined
         });
-        return _el$0;
+        return _el$10;
       }
     }), null);
     _$effect(_p$ => {
-      var _v$8 = theme().textMuted,
-        _v$9 = theme().text;
-      _v$8 !== _p$.e && (_p$.e = _$setProp(_el$6, "fg", _v$8, _p$.e));
-      _v$9 !== _p$.t && (_p$.t = _$setProp(_el$7, "fg", _v$9, _p$.t));
+      var _v$9 = mutedColor(),
+        _v$0 = textNormal(),
+        _v$1 = headerBadgeColor();
+      _v$9 !== _p$.e && (_p$.e = _$setProp(_el$7, "fg", _v$9, _p$.e));
+      _v$0 !== _p$.t && (_p$.t = _$setProp(_el$8, "fg", _v$0, _p$.t));
+      _v$1 !== _p$.a && (_p$.a = _$setProp(_el$1, "fg", _v$1, _p$.a));
       return _p$;
     }, {
       e: undefined,
-      t: undefined
+      t: undefined,
+      a: undefined
     });
     return _el$4;
   })();
 }
 
 /**
- * OpenCode standard dialog popup for Memory Rules.
- * Matching native OpenCode / opencode-quota UI layout & styling.
+ * Native OpenCode DialogSelect & DialogPrompt based Memory Inspector.
+ * Supports 3 scoped views:
+ *   - "all": Inspect All Memory (Edit/Replace on Enter)
+ *   - "global": Inspect Global Memory (Add via Ctrl+N, Delete via Ctrl+D 2x, Edit on Enter)
+ *   - "project": Inspect Project Rules (Add via Ctrl+N, Delete via Ctrl+D 2x, Edit on Enter)
  */
 function MemoryModal(props) {
-  const theme = () => props.api?.theme?.current || {};
-  const rules = () => getMemoryRules(props.directory);
-  const [tab, setTab] = createSignal("all");
-  const filtered = () => {
-    const list = rules();
-    const currentTab = tab();
-    if (currentTab === "global") return list.filter(r => r.scope === "global");
-    if (currentTab === "project") return list.filter(r => r.scope === "project");
-    return list;
+  const currentScope = () => props.scope || "all";
+  const [refreshKey, setRefreshKey] = createSignal(0);
+  const [toDelete, setToDelete] = createSignal(null);
+  const [currentSelected, setCurrentSelected] = createSignal(null);
+  const entries = createMemo(() => {
+    refreshKey(); // reactive dependency
+    const all = listMemoryEntries(props.directory);
+    if (currentScope() === "global") return all.filter(e => e.scope === "global");
+    if (currentScope() === "project") return all.filter(e => e.scope === "project");
+    return all;
+  });
+  const projectName = () => props.directory.split("/").pop() || "project";
+  const modalTitle = () => {
+    if (currentScope() === "global") return "Global Memory";
+    if (currentScope() === "project") return "Project Memory";
+    return "Memory Inspector";
   };
-  const getTagColor = scope => {
-    if (scope === "global") return theme().accent || "#8b5cf6";
-    return theme().success || "#10b981";
-  };
-  return (() => {
-    var _el$27 = _$createElement("box"),
-      _el$28 = _$createElement("box"),
-      _el$29 = _$createElement("text"),
-      _el$30 = _$createElement("b"),
-      _el$32 = _$createElement("text"),
-      _el$33 = _$createTextNode(` memory bullet`),
-      _el$34 = _$createElement("box"),
-      _el$35 = _$createElement("text"),
-      _el$36 = _$createElement("text"),
-      _el$37 = _$createElement("text"),
-      _el$38 = _$createElement("scrollbox"),
-      _el$39 = _$createElement("box"),
-      _el$40 = _$createElement("text");
-    _$insertNode(_el$27, _el$28);
-    _$insertNode(_el$27, _el$34);
-    _$insertNode(_el$27, _el$38);
-    _$insertNode(_el$27, _el$40);
-    _$setProp(_el$27, "gap", 1);
-    _$setProp(_el$27, "width", "100%");
-    _$setProp(_el$27, "flexGrow", 1);
-    _$setProp(_el$27, "paddingLeft", 2);
-    _$setProp(_el$27, "paddingRight", 2);
-    _$setProp(_el$27, "paddingBottom", 1);
-    _$insertNode(_el$28, _el$29);
-    _$insertNode(_el$28, _el$32);
-    _$setProp(_el$28, "flexDirection", "row");
-    _$setProp(_el$28, "justifyContent", "space-between");
-    _$setProp(_el$28, "width", "100%");
-    _$insertNode(_el$29, _el$30);
-    _$insertNode(_el$30, _$createTextNode(`🧠 OpenCode Memory Inspector`));
-    _$insertNode(_el$32, _el$33);
-    _$insert(_el$32, () => rules().length, _el$33);
-    _$insert(_el$32, () => rules().length === 1 ? "" : "s", null);
-    _$insertNode(_el$34, _el$35);
-    _$insertNode(_el$34, _el$36);
-    _$insertNode(_el$34, _el$37);
-    _$setProp(_el$34, "flexDirection", "row");
-    _$setProp(_el$34, "gap", 2);
-    _$setProp(_el$35, "onMouseDown", () => setTab("all"));
-    _$insert(_el$35, () => tab() === "all" ? "● [Semua]" : "○ Semua");
-    _$setProp(_el$36, "onMouseDown", () => setTab("global"));
-    _$insert(_el$36, () => tab() === "global" ? "● [Global]" : "○ Global");
-    _$setProp(_el$37, "onMouseDown", () => setTab("project"));
-    _$insert(_el$37, () => tab() === "project" ? "● [Project]" : "○ Project");
-    _$insertNode(_el$38, _el$39);
-    _$setProp(_el$38, "width", "100%");
-    _$setProp(_el$38, "flexGrow", 1);
-    _$setProp(_el$38, "minHeight", 8);
-    _$setProp(_el$38, "maxHeight", 28);
-    _$setProp(_el$39, "flexDirection", "column");
-    _$setProp(_el$39, "gap", 1);
-    _$setProp(_el$39, "width", "100%");
-    _$setProp(_el$39, "minWidth", 0);
-    _$insert(_el$39, _$createComponent(Show, {
-      get when() {
-        return filtered().length > 0;
+  const showEdit = item => {
+    if (!props.api.ui?.DialogPrompt) return;
+    props.api.ui.dialog.replace(() => _$createComponent(props.api.ui.DialogPrompt, {
+      get title() {
+        return `Edit Memory (${item.scope})`;
       },
-      get fallback() {
-        return (() => {
-          var _el$42 = _$createElement("text");
-          _$insertNode(_el$42, _$createTextNode(`(Belum ada memory tersimpan. Gunakan /remember atau tool memory untuk mencatat)`));
-          _$setProp(_el$42, "wrapMode", "word");
-          _$effect(_$p => _$setProp(_el$42, "fg", theme().textMuted, _$p));
-          return _el$42;
-        })();
+      get value() {
+        return item.content;
       },
-      get children() {
-        return _$createComponent(For, {
-          get each() {
-            return filtered();
+      onConfirm: newText => {
+        const trimmed = (newText || "").trim();
+        if (trimmed && trimmed !== item.content) {
+          replaceMemory(item.file, item.content, trimmed);
+          setRefreshKey(k => k + 1);
+          if (props.api.ui?.toast) {
+            props.api.ui.toast({
+              variant: "success",
+              message: "Memory updated"
+            });
+          }
+        }
+        props.api.ui.dialog.replace(() => _$createComponent(MemoryModal, {
+          get api() {
+            return props.api;
           },
-          children: r => (() => {
-            var _el$44 = _$createElement("box"),
-              _el$45 = _$createElement("text"),
-              _el$46 = _$createTextNode(`• [`),
-              _el$47 = _$createTextNode(`]`),
-              _el$48 = _$createElement("text");
-            _$insertNode(_el$44, _el$45);
-            _$insertNode(_el$44, _el$48);
-            _$setProp(_el$44, "flexDirection", "row");
-            _$setProp(_el$44, "gap", 1);
-            _$setProp(_el$44, "borderStyle", "single");
-            _$setProp(_el$44, "paddingLeft", 1);
-            _$setProp(_el$44, "paddingRight", 1);
-            _$insertNode(_el$45, _el$46);
-            _$insertNode(_el$45, _el$47);
-            _$insert(_el$45, () => r.scope, _el$47);
-            _$setProp(_el$48, "wrapMode", "word");
-            _$insert(_el$48, () => r.content);
+          get directory() {
+            return props.directory;
+          },
+          get scope() {
+            return props.scope;
+          }
+        }));
+      },
+      onCancel: () => {
+        props.api.ui.dialog.replace(() => _$createComponent(MemoryModal, {
+          get api() {
+            return props.api;
+          },
+          get directory() {
+            return props.directory;
+          },
+          get scope() {
+            return props.scope;
+          }
+        }));
+      }
+    }));
+  };
+  const showAdd = (targetScope = "project") => {
+    if (!props.api.ui?.DialogPrompt) return;
+    props.api.ui.dialog.replace(() => _$createComponent(props.api.ui.DialogPrompt, {
+      title: `Tambah Memory (${targetScope === "global" ? "Global" : "Project"})`,
+      placeholder: "Ketik catatan memory baru...",
+      description: () => (() => {
+        var _el$47 = _$createElement("text");
+        _$insert(_el$47, targetScope === "global" ? "Disimpan ke global memory" : "Disimpan ke project memory");
+        _$effect(_$p => _$setProp(_el$47, "fg", props.api.theme?.current?.textMuted, _$p));
+        return _el$47;
+      })(),
+      onConfirm: text => {
+        const trimmed = (text || "").trim();
+        if (trimmed) {
+          const targetFile = targetScope === "global" ? getGlobalFile() : resolveTargetMemoryFile(props.directory);
+          appendMemory(targetFile, trimmed);
+          setRefreshKey(k => k + 1);
+          if (props.api.ui?.toast) {
+            props.api.ui.toast({
+              variant: "success",
+              message: `Memory added (${targetScope})`
+            });
+          }
+        }
+        props.api.ui.dialog.replace(() => _$createComponent(MemoryModal, {
+          get api() {
+            return props.api;
+          },
+          get directory() {
+            return props.directory;
+          },
+          get scope() {
+            return props.scope;
+          }
+        }));
+      },
+      onCancel: () => {
+        props.api.ui.dialog.replace(() => _$createComponent(MemoryModal, {
+          get api() {
+            return props.api;
+          },
+          get directory() {
+            return props.directory;
+          },
+          get scope() {
+            return props.scope;
+          }
+        }));
+      }
+    }));
+  };
+  const handleDelete = item => {
+    if (!item?.file || !item?.content) return;
+
+    // Double-trigger delete confirmation pattern (ala OpenCode session delete)
+    if (toDelete() === item.content) {
+      removeMemory(item.file, item.content);
+      setToDelete(null);
+      setRefreshKey(k => k + 1);
+      if (props.api.ui?.toast) {
+        props.api.ui.toast({
+          variant: "success",
+          message: "Memory deleted"
+        });
+      }
+    } else {
+      setToDelete(item.content);
+    }
+  };
+
+  // Register modal-specific keybindings (Ctrl+A for add, Ctrl+D for delete)
+  onMount(() => {
+    if (props.api.keymap?.registerLayer) {
+      const unregister = props.api.keymap.registerLayer({
+        commands: [{
+          name: "omh.memory.modal.new",
+          title: "Tambah memory (Ctrl+A)",
+          run() {
+            const sc = currentScope();
+            showAdd(sc === "global" ? "global" : "project");
+          }
+        }, {
+          name: "omh.memory.modal.delete",
+          title: "Hapus memory (Ctrl+D)",
+          run() {
+            const item = currentSelected() || entries()[0];
+            if (item) {
+              handleDelete(item);
+            }
+          }
+        }],
+        bindings: [{
+          key: "ctrl+a",
+          cmd: "omh.memory.modal.new"
+        }, {
+          key: "ctrl+d",
+          cmd: "omh.memory.modal.delete"
+        }]
+      });
+      onCleanup(unregister);
+    }
+  });
+  const options = createMemo(() => {
+    const theme = props.api.theme?.current || {};
+    return entries().map(e => {
+      const isDeleting = toDelete() === e.content;
+      return {
+        title: isDeleting ? "Yakin mau hapus? Tekan Ctrl+D lagi untuk konfirmasi" : e.content,
+        value: e,
+        bg: isDeleting ? theme.error || "#ef4444" : undefined,
+        category: currentScope() === "all" ? e.scope === "global" ? "GLOBAL MEMORY" : "PROJECT MEMORY" : undefined,
+        footer: isDeleting ? "Tekan Ctrl+D lagi" : undefined
+      };
+    });
+  });
+  if (props.api.ui?.DialogSelect) {
+    return (() => {
+      var _el$48 = _$createElement("box"),
+        _el$49 = _$createElement("box"),
+        _el$50 = _$createElement("box"),
+        _el$51 = _$createElement("text"),
+        _el$52 = _$createElement("span"),
+        _el$54 = _$createTextNode(` `),
+        _el$55 = _$createElement("span"),
+        _el$69 = _$createElement("text"),
+        _el$70 = _$createTextNode(` note`);
+      _$insertNode(_el$48, _el$49);
+      _$setProp(_el$48, "flexDirection", "column");
+      _$setProp(_el$48, "width", "100%");
+      _$setProp(_el$48, "flexGrow", 1);
+      _$setProp(_el$48, "justifyContent", "space-between");
+      _$insert(_el$48, _$createComponent(props.api.ui.DialogSelect, {
+        get title() {
+          return modalTitle();
+        },
+        get placeholder() {
+          return _$memo(() => currentScope() === "global")() ? "Cari global memory..." : currentScope() === "project" ? "Cari aturan project..." : "Cari memory...";
+        },
+        get options() {
+          return options();
+        },
+        onMove: opt => {
+          setToDelete(null); // Reset delete confirmation on cursor movement
+          setCurrentSelected(opt?.value || opt);
+        },
+        onSelect: opt => {
+          const item = opt?.value || opt;
+          if (item) {
+            showEdit(item);
+          }
+        }
+      }), _el$49);
+      _$insertNode(_el$49, _el$50);
+      _$insertNode(_el$49, _el$69);
+      _$setProp(_el$49, "flexDirection", "row");
+      _$setProp(_el$49, "justifyContent", "space-between");
+      _$setProp(_el$49, "width", "100%");
+      _$setProp(_el$49, "paddingLeft", 4);
+      _$setProp(_el$49, "paddingRight", 2);
+      _$setProp(_el$49, "paddingBottom", 1);
+      _$setProp(_el$49, "paddingTop", 0);
+      _$setProp(_el$49, "flexShrink", 0);
+      _$insertNode(_el$50, _el$51);
+      _$setProp(_el$50, "flexDirection", "row");
+      _$setProp(_el$50, "gap", 3);
+      _$insertNode(_el$51, _el$52);
+      _$insertNode(_el$51, _el$54);
+      _$insertNode(_el$51, _el$55);
+      _$insertNode(_el$52, _$createTextNode(`edit`));
+      _$insertNode(_el$55, _$createTextNode(`enter`));
+      _$insert(_el$50, _$createComponent(Show, {
+        get when() {
+          return currentScope() !== "all";
+        },
+        get children() {
+          return [(() => {
+            var _el$57 = _$createElement("text"),
+              _el$58 = _$createElement("span"),
+              _el$60 = _$createTextNode(` `),
+              _el$61 = _$createElement("span");
+            _$insertNode(_el$57, _el$58);
+            _$insertNode(_el$57, _el$60);
+            _$insertNode(_el$57, _el$61);
+            _$insertNode(_el$58, _$createTextNode(`new`));
+            _$insertNode(_el$61, _$createTextNode(`ctrl+a`));
             _$effect(_p$ => {
-              var _v$14 = theme().border || "#374151",
-                _v$15 = getTagColor(r.scope),
-                _v$16 = theme().text;
-              _v$14 !== _p$.e && (_p$.e = _$setProp(_el$44, "borderColor", _v$14, _p$.e));
-              _v$15 !== _p$.t && (_p$.t = _$setProp(_el$45, "fg", _v$15, _p$.t));
-              _v$16 !== _p$.a && (_p$.a = _$setProp(_el$48, "fg", _v$16, _p$.a));
+              var _v$10 = {
+                  fg: props.api.theme?.current?.text
+                },
+                _v$11 = {
+                  fg: props.api.theme?.current?.textMuted
+                };
+              _v$10 !== _p$.e && (_p$.e = _$setProp(_el$58, "style", _v$10, _p$.e));
+              _v$11 !== _p$.t && (_p$.t = _$setProp(_el$61, "style", _v$11, _p$.t));
               return _p$;
             }, {
               e: undefined,
-              t: undefined,
-              a: undefined
+              t: undefined
             });
-            return _el$44;
-          })()
-        });
-      }
-    }));
-    _$insertNode(_el$40, _$createTextNode(`esc closes`));
-    _$effect(_p$ => {
-      var _v$0 = theme().text,
-        _v$1 = theme().textMuted,
-        _v$10 = tab() === "all" ? theme().accent || "#8b5cf6" : theme().textMuted,
-        _v$11 = tab() === "global" ? theme().accent || "#8b5cf6" : theme().textMuted,
-        _v$12 = tab() === "project" ? theme().accent || "#8b5cf6" : theme().textMuted,
-        _v$13 = theme().textMuted;
-      _v$0 !== _p$.e && (_p$.e = _$setProp(_el$29, "fg", _v$0, _p$.e));
-      _v$1 !== _p$.t && (_p$.t = _$setProp(_el$32, "fg", _v$1, _p$.t));
-      _v$10 !== _p$.a && (_p$.a = _$setProp(_el$35, "fg", _v$10, _p$.a));
-      _v$11 !== _p$.o && (_p$.o = _$setProp(_el$36, "fg", _v$11, _p$.o));
-      _v$12 !== _p$.i && (_p$.i = _$setProp(_el$37, "fg", _v$12, _p$.i));
-      _v$13 !== _p$.n && (_p$.n = _$setProp(_el$40, "fg", _v$13, _p$.n));
-      return _p$;
-    }, {
-      e: undefined,
-      t: undefined,
-      a: undefined,
-      o: undefined,
-      i: undefined,
-      n: undefined
-    });
-    return _el$27;
+            return _el$57;
+          })(), (() => {
+            var _el$63 = _$createElement("text"),
+              _el$64 = _$createElement("span"),
+              _el$66 = _$createTextNode(` `),
+              _el$67 = _$createElement("span");
+            _$insertNode(_el$63, _el$64);
+            _$insertNode(_el$63, _el$66);
+            _$insertNode(_el$63, _el$67);
+            _$insertNode(_el$64, _$createTextNode(`delete`));
+            _$insertNode(_el$67, _$createTextNode(`ctrl+d`));
+            _$effect(_p$ => {
+              var _v$12 = {
+                  fg: props.api.theme?.current?.text
+                },
+                _v$13 = {
+                  fg: props.api.theme?.current?.textMuted
+                };
+              _v$12 !== _p$.e && (_p$.e = _$setProp(_el$64, "style", _v$12, _p$.e));
+              _v$13 !== _p$.t && (_p$.t = _$setProp(_el$67, "style", _v$13, _p$.t));
+              return _p$;
+            }, {
+              e: undefined,
+              t: undefined
+            });
+            return _el$63;
+          })()];
+        }
+      }), null);
+      _$insertNode(_el$69, _el$70);
+      _$insert(_el$69, () => entries().length, _el$70);
+      _$insert(_el$69, () => entries().length === 1 ? "" : "s", null);
+      _$effect(_p$ => {
+        var _v$14 = {
+            fg: props.api.theme?.current?.text
+          },
+          _v$15 = {
+            fg: props.api.theme?.current?.textMuted
+          },
+          _v$16 = props.api.theme?.current?.textMuted;
+        _v$14 !== _p$.e && (_p$.e = _$setProp(_el$52, "style", _v$14, _p$.e));
+        _v$15 !== _p$.t && (_p$.t = _$setProp(_el$55, "style", _v$15, _p$.t));
+        _v$16 !== _p$.a && (_p$.a = _$setProp(_el$69, "fg", _v$16, _p$.a));
+        return _p$;
+      }, {
+        e: undefined,
+        t: undefined,
+        a: undefined
+      });
+      return _el$48;
+    })();
+  }
+
+  // Fallback simple view
+  return (() => {
+    var _el$71 = _$createElement("box"),
+      _el$72 = _$createElement("text"),
+      _el$73 = _$createElement("b");
+    _$insertNode(_el$71, _el$72);
+    _$setProp(_el$71, "gap", 1);
+    _$setProp(_el$71, "paddingLeft", 2);
+    _$setProp(_el$71, "paddingRight", 2);
+    _$insertNode(_el$72, _el$73);
+    _$insert(_el$73, modalTitle);
+    _$insert(_el$71, _$createComponent(For, {
+      get each() {
+        return entries();
+      },
+      children: e => (() => {
+        var _el$74 = _$createElement("text"),
+          _el$75 = _$createTextNode(`• `),
+          _el$76 = _$createTextNode(` (`),
+          _el$77 = _$createTextNode(`)`);
+        _$insertNode(_el$74, _el$75);
+        _$insertNode(_el$74, _el$76);
+        _$insertNode(_el$74, _el$77);
+        _$insert(_el$74, () => e.content, _el$76);
+        _$insert(_el$74, () => e.scope, _el$77);
+        _$effect(_$p => _$setProp(_el$74, "fg", props.api.theme?.current?.textMuted, _$p));
+        return _el$74;
+      })()
+    }), null);
+    _$effect(_$p => _$setProp(_el$72, "fg", props.api.theme?.current?.text, _$p));
+    return _el$71;
   })();
 }
-
 /**
- * OpenCode standard dialog popup for Interactive Line-Level Plan Review.
+ * Interactive Plan Review Modal Component for OpenCode TUI.
  */
 function PlanReviewModal(props) {
   const theme = () => props.api?.theme?.current || {};
-  const plan = () => getPlanReviewData(props.sessionID, props.directory);
-  const lines = () => plan().lines;
-  const [selectedIdx, setSelectedIdx] = createSignal(null);
-  const [editingIdx, setEditingIdx] = createSignal(null);
-  const [commentInput, setCommentInput] = createSignal("");
+  const planData = () => getPlanReviewData(props.sessionID, props.directory);
+  const [selectedIndex, setSelectedIndex] = createSignal(-1);
+  const [commentMode, setCommentMode] = createSignal(false);
+  const [commentDraft, setCommentDraft] = createSignal("");
   const [comments, setComments] = createSignal({});
-  const activeCommentsList = () => {
-    const res = [];
-    const rawMap = comments();
-    for (const [lineStr, text] of Object.entries(rawMap)) {
-      const lineNum = parseInt(lineStr, 10);
-      const lineObj = lines().find(l => l.index === lineNum);
-      if (text && text.trim()) {
-        res.push({
-          line: lineNum,
-          lineText: lineObj?.raw || "",
-          comment: text.trim()
-        });
+  const lines = () => planData().lines;
+  const selectedLine = () => selectedIndex() >= 0 && selectedIndex() < lines().length ? lines()[selectedIndex()] : null;
+  const handleKeyDown = e => {
+    const key = e.name || e.key;
+    if (commentMode()) {
+      if (key === "escape") {
+        setCommentMode(false);
+        setCommentDraft("");
+        e.preventDefault?.();
+        return;
       }
+      if (key === "return" && (e.ctrl || e.meta)) {
+        const idx = selectedIndex();
+        const draft = commentDraft().trim();
+        if (idx >= 0 && draft) {
+          const line = lines()[idx];
+          setComments(prev => ({
+            ...prev,
+            [idx]: {
+              text: draft,
+              raw: line?.raw || ""
+            }
+          }));
+        }
+        setCommentMode(false);
+        setCommentDraft("");
+        e.preventDefault?.();
+        return;
+      }
+      return;
     }
-    return res;
-  };
-
-  // Save comment for current editing line
-  const saveCurrentComment = () => {
-    const idx = editingIdx();
-    if (idx === null) return;
-    const lineObj = lines()[idx];
-    if (!lineObj) return;
-    const lineNum = lineObj.index;
-    const text = commentInput().trim();
-    const next = {
-      ...comments()
-    };
-    if (text) {
-      next[lineNum] = text;
-    } else {
-      delete next[lineNum];
+    if (key === "escape") {
+      if (props.api.ui?.dialog?.clear) {
+        props.api.ui.dialog.clear();
+      }
+      e.preventDefault?.();
+      return;
     }
-    setComments(next);
-    setEditingIdx(null);
-  };
-  const submitReview = async (approved = true) => {
-    const formatted = formatReviewFeedback({
-      planName: plan().planName,
-      planFile: plan().planFile,
-      comments: activeCommentsList(),
-      approved
-    });
-    try {
-      if (props.api?.client?.session?.prompt) {
-        await props.api.client.session.prompt({
+    if (key === "down" || key === "j") {
+      setSelectedIndex(prev => Math.min(lines().length - 1, prev + 1));
+      e.preventDefault?.();
+      return;
+    }
+    if (key === "up" || key === "k") {
+      setSelectedIndex(prev => Math.max(0, prev - 1));
+      e.preventDefault?.();
+      return;
+    }
+    if (key === "return") {
+      if (selectedIndex() >= 0) {
+        setCommentMode(true);
+        const existing = comments()[selectedIndex()];
+        setCommentDraft(existing ? existing.text : "");
+        e.preventDefault?.();
+      }
+      return;
+    }
+    if (key === "a" && (e.ctrl || e.meta)) {
+      const feedback = formatReviewFeedback(planData().planName, comments(), true);
+      if (props.api.session?.prompt) {
+        props.api.session.prompt({
           sessionID: props.sessionID,
-          parts: [{
-            type: "text",
-            text: formatted
-          }]
+          text: feedback
         });
       }
-    } catch {}
-    if (props.onClose) {
-      props.onClose();
-    } else if (props.api?.ui?.dialog?.close) {
-      props.api.ui.dialog.close();
-    }
-  };
-
-  // Dynamic Navigation Hint Footer
-  const navHint = () => {
-    if (editingIdx() !== null) {
-      return "⌨️ [Enter] Simpan Koreksi • [Ctrl+A] Approve & Kirim • [Esc] Batal Komentar";
-    }
-    if (selectedIdx() !== null) {
-      return "⌨️ [↑/↓] Pindah Baris • [Enter] Bantah/Luruskan Baris Ini • [Ctrl+A] Approve Plan • [Esc] Batal Sorot";
-    }
-    return "⌨️ [↓] Mulai Sorot Baris • [Scroll] Baca • [Ctrl+A] Approve Plan • [Esc] Tutup";
-  };
-  return (() => {
-    var _el$49 = _$createElement("box"),
-      _el$50 = _$createElement("box"),
-      _el$51 = _$createElement("text"),
-      _el$52 = _$createElement("b"),
-      _el$53 = _$createTextNode(`📋 Plan Line Reviewer: `),
-      _el$54 = _$createElement("text"),
-      _el$55 = _$createTextNode(` baris • `),
-      _el$56 = _$createTextNode(` koreksi`),
-      _el$60 = _$createElement("scrollbox"),
-      _el$61 = _$createElement("box"),
-      _el$62 = _$createElement("box"),
-      _el$63 = _$createElement("text"),
-      _el$64 = _$createElement("box"),
-      _el$65 = _$createElement("text");
-    _$insertNode(_el$49, _el$50);
-    _$insertNode(_el$49, _el$60);
-    _$insertNode(_el$49, _el$62);
-    _$setProp(_el$49, "gap", 1);
-    _$setProp(_el$49, "width", "100%");
-    _$setProp(_el$49, "flexGrow", 1);
-    _$setProp(_el$49, "paddingLeft", 2);
-    _$setProp(_el$49, "paddingRight", 2);
-    _$setProp(_el$49, "paddingBottom", 1);
-    _$insertNode(_el$50, _el$51);
-    _$insertNode(_el$50, _el$54);
-    _$setProp(_el$50, "flexDirection", "row");
-    _$setProp(_el$50, "justifyContent", "space-between");
-    _$setProp(_el$50, "width", "100%");
-    _$insertNode(_el$51, _el$52);
-    _$insertNode(_el$52, _el$53);
-    _$insert(_el$52, () => plan().planName, null);
-    _$insertNode(_el$54, _el$55);
-    _$insertNode(_el$54, _el$56);
-    _$insert(_el$54, () => lines().length, _el$55);
-    _$insert(_el$54, () => activeCommentsList().length, _el$56);
-    _$insert(_el$49, _$createComponent(Show, {
-      get when() {
-        return plan().planFile;
-      },
-      get children() {
-        var _el$57 = _$createElement("text"),
-          _el$58 = _$createTextNode(`File: `),
-          _el$59 = _$createElement("i");
-        _$insertNode(_el$57, _el$58);
-        _$insertNode(_el$57, _el$59);
-        _$setProp(_el$57, "wrapMode", "word");
-        _$insert(_el$59, () => plan().planFile);
-        _$effect(_$p => _$setProp(_el$57, "fg", theme().textMuted, _$p));
-        return _el$57;
+      if (props.api.ui?.dialog?.clear) {
+        props.api.ui.dialog.clear();
       }
-    }), _el$60);
-    _$insertNode(_el$60, _el$61);
-    _$setProp(_el$60, "width", "100%");
-    _$setProp(_el$60, "flexGrow", 1);
-    _$setProp(_el$60, "minHeight", 12);
-    _$setProp(_el$60, "maxHeight", 30);
-    _$setProp(_el$61, "flexDirection", "column");
-    _$setProp(_el$61, "gap", 0);
-    _$setProp(_el$61, "width", "100%");
-    _$setProp(_el$61, "minWidth", 0);
-    _$insert(_el$61, _$createComponent(Show, {
+      if (props.api.ui?.toast) {
+        props.api.ui.toast({
+          variant: "success",
+          message: "Plan approved with comments"
+        });
+      }
+      e.preventDefault?.();
+      return;
+    }
+  };
+  onMount(() => {
+    if (props.api.terminal?.onKeyDown) {
+      const unbind = props.api.terminal.onKeyDown(handleKeyDown);
+      onCleanup(unbind);
+    }
+  });
+  const getLineTypeColor = type => {
+    switch (type) {
+      case "heading":
+        return theme().accent || "#8b5cf6";
+      case "list":
+        return theme().warning || "#f59e0b";
+      case "code":
+        return theme().textMuted || "#6b7280";
+      default:
+        return theme().text || "#f3f4f6";
+    }
+  };
+  const commentCount = () => Object.keys(comments()).length;
+  return (() => {
+    var _el$78 = _$createElement("box"),
+      _el$79 = _$createElement("box"),
+      _el$80 = _$createElement("text"),
+      _el$81 = _$createElement("b"),
+      _el$83 = _$createElement("text"),
+      _el$84 = _$createTextNode(` · `),
+      _el$85 = _$createTextNode(` lines · `),
+      _el$86 = _$createTextNode(` comment`),
+      _el$88 = _$createElement("scrollbox"),
+      _el$89 = _$createElement("box"),
+      _el$99 = _$createElement("box"),
+      _el$100 = _$createElement("text");
+    _$insertNode(_el$78, _el$79);
+    _$insertNode(_el$78, _el$88);
+    _$insertNode(_el$78, _el$99);
+    _$setProp(_el$78, "gap", 1);
+    _$setProp(_el$78, "width", "100%");
+    _$setProp(_el$78, "flexGrow", 1);
+    _$setProp(_el$78, "paddingLeft", 2);
+    _$setProp(_el$78, "paddingRight", 2);
+    _$setProp(_el$78, "paddingBottom", 1);
+    _$insertNode(_el$79, _el$80);
+    _$insertNode(_el$79, _el$83);
+    _$setProp(_el$79, "flexDirection", "row");
+    _$setProp(_el$79, "justifyContent", "space-between");
+    _$setProp(_el$79, "width", "100%");
+    _$insertNode(_el$80, _el$81);
+    _$insertNode(_el$81, _$createTextNode(`Interactive Plan Reviewer`));
+    _$insertNode(_el$83, _el$84);
+    _$insertNode(_el$83, _el$85);
+    _$insertNode(_el$83, _el$86);
+    _$insert(_el$83, () => planData().planName, _el$84);
+    _$insert(_el$83, () => lines().length, _el$85);
+    _$insert(_el$83, commentCount, _el$86);
+    _$insert(_el$83, () => commentCount() === 1 ? "" : "s", null);
+    _$insertNode(_el$88, _el$89);
+    _$setProp(_el$88, "width", "100%");
+    _$setProp(_el$88, "flexGrow", 1);
+    _$setProp(_el$88, "minHeight", 12);
+    _$setProp(_el$88, "maxHeight", 28);
+    _$setProp(_el$89, "flexDirection", "column");
+    _$setProp(_el$89, "gap", 0);
+    _$setProp(_el$89, "width", "100%");
+    _$setProp(_el$89, "minWidth", 0);
+    _$insert(_el$89, _$createComponent(Show, {
       get when() {
         return lines().length > 0;
       },
       get fallback() {
         return (() => {
-          var _el$67 = _$createElement("text");
-          _$insertNode(_el$67, _$createTextNode(`(Dokumen rencana belum memiliki isi teks. Gunakan /plan to-file &lt;nama&gt; terlebih dahulu)`));
-          _$setProp(_el$67, "wrapMode", "word");
-          _$effect(_$p => _$setProp(_el$67, "fg", theme().textMuted, _$p));
-          return _el$67;
+          var _el$101 = _$createElement("text");
+          _$insertNode(_el$101, _$createTextNode(`(Dokumen rencana kosong atau belum dimuat)`));
+          _$effect(_$p => _$setProp(_el$101, "fg", theme().textMuted, _$p));
+          return _el$101;
         })();
       },
       get children() {
@@ -480,147 +847,166 @@ function PlanReviewModal(props) {
             return lines();
           },
           children: (line, idx) => {
-            const isSelected = () => selectedIdx() === idx();
-            const isEditing = () => editingIdx() === idx();
-            const hasComment = () => Boolean(comments()[line.index]);
+            const isSelected = () => selectedIndex() === idx();
+            const hasComment = () => Boolean(comments()[idx()]);
             return (() => {
-              var _el$69 = _$createElement("box"),
-                _el$70 = _$createElement("box"),
-                _el$71 = _$createElement("text"),
-                _el$72 = _$createTextNode(` |`),
-                _el$73 = _$createElement("text");
-              _$insertNode(_el$69, _el$70);
-              _$setProp(_el$69, "flexDirection", "column");
-              _$setProp(_el$69, "gap", 0);
-              _$setProp(_el$69, "paddingLeft", 1);
-              _$setProp(_el$69, "paddingRight", 1);
-              _$insertNode(_el$70, _el$71);
-              _$insertNode(_el$70, _el$73);
-              _$setProp(_el$70, "flexDirection", "row");
-              _$setProp(_el$70, "gap", 1);
-              _$setProp(_el$70, "onMouseDown", () => {
-                setSelectedIdx(idx());
-              });
-              _$insertNode(_el$71, _el$72);
-              _$setProp(_el$71, "flexShrink", 0);
-              _$insert(_el$71, () => String(line.index).padStart(3, " "), _el$72);
-              _$setProp(_el$73, "wrapMode", "word");
-              _$insert(_el$73, (() => {
-                var _c$ = _$memo(() => line.type === "heading");
-                return () => _c$() ? (() => {
-                  var _el$82 = _$createElement("b");
-                  _$insert(_el$82, () => line.raw);
-                  return _el$82;
-                })() : line.raw;
-              })());
-              _$insert(_el$69, _$createComponent(Show, {
+              var _el$103 = _$createElement("box"),
+                _el$104 = _$createElement("box"),
+                _el$105 = _$createElement("text"),
+                _el$106 = _$createTextNode(` |`),
+                _el$107 = _$createElement("text");
+              _$insertNode(_el$103, _el$104);
+              _$setProp(_el$103, "flexDirection", "column");
+              _$setProp(_el$103, "gap", 0);
+              _$setProp(_el$103, "paddingLeft", 1);
+              _$setProp(_el$103, "paddingRight", 1);
+              _$insertNode(_el$104, _el$105);
+              _$insertNode(_el$104, _el$107);
+              _$setProp(_el$104, "flexDirection", "row");
+              _$setProp(_el$104, "gap", 1);
+              _$insertNode(_el$105, _el$106);
+              _$insert(_el$105, () => String(line.index).padStart(3, " "), _el$106);
+              _$setProp(_el$107, "wrapMode", "word");
+              _$setProp(_el$107, "flexGrow", 1);
+              _$insert(_el$107, () => line.raw);
+              _$insert(_el$104, _$createComponent(Show, {
                 get when() {
-                  return _$memo(() => !!hasComment())() && !isEditing();
+                  return hasComment();
                 },
                 get children() {
-                  var _el$74 = _$createElement("box"),
-                    _el$75 = _$createElement("text"),
-                    _el$76 = _$createTextNode(`↳ 💬 Koreksi: `),
-                    _el$77 = _$createElement("b");
-                  _$insertNode(_el$74, _el$75);
-                  _$setProp(_el$74, "flexDirection", "row");
-                  _$setProp(_el$74, "gap", 1);
-                  _$setProp(_el$74, "paddingLeft", 6);
-                  _$setProp(_el$74, "paddingBottom", 0);
-                  _$insertNode(_el$75, _el$76);
-                  _$insertNode(_el$75, _el$77);
-                  _$insert(_el$77, () => comments()[line.index]);
-                  _$effect(_$p => _$setProp(_el$75, "fg", theme().warning || "#f59e0b", _$p));
-                  return _el$74;
+                  var _el$108 = _$createElement("text");
+                  _$insertNode(_el$108, _$createTextNode(`[comment]`));
+                  _$effect(_$p => _$setProp(_el$108, "fg", theme().warning || "#f59e0b", _$p));
+                  return _el$108;
                 }
               }), null);
-              _$insert(_el$69, _$createComponent(Show, {
+              _$insert(_el$103, _$createComponent(Show, {
                 get when() {
-                  return isEditing();
+                  return hasComment();
                 },
                 get children() {
-                  var _el$78 = _$createElement("box"),
-                    _el$79 = _$createElement("text"),
-                    _el$81 = _$createElement("text");
-                  _$insertNode(_el$78, _el$79);
-                  _$insertNode(_el$78, _el$81);
-                  _$setProp(_el$78, "flexDirection", "column");
-                  _$setProp(_el$78, "gap", 0);
-                  _$setProp(_el$78, "paddingLeft", 6);
-                  _$setProp(_el$78, "borderStyle", "single");
-                  _$insertNode(_el$79, _$createTextNode(`💬 Masukkan arahan / koreksi untuk baris ini:`));
-                  _$insert(_el$81, () => commentInput() || "<i>(Ketik koreksi...)</i>");
-                  _$effect(_p$ => {
-                    var _v$21 = theme().warning || "#f59e0b",
-                      _v$22 = theme().warning || "#f59e0b",
-                      _v$23 = theme().text;
-                    _v$21 !== _p$.e && (_p$.e = _$setProp(_el$78, "borderColor", _v$21, _p$.e));
-                    _v$22 !== _p$.t && (_p$.t = _$setProp(_el$79, "fg", _v$22, _p$.t));
-                    _v$23 !== _p$.a && (_p$.a = _$setProp(_el$81, "fg", _v$23, _p$.a));
-                    return _p$;
-                  }, {
-                    e: undefined,
-                    t: undefined,
-                    a: undefined
-                  });
-                  return _el$78;
+                  var _el$110 = _$createElement("box"),
+                    _el$111 = _$createElement("text"),
+                    _el$112 = _$createElement("i"),
+                    _el$113 = _$createTextNode(`↳ `);
+                  _$insertNode(_el$110, _el$111);
+                  _$setProp(_el$110, "paddingLeft", 6);
+                  _$setProp(_el$110, "paddingTop", 0);
+                  _$setProp(_el$110, "paddingBottom", 0);
+                  _$insertNode(_el$111, _el$112);
+                  _$setProp(_el$111, "wrapMode", "word");
+                  _$insertNode(_el$112, _el$113);
+                  _$insert(_el$112, () => comments()[idx()]?.text, null);
+                  _$effect(_$p => _$setProp(_el$111, "fg", theme().warning || "#f59e0b", _$p));
+                  return _el$110;
                 }
               }), null);
               _$effect(_p$ => {
-                var _v$24 = isSelected() ? "single" : undefined,
-                  _v$25 = isSelected() ? theme().accent || "#8b5cf6" : undefined,
-                  _v$26 = isSelected() ? theme().accent || "#8b5cf6" : theme().textMuted,
-                  _v$27 = isSelected() ? theme().text : line.type === "heading" ? theme().accent || "#8b5cf6" : line.type === "checkbox" || line.type === "bullet" ? theme().warning || "#f59e0b" : theme().textMuted;
-                _v$24 !== _p$.e && (_p$.e = _$setProp(_el$69, "borderStyle", _v$24, _p$.e));
-                _v$25 !== _p$.t && (_p$.t = _$setProp(_el$69, "borderColor", _v$25, _p$.t));
-                _v$26 !== _p$.a && (_p$.a = _$setProp(_el$71, "fg", _v$26, _p$.a));
-                _v$27 !== _p$.o && (_p$.o = _$setProp(_el$73, "fg", _v$27, _p$.o));
+                var _v$24 = isSelected() ? theme().bgSelected || "#1e293b" : undefined,
+                  _v$25 = isSelected() ? "single" : undefined,
+                  _v$26 = isSelected() ? theme().accent || "#8b5cf6" : undefined,
+                  _v$27 = isSelected() ? theme().text : theme().textMuted,
+                  _v$28 = getLineTypeColor(line.type);
+                _v$24 !== _p$.e && (_p$.e = _$setProp(_el$103, "backgroundColor", _v$24, _p$.e));
+                _v$25 !== _p$.t && (_p$.t = _$setProp(_el$103, "borderStyle", _v$25, _p$.t));
+                _v$26 !== _p$.a && (_p$.a = _$setProp(_el$103, "borderColor", _v$26, _p$.a));
+                _v$27 !== _p$.o && (_p$.o = _$setProp(_el$105, "fg", _v$27, _p$.o));
+                _v$28 !== _p$.i && (_p$.i = _$setProp(_el$107, "fg", _v$28, _p$.i));
                 return _p$;
               }, {
                 e: undefined,
                 t: undefined,
                 a: undefined,
-                o: undefined
+                o: undefined,
+                i: undefined
               });
-              return _el$69;
+              return _el$103;
             })();
           }
         });
       }
     }));
-    _$insertNode(_el$62, _el$63);
-    _$insertNode(_el$62, _el$64);
-    _$setProp(_el$62, "flexDirection", "row");
-    _$setProp(_el$62, "justifyContent", "space-between");
-    _$setProp(_el$62, "width", "100%");
-    _$setProp(_el$62, "paddingTop", 1);
-    _$insert(_el$63, navHint);
-    _$insertNode(_el$64, _el$65);
-    _$setProp(_el$64, "flexDirection", "row");
-    _$setProp(_el$64, "gap", 2);
-    _$insertNode(_el$65, _$createTextNode(`[✔ Approve & Submit]`));
-    _$setProp(_el$65, "onMouseDown", () => submitReview(true));
+    _$insert(_el$78, _$createComponent(Show, {
+      get when() {
+        return commentMode();
+      },
+      get children() {
+        var _el$90 = _$createElement("box"),
+          _el$91 = _$createElement("text"),
+          _el$92 = _$createElement("b"),
+          _el$93 = _$createTextNode(`Tulis Komentar untuk Baris #`),
+          _el$94 = _$createTextNode(`:`),
+          _el$95 = _$createElement("text"),
+          _el$96 = _$createTextNode(`"`),
+          _el$97 = _$createTextNode(`"`),
+          _el$98 = _$createElement("text");
+        _$insertNode(_el$90, _el$91);
+        _$insertNode(_el$90, _el$95);
+        _$insertNode(_el$90, _el$98);
+        _$setProp(_el$90, "flexDirection", "column");
+        _$setProp(_el$90, "gap", 0);
+        _$setProp(_el$90, "borderStyle", "single");
+        _$setProp(_el$90, "paddingLeft", 1);
+        _$setProp(_el$90, "paddingRight", 1);
+        _$insertNode(_el$91, _el$92);
+        _$insertNode(_el$92, _el$93);
+        _$insertNode(_el$92, _el$94);
+        _$insert(_el$92, () => selectedLine()?.index, _el$94);
+        _$insertNode(_el$95, _el$96);
+        _$insertNode(_el$95, _el$97);
+        _$insert(_el$95, () => selectedLine()?.raw, _el$97);
+        _$insert(_el$98, () => commentDraft() || "(ketik komentar...)");
+        _$effect(_p$ => {
+          var _v$17 = theme().warning || "#f59e0b",
+            _v$18 = theme().warning || "#f59e0b",
+            _v$19 = theme().textMuted,
+            _v$20 = theme().text;
+          _v$17 !== _p$.e && (_p$.e = _$setProp(_el$90, "borderColor", _v$17, _p$.e));
+          _v$18 !== _p$.t && (_p$.t = _$setProp(_el$91, "fg", _v$18, _p$.t));
+          _v$19 !== _p$.a && (_p$.a = _$setProp(_el$95, "fg", _v$19, _p$.a));
+          _v$20 !== _p$.o && (_p$.o = _$setProp(_el$98, "fg", _v$20, _p$.o));
+          return _p$;
+        }, {
+          e: undefined,
+          t: undefined,
+          a: undefined,
+          o: undefined
+        });
+        return _el$90;
+      }
+    }), _el$99);
+    _$insertNode(_el$99, _el$100);
+    _$setProp(_el$99, "flexDirection", "row");
+    _$setProp(_el$99, "justifyContent", "space-between");
+    _$setProp(_el$99, "width", "100%");
+    _$insert(_el$100, _$createComponent(Show, {
+      get when() {
+        return commentMode();
+      },
+      fallback: "↓/↑ pilih baris · enter komentar · ctrl+a approve · esc tutup",
+      children: "ctrl+enter simpan \xB7 esc batal"
+    }));
     _$effect(_p$ => {
-      var _v$17 = theme().text,
-        _v$18 = theme().textMuted,
-        _v$19 = theme().textMuted,
-        _v$20 = theme().success || "#10b981";
-      _v$17 !== _p$.e && (_p$.e = _$setProp(_el$51, "fg", _v$17, _p$.e));
-      _v$18 !== _p$.t && (_p$.t = _$setProp(_el$54, "fg", _v$18, _p$.t));
-      _v$19 !== _p$.a && (_p$.a = _$setProp(_el$63, "fg", _v$19, _p$.a));
-      _v$20 !== _p$.o && (_p$.o = _$setProp(_el$65, "fg", _v$20, _p$.o));
+      var _v$21 = theme().text,
+        _v$22 = theme().textMuted,
+        _v$23 = theme().textMuted;
+      _v$21 !== _p$.e && (_p$.e = _$setProp(_el$80, "fg", _v$21, _p$.e));
+      _v$22 !== _p$.t && (_p$.t = _$setProp(_el$83, "fg", _v$22, _p$.t));
+      _v$23 !== _p$.a && (_p$.a = _$setProp(_el$100, "fg", _v$23, _p$.a));
       return _p$;
     }, {
       e: undefined,
       t: undefined,
-      a: undefined,
-      o: undefined
+      a: undefined
     });
-    return _el$49;
+    return _el$78;
   })();
 }
-export const tui = async (api, options = {}) => {
-  if (!api) return;
+
+/**
+ * OpenCode TUI surface plugin entrypoint.
+ */
+export const tui = async function tui(api, options, meta) {
   const directory = options?.directory || process.cwd();
   const {
     config
@@ -630,26 +1016,60 @@ export const tui = async (api, options = {}) => {
     if (nextSessionID) currentSessionID = nextSessionID;
   });
 
-  // 1. Register TUI slash command palette layer (/memory and /plan review) based on enabled configs
+  // 1. Register TUI command palette layer based on enabled configs
   if (api.keymap?.registerLayer) {
     const commands = [];
     if (config?.memory?.enabled !== false) {
+      // 1a. Inspect All Memory
       commands.push({
         namespace: "palette",
         name: "oh-my-hook.memory",
-        title: "Memory Inspector",
-        desc: "Tampilkan popup modal memory rules",
+        title: "Memory: All",
+        desc: "Semua memory aktif",
         category: "oh-my-hook",
-        slashName: "memory",
-        run() {
+        run(input) {
           if (api.ui?.dialog?.replace) {
             api.ui.dialog.replace(() => _$createComponent(MemoryModal, {
               api: api,
-              directory: directory
+              directory: directory,
+              scope: "all"
             }));
-            if (api.ui.dialog.setSize) {
-              api.ui.dialog.setSize("large");
-            }
+          }
+        }
+      });
+
+      // 1b. Inspect Global Memory (Add / Edit / Delete)
+      commands.push({
+        namespace: "palette",
+        name: "oh-my-hook.memory.global",
+        title: "Memory: Global",
+        desc: "Global memory",
+        category: "oh-my-hook",
+        run(input) {
+          if (api.ui?.dialog?.replace) {
+            api.ui.dialog.replace(() => _$createComponent(MemoryModal, {
+              api: api,
+              directory: directory,
+              scope: "global"
+            }));
+          }
+        }
+      });
+
+      // 1c. Inspect Project Rules (Add / Edit / Delete)
+      commands.push({
+        namespace: "palette",
+        name: "oh-my-hook.memory.project",
+        title: "Memory: Project",
+        desc: "Project memory",
+        category: "oh-my-hook",
+        run(input) {
+          if (api.ui?.dialog?.replace) {
+            api.ui.dialog.replace(() => _$createComponent(MemoryModal, {
+              api: api,
+              directory: directory,
+              scope: "project"
+            }));
           }
         }
       });
@@ -697,14 +1117,14 @@ export const tui = async (api, options = {}) => {
         session_prompt_right(_ctx, props) {
           return _$createComponent(ModeBadge, {
             api: api,
-            sessionID: () => props?.session_id || currentSessionID || resolveActiveSessionID(api) || ""
+            sessionID: () => props?.session_id || currentSessionID
           });
         },
         sidebar_content(_ctx, props) {
           return _$createComponent(SidebarWidget, {
             api: api,
-            sessionID: () => props?.session_id || currentSessionID || resolveActiveSessionID(api) || "",
-            directory: directory
+            directory: directory,
+            sessionID: () => props?.session_id || currentSessionID
           });
         }
       }

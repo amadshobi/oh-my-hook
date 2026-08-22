@@ -272,13 +272,13 @@ Scans tool input arguments (`write`, `edit`, `patch`) against production regex s
 
 ---
 
-## 🧠 Curated Memory & Self-Learning Engine
+## 🧠 Curated Memory & Agent Tool
 
-`oh-my-hook` features a **hybrid continuous learning memory engine** (Reflexio-style architecture) that prevents prompt token bloat while automatically learning user preferences and project SOPs:
+`oh-my-hook` features a **pure Markdown-backed, self-curating memory engine** (Hermes-style architecture) with zero JSONL bloat and direct file storage:
 
 ```
 ~/.config/opencode/memory/
-├── MEMORY.md                          # Global cross-project memory (auto-selected when running in ~)
+├── MEMORY.md                          # Global cross-project memory (auto-selected in ~)
 └── projects/
     └── <project-slug>/
         └── MEMORY.md                  # Project-specific curated rules (auto-selected in workspace)
@@ -286,24 +286,34 @@ Scans tool input arguments (`write`, `edit`, `patch`) against production regex s
 
 ### Key Highlights:
 
-- **Zero Token Bloat (BM25 Matcher)**: Uses pure JS Okapi BM25 scoring (`memory/matcher.js`) to inject only relevant rules matching the current prompt turn into `experimental.chat.system.transform`.
-- **Heuristic Auto-Learning**: Detects user corrections and prohibitions in real-time, queuing them for background AI distillation.
-- **Self-Healing & Dedup**: Automatically merges similar rules and supersedes contradictory rules using Jaccard similarity.
-- **🖥️ Native TUI Modal Inspector**: Trigger `/memory` to view an interactive popup modal with tab filtering (`[Semua]`, `[Preferences]`, `[Project Skills]`) without polluting chat transcripts.
+- **100% Pure Markdown**: Human-readable, zero-overhead storage. Directly editable via any text editor without worrying about JSONL drift.
+- **Autonomous Agent Tool (`memory`)**: Exposes a native OpenCode tool with 4 actions:
+  - `add`: Saves a new memory bullet (guarded against credential leaks).
+  - `replace`: Updates existing memory via **substring matching** (`old_text`).
+  - `remove`: Deletes memory via substring matching.
+  - `list`: Inspects active memory bullets.
+- **Direct System Prompt Injection**: Automatically injects combined Global + Project Markdown directly into `experimental.chat.system.transform` and compaction context without loss.
+- **🖥️ Native TUI Modal Inspector**: Full keyboard-driven inspector using OpenCode's native `api.ui.DialogSelect` & `api.ui.DialogPrompt`:
+  - `Enter` $\rightarrow$ Edit / Replace text
+  - `Ctrl+A` $\rightarrow$ Add new memory
+  - `Ctrl+D` (2x) $\rightarrow$ Delete memory with red row confirmation
+  - `↓/↑ / j/k` $\rightarrow$ Scroll & fuzzy search
 
 ### Interactive Slash Commands:
 
-- `/remember <note>`: Append a curated bullet to current project/global memory.
-- `/memory`: Open native TUI popup dialog to browse active memory rules.
-- `/memory-forget <id>`: Retract an obsolete rule by ID.
-- `/memory-scan`: Immediately drain and process background distillation queue jobs.
-- `/capture [sessionID]`: Run an ephemeral headless AI distillation worker to summarize session lessons.
+- `/memory`: Display all active memory bullets in terminal.
+- `/memory global`: View global memory.
+- `/memory project`: View current project memory.
+- `/memory add <note>`: Append a note to project memory (`--global` for global).
+- `/memory replace A -> B`: Replace note matching `A` with `B`.
+- `/memory remove <text>`: Remove note matching `text`.
+- `/memory capture`: Run ephemeral AI distillation worker to summarize session lessons.
 
 ---
 
 ## 🧪 Testing & Development
 
-`oh-my-hook` includes **93 unit tests** and deterministic E2E hook pipeline test suites.
+`oh-my-hook` includes **89 unit tests** and deterministic E2E hook pipeline test suites.
 
 ```bash
 # Run unit tests

@@ -29,6 +29,37 @@ opencode.jsonc). `share/config.js` loads it with multifile support
 - Never hardcode a toggle in module logic — route it through config.
 - TUI surface is enabled by registering the package in both `~/.config/opencode/opencode.jsonc` and `~/.config/opencode/tui.jsonc`.
 
+## TUI & Slash Command Architecture
+
+OpenCode mendukung dua model eksekusi perintah deterministik tanpa memicu pemanggilan LLM:
+
+### 1. Mode Visual Modal Popup (`api.ui.dialog.replace` & `api.ui.DialogSelect`)
+
+- Didaftarkan di TUI frontend (`tui/src/index.tsx`) via `api.keymap.registerLayer({ commands: [...] })`.
+- **Gunakan Komponen Native `api.ui.DialogSelect` & `api.ui.DialogPrompt`**:
+  - `api.ui.DialogSelect`: Menyediakan navigasi keyboard native (`↓/↑`, `j/k`, `Enter`, `Esc`, `PageUp/Down`), live fuzzy search otomatis (`fuzzysort`), pengelompokan `category` tanpa bracket alay, dan toolbar `actions` di footer.
+  - `api.ui.DialogPrompt`: Input form popup untuk membuat/mengedit teks (pre-filled value, confirmation callback).
+- Gunakan `api.ui.dialog.replace(() => <Component />)` untuk render dan `api.ui.dialog.clear()` untuk menutup.
+
+### 2. Mode Terminal Transcript Output (`noReply: true` + `handled()`)
+
+- Didaftarkan di server hook via `cfg.command[name] = { template: "/name $ARGUMENTS", description: "..." }`.
+- Ditangani di hook `command.execute.before`:
+  1. Eksekusi logika deterministik (baca file, format markdown, query data).
+  2. Suntikkan output langsung ke session transcript menggunakan `client.session.prompt` dengan `{ noReply: true, parts: [{ type: "text", text, ignored: true }] }`.
+  3. **Wajib melempar `throw createHandledError()`** (dari `share/handled.js`) agar OpenCode langsung menghentikan pipeline prompt dan **TIDAK MENGIRIM PESAN KE LLM**.
+
+### 3. Aturan Autocomplete Anti-Collision (Mencegah Duplikasi Menu Slash)
+
+- Autocomplete OpenCode TUI (`autocomplete.tsx`) menggabungkan `slashes()` dari TUI keymap layer dan `sync.data.command` dari server catalog **secara mentah tanpa deduplikasi**.
+- **Aturan**: Jika suatu perintah didaftarkan di server catalog (`cfg.command.x`), **JANGAN** mendaftarkan `slashName: "x"` di TUI keymap layer agar tidak muncul dobel di popup autocomplete `/`.
+- Gunakan `slashName` di TUI keymap **HANYA** untuk perintah yang 100% eksklusif UI dialog tanpa server catalog.
+
+### 4. UI Slot Registration
+
+- `session_prompt_right`: Menyuntikkan badge status reaktif di sebelah kanan prompt input (contoh: Mode Badge `PLAN` / `EXEC`).
+- `sidebar_content`: Menyuntikkan panel widget reaktif ke sidebar OpenCode.
+
 ## Architecture rules
 
 - **One package, dual surfaces.** Root `package.json` declares `"oc-plugin": ["server", "tui"]` with `"exports"` pointing `.` and `./server` to `index.js` and `./tui` to `tui/dist/tui.js`.

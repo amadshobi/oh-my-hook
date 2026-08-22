@@ -1,7 +1,14 @@
 /**
  * tui/src/index.tsx — OpenCode TUI Plugin for oh-my-hook.
  */
-import { createSignal, Show, For, onMount, onCleanup } from "solid-js";
+import {
+	createSignal,
+	Show,
+	For,
+	onMount,
+	onCleanup,
+	createMemo,
+} from "solid-js";
 import { watchModeState, currentMode } from "./lib/mode-watch.js";
 import {
 	getMetrics,
@@ -14,6 +21,15 @@ import {
 } from "./lib/session.js";
 import { loadConfig } from "../../share/config.js";
 import { formatReviewFeedback } from "../../plans/parser.js";
+import { currentPlan } from "../../share/state.js";
+import {
+	appendMemory,
+	replaceMemory,
+	removeMemory,
+	resolveTargetMemoryFile,
+	getGlobalFile,
+	listMemoryEntries,
+} from "../../memory/store.js";
 
 function ModeBadge(props: { api: any; sessionID: () => string }) {
 	const [modeState, setModeState] = createSignal({});
@@ -29,7 +45,7 @@ function ModeBadge(props: { api: any; sessionID: () => string }) {
 	return (
 		<Show when={isPlan()}>
 			<box flexDirection="row">
-				<text fg={warningColor()}>🔒 [plan mode]</text>
+				<text fg={warningColor()}>PLAN MODE</text>
 			</box>
 		</Show>
 	);
@@ -50,45 +66,144 @@ function SidebarWidget(props: {
 	});
 
 	const theme = () => props.api?.theme?.current || {};
+	const sessID = () => props.sessionID();
+	const activePlan = () =>
+		sessID() ? currentPlan(modeState(), sessID()) : null;
+
 	const mode = () =>
-		props.sessionID() ? currentMode(modeState(), props.sessionID()) : "execute";
+		sessID() ? currentMode(modeState(), sessID()) : "execute";
 	const isPlan = () => mode() === "plan";
-	const modeText = () => (isPlan() ? "🔒 Plan (Read-Only)" : "⚡ Execute");
-	const modeColor = () =>
-		isPlan() ? theme().warning || "#f59e0b" : theme().success || "#10b981";
+
+	// Status & Color Resolvers (No Emojis, Pure Color Coding)
+	const redColor = () => theme().error || "#ef4444";
+	const greenColor = () => theme().success || "#10b981";
+	const yellowColor = () => theme().warning || "#f59e0b";
+	const mutedColor = () => theme().textMuted || "#6b7280";
+	const textNormal = () => theme().text || "#f3f4f6";
+	const accentColor = () => theme().accent || "#8b5cf6";
+
+	const headerBadgeText = () => {
+		if (!metrics().modeEnabled) return "OFF";
+		return isPlan() ? "PLAN" : "EXEC";
+	};
+
+	const headerBadgeColor = () => {
+		if (!metrics().modeEnabled) return redColor();
+		return isPlan() ? yellowColor() : greenColor();
+	};
 
 	return (
-		<box flexDirection="column">
-			<box flexDirection="row" gap={1} onMouseDown={() => setOpen((x) => !x)}>
-				<text fg={theme().textMuted}>{open() ? "▼" : "▶"}</text>
-				<text fg={theme().text}>
-					<b>oh-my-hook</b>
-				</text>
+		<box flexDirection="column" gap={0}>
+			{/* Collapsible Header */}
+			<box
+				flexDirection="row"
+				justifyContent="space-between"
+				width="100%"
+				onMouseDown={() => setOpen((x) => !x)}
+			>
+				<box flexDirection="row" gap={1}>
+					<text fg={mutedColor()}>{open() ? "▼" : "▶"}</text>
+					<text fg={textNormal()}>
+						<b>oh-my-hook</b>
+					</text>
+				</box>
+				<text fg={headerBadgeColor()}>{headerBadgeText()}</text>
 			</box>
+
 			<Show when={open()}>
-				<box flexDirection="column" gap={0}>
+				<box flexDirection="column" gap={0} paddingLeft={1} paddingTop={0}>
+					{/* 1. Mode Status */}
 					<box flexDirection="row" gap={1}>
-						<text flexShrink={0} fg={modeColor()}>
-							•
-						</text>
-						<text fg={theme().textMuted}>
-							Mode: <span style={{ fg: modeColor() }}>{modeText()}</span>
+						<text fg={mutedColor()}>•</text>
+						<text fg={mutedColor()}>
+							Mode:{" "}
+							<Show
+								when={metrics().modeEnabled}
+								fallback={<span style={{ fg: redColor() }}>disabled</span>}
+							>
+								<span style={{ fg: isPlan() ? yellowColor() : greenColor() }}>
+									{isPlan() ? "plan (read-only)" : "execute"}
+								</span>
+							</Show>
 						</text>
 					</box>
+
+					{/* 1b. Active Plan details if in plan mode */}
+					<Show when={activePlan()?.file}>
+						<box
+							flexDirection="row"
+							gap={1}
+							paddingLeft={2}
+							onMouseDown={() => {
+								if (props.api.ui?.dialog?.replace) {
+									const sess = sessID() || "default";
+									props.api.ui.dialog.replace(() => (
+										<PlanReviewModal
+											api={props.api}
+											sessionID={sess}
+											directory={props.directory}
+										/>
+									));
+									if (props.api.ui.dialog.setSize) {
+										props.api.ui.dialog.setSize("large");
+									}
+								}
+							}}
+						>
+							<text fg={accentColor()}>↳</text>
+							<text fg={textNormal()} wrapMode="none">
+								<u>{activePlan()?.name || "active plan"}</u>
+							</text>
+						</box>
+					</Show>
+
+					{/* 2. Security Shields */}
 					<box flexDirection="row" gap={1}>
-						<text flexShrink={0} fg={theme().success || "#10b981"}>
-							•
-						</text>
-						<text fg={theme().textMuted}>
-							Guards: {metrics().guardsActive} Active
+						<text fg={mutedColor()}>•</text>
+						<text fg={mutedColor()}>
+							Shields:{" "}
+							<Show
+								when={metrics().sandboxEnabled}
+								fallback={<span style={{ fg: redColor() }}>disabled</span>}
+							>
+								<span style={{ fg: greenColor() }}>
+									{metrics().guardsActive} active
+								</span>
+							</Show>
 						</text>
 					</box>
-					<box flexDirection="row" gap={1}>
-						<text flexShrink={0} fg={theme().textMuted}>
-							•
-						</text>
-						<text fg={theme().textMuted}>
-							Memory: {metrics().memoryNotes} Rules
+
+					{/* 3. Curated Memory (Click to inspect all) */}
+					<box
+						flexDirection="row"
+						gap={1}
+						onMouseDown={() => {
+							if (props.api.ui?.dialog?.replace && metrics().memoryEnabled) {
+								props.api.ui.dialog.replace(() => (
+									<MemoryModal
+										api={props.api}
+										directory={props.directory}
+										scope="all"
+									/>
+								));
+								if (props.api.ui.dialog.setSize) {
+									props.api.ui.dialog.setSize("large");
+								}
+							}
+						}}
+					>
+						<text fg={mutedColor()}>•</text>
+						<text fg={mutedColor()}>
+							Memory:{" "}
+							<Show
+								when={metrics().memoryEnabled}
+								fallback={<span style={{ fg: redColor() }}>disabled</span>}
+							>
+								<span style={{ fg: textNormal() }}>
+									{metrics().memoryStats.global} global ·{" "}
+									{metrics().memoryStats.project} project
+								</span>
+							</Show>
 						</text>
 					</box>
 				</box>
@@ -98,199 +213,419 @@ function SidebarWidget(props: {
 }
 
 /**
- * OpenCode standard dialog popup for Memory Rules.
- * Matching native OpenCode / opencode-quota UI layout & styling.
+ * Native OpenCode DialogSelect & DialogPrompt based Memory Inspector.
+ * Supports 3 scoped views:
+ *   - "all": Inspect All Memory (Edit/Replace on Enter)
+ *   - "global": Inspect Global Memory (Add via Ctrl+N, Delete via Ctrl+D 2x, Edit on Enter)
+ *   - "project": Inspect Project Rules (Add via Ctrl+N, Delete via Ctrl+D 2x, Edit on Enter)
  */
-function MemoryModal(props: { api: any; directory: string }) {
-	const theme = () => props.api?.theme?.current || {};
-	const rules = () => getMemoryRules(props.directory);
-	const [tab, setTab] = createSignal<"all" | "preference" | "skill">("all");
+function MemoryModal(props: {
+	api: any;
+	directory: string;
+	scope?: "all" | "global" | "project";
+}) {
+	const currentScope = () => props.scope || "all";
+	const [refreshKey, setRefreshKey] = createSignal(0);
+	const [toDelete, setToDelete] = createSignal<string | null>(null);
+	const [currentSelected, setCurrentSelected] = createSignal<any>(null);
 
-	const filtered = () => {
-		const list = rules();
-		const currentTab = tab();
-		if (currentTab === "global")
-			return list.filter((r: any) => r.scope === "global");
-		if (currentTab === "project")
-			return list.filter((r: any) => r.scope === "project");
-		return list;
+	const entries = createMemo(() => {
+		refreshKey(); // reactive dependency
+		const all = listMemoryEntries(props.directory);
+		if (currentScope() === "global")
+			return all.filter((e) => e.scope === "global");
+		if (currentScope() === "project")
+			return all.filter((e) => e.scope === "project");
+		return all;
+	});
+
+	const projectName = () => props.directory.split("/").pop() || "project";
+
+	const modalTitle = () => {
+		if (currentScope() === "global") return "Global Memory";
+		if (currentScope() === "project") return "Project Memory";
+		return "Memory Inspector";
 	};
 
-	const getTagColor = (scope: string) => {
-		if (scope === "global") return theme().accent || "#8b5cf6";
-		return theme().success || "#10b981";
-	};
-
-	return (
-		<box
-			gap={1}
-			width="100%"
-			flexGrow={1}
-			paddingLeft={2}
-			paddingRight={2}
-			paddingBottom={1}
-		>
-			<box flexDirection="row" justifyContent="space-between" width="100%">
-				<text fg={theme().text}>
-					<b>🧠 OpenCode Memory Inspector</b>
-				</text>
-				<text fg={theme().textMuted}>
-					{rules().length} memory bullet{rules().length === 1 ? "" : "s"}
-				</text>
-			</box>
-
-			{/* Tabs */}
-			<box flexDirection="row" gap={2}>
-				<text
-					fg={tab() === "all" ? theme().accent || "#8b5cf6" : theme().textMuted}
-					onMouseDown={() => setTab("all")}
-				>
-					{tab() === "all" ? "● [Semua]" : "○ Semua"}
-				</text>
-				<text
-					fg={
-						tab() === "global" ? theme().accent || "#8b5cf6" : theme().textMuted
-					}
-					onMouseDown={() => setTab("global")}
-				>
-					{tab() === "global" ? "● [Global]" : "○ Global"}
-				</text>
-				<text
-					fg={
-						tab() === "project"
-							? theme().accent || "#8b5cf6"
-							: theme().textMuted
-					}
-					onMouseDown={() => setTab("project")}
-				>
-					{tab() === "project" ? "● [Project]" : "○ Project"}
-				</text>
-			</box>
-
-			<scrollbox width="100%" flexGrow={1} minHeight={8} maxHeight={28}>
-				<box flexDirection="column" gap={1} width="100%" minWidth={0}>
-					<Show
-						when={filtered().length > 0}
-						fallback={
-							<text fg={theme().textMuted} wrapMode="word">
-								(Belum ada memory tersimpan. Gunakan /remember atau tool memory
-								untuk mencatat)
-							</text>
+	const showEdit = (item: any) => {
+		if (!props.api.ui?.DialogPrompt) return;
+		props.api.ui.dialog.replace(() => (
+			<props.api.ui.DialogPrompt
+				title={`Edit Memory (${item.scope})`}
+				value={item.content}
+				onConfirm={(newText: string) => {
+					const trimmed = (newText || "").trim();
+					if (trimmed && trimmed !== item.content) {
+						replaceMemory(item.file, item.content, trimmed);
+						setRefreshKey((k) => k + 1);
+						if (props.api.ui?.toast) {
+							props.api.ui.toast({
+								variant: "success",
+								message: "Memory updated",
+							});
 						}
-					>
-						<For each={filtered()}>
-							{(r: any) => (
-								<box
-									flexDirection="row"
-									gap={1}
-									borderStyle="single"
-									borderColor={theme().border || "#374151"}
-									paddingLeft={1}
-									paddingRight={1}
-								>
-									<text fg={getTagColor(r.scope)}>• [{r.scope}]</text>
-									<text fg={theme().text} wrapMode="word">
-										{r.content}
-									</text>
-								</box>
-							)}
-						</For>
-					</Show>
+					}
+					props.api.ui.dialog.replace(() => (
+						<MemoryModal
+							api={props.api}
+							directory={props.directory}
+							scope={props.scope}
+						/>
+					));
+				}}
+				onCancel={() => {
+					props.api.ui.dialog.replace(() => (
+						<MemoryModal
+							api={props.api}
+							directory={props.directory}
+							scope={props.scope}
+						/>
+					));
+				}}
+			/>
+		));
+	};
+
+	const showAdd = (targetScope: "project" | "global" = "project") => {
+		if (!props.api.ui?.DialogPrompt) return;
+		props.api.ui.dialog.replace(() => (
+			<props.api.ui.DialogPrompt
+				title={`Tambah Memory (${targetScope === "global" ? "Global" : "Project"})`}
+				placeholder="Ketik catatan memory baru..."
+				description={() => (
+					<text fg={props.api.theme?.current?.textMuted}>
+						{targetScope === "global"
+							? "Disimpan ke global memory"
+							: "Disimpan ke project memory"}
+					</text>
+				)}
+				onConfirm={(text: string) => {
+					const trimmed = (text || "").trim();
+					if (trimmed) {
+						const targetFile =
+							targetScope === "global"
+								? getGlobalFile()
+								: resolveTargetMemoryFile(props.directory);
+						appendMemory(targetFile, trimmed);
+						setRefreshKey((k) => k + 1);
+						if (props.api.ui?.toast) {
+							props.api.ui.toast({
+								variant: "success",
+								message: `Memory added (${targetScope})`,
+							});
+						}
+					}
+					props.api.ui.dialog.replace(() => (
+						<MemoryModal
+							api={props.api}
+							directory={props.directory}
+							scope={props.scope}
+						/>
+					));
+				}}
+				onCancel={() => {
+					props.api.ui.dialog.replace(() => (
+						<MemoryModal
+							api={props.api}
+							directory={props.directory}
+							scope={props.scope}
+						/>
+					));
+				}}
+			/>
+		));
+	};
+
+	const handleDelete = (item: any) => {
+		if (!item?.file || !item?.content) return;
+
+		// Double-trigger delete confirmation pattern (ala OpenCode session delete)
+		if (toDelete() === item.content) {
+			removeMemory(item.file, item.content);
+			setToDelete(null);
+			setRefreshKey((k) => k + 1);
+			if (props.api.ui?.toast) {
+				props.api.ui.toast({
+					variant: "success",
+					message: "Memory deleted",
+				});
+			}
+		} else {
+			setToDelete(item.content);
+		}
+	};
+
+	// Register modal-specific keybindings (Ctrl+A for add, Ctrl+D for delete)
+	onMount(() => {
+		if (props.api.keymap?.registerLayer) {
+			const unregister = props.api.keymap.registerLayer({
+				commands: [
+					{
+						name: "omh.memory.modal.new",
+						title: "Tambah memory (Ctrl+A)",
+						run() {
+							const sc = currentScope();
+							showAdd(sc === "global" ? "global" : "project");
+						},
+					},
+					{
+						name: "omh.memory.modal.delete",
+						title: "Hapus memory (Ctrl+D)",
+						run() {
+							const item = currentSelected() || entries()[0];
+							if (item) {
+								handleDelete(item);
+							}
+						},
+					},
+				],
+				bindings: [
+					{ key: "ctrl+a", cmd: "omh.memory.modal.new" },
+					{ key: "ctrl+d", cmd: "omh.memory.modal.delete" },
+				],
+			});
+			onCleanup(unregister);
+		}
+	});
+
+	const options = createMemo(() => {
+		const theme = props.api.theme?.current || {};
+		return entries().map((e) => {
+			const isDeleting = toDelete() === e.content;
+			return {
+				title: isDeleting
+					? "Yakin mau hapus? Tekan Ctrl+D lagi untuk konfirmasi"
+					: e.content,
+				value: e,
+				bg: isDeleting ? theme.error || "#ef4444" : undefined,
+				category:
+					currentScope() === "all"
+						? e.scope === "global"
+							? "GLOBAL MEMORY"
+							: "PROJECT MEMORY"
+						: undefined,
+				footer: isDeleting ? "Tekan Ctrl+D lagi" : undefined,
+			};
+		});
+	});
+
+	if (props.api.ui?.DialogSelect) {
+		return (
+			<box
+				flexDirection="column"
+				width="100%"
+				flexGrow={1}
+				justifyContent="space-between"
+			>
+				<props.api.ui.DialogSelect
+					title={modalTitle()}
+					placeholder={
+						currentScope() === "global"
+							? "Cari global memory..."
+							: currentScope() === "project"
+								? "Cari aturan project..."
+								: "Cari memory..."
+					}
+					options={options()}
+					onMove={(opt: any) => {
+						setToDelete(null); // Reset delete confirmation on cursor movement
+						setCurrentSelected(opt?.value || opt);
+					}}
+					onSelect={(opt: any) => {
+						const item = opt?.value || opt;
+						if (item) {
+							showEdit(item);
+						}
+					}}
+				/>
+				{/* Native OpenCode Footer Action Bar */}
+				<box
+					flexDirection="row"
+					justifyContent="space-between"
+					width="100%"
+					paddingLeft={4}
+					paddingRight={2}
+					paddingBottom={1}
+					paddingTop={0}
+					flexShrink={0}
+				>
+					<box flexDirection="row" gap={3}>
+						<text>
+							<span style={{ fg: props.api.theme?.current?.text }}>edit</span>{" "}
+							<span style={{ fg: props.api.theme?.current?.textMuted }}>
+								enter
+							</span>
+						</text>
+						<Show when={currentScope() !== "all"}>
+							<text>
+								<span style={{ fg: props.api.theme?.current?.text }}>new</span>{" "}
+								<span style={{ fg: props.api.theme?.current?.textMuted }}>
+									ctrl+a
+								</span>
+							</text>
+							<text>
+								<span style={{ fg: props.api.theme?.current?.text }}>
+									delete
+								</span>{" "}
+								<span style={{ fg: props.api.theme?.current?.textMuted }}>
+									ctrl+d
+								</span>
+							</text>
+						</Show>
+					</box>
+					<text fg={props.api.theme?.current?.textMuted}>
+						{entries().length} note{entries().length === 1 ? "" : "s"}
+					</text>
 				</box>
-			</scrollbox>
-			<text fg={theme().textMuted}>esc closes</text>
+			</box>
+		);
+	}
+
+	// Fallback simple view
+	return (
+		<box gap={1} paddingLeft={2} paddingRight={2}>
+			<text fg={props.api.theme?.current?.text}>
+				<b>{modalTitle()}</b>
+			</text>
+			<For each={entries()}>
+				{(e) => (
+					<text fg={props.api.theme?.current?.textMuted}>
+						• {e.content} ({e.scope})
+					</text>
+				)}
+			</For>
 		</box>
 	);
 }
-
 /**
- * OpenCode standard dialog popup for Interactive Line-Level Plan Review.
+ * Interactive Plan Review Modal Component for OpenCode TUI.
  */
 function PlanReviewModal(props: {
 	api: any;
 	sessionID: string;
 	directory: string;
-	onClose?: () => void;
 }) {
 	const theme = () => props.api?.theme?.current || {};
-	const plan = () => getPlanReviewData(props.sessionID, props.directory);
-	const lines = () => plan().lines;
+	const planData = () => getPlanReviewData(props.sessionID, props.directory);
 
-	const [selectedIdx, setSelectedIdx] = createSignal<number | null>(null);
-	const [editingIdx, setEditingIdx] = createSignal<number | null>(null);
-	const [commentInput, setCommentInput] = createSignal<string>("");
-	const [comments, setComments] = createSignal<Record<number, string>>({});
+	const [selectedIndex, setSelectedIndex] = createSignal<number>(-1);
+	const [commentMode, setCommentMode] = createSignal(false);
+	const [commentDraft, setCommentDraft] = createSignal("");
+	const [comments, setComments] = createSignal<
+		Record<number, { text: string; raw: string }>
+	>({});
 
-	const activeCommentsList = () => {
-		const res: Array<{ line: number; lineText: string; comment: string }> = [];
-		const rawMap = comments();
-		for (const [lineStr, text] of Object.entries(rawMap)) {
-			const lineNum = parseInt(lineStr, 10);
-			const lineObj = lines().find((l: any) => l.index === lineNum);
-			if (text && text.trim()) {
-				res.push({
-					line: lineNum,
-					lineText: lineObj?.raw || "",
-					comment: text.trim(),
-				});
+	const lines = () => planData().lines;
+	const selectedLine = () =>
+		selectedIndex() >= 0 && selectedIndex() < lines().length
+			? lines()[selectedIndex()]
+			: null;
+
+	const handleKeyDown = (e: any) => {
+		const key = e.name || e.key;
+
+		if (commentMode()) {
+			if (key === "escape") {
+				setCommentMode(false);
+				setCommentDraft("");
+				e.preventDefault?.();
+				return;
 			}
+			if (key === "return" && (e.ctrl || e.meta)) {
+				const idx = selectedIndex();
+				const draft = commentDraft().trim();
+				if (idx >= 0 && draft) {
+					const line = lines()[idx];
+					setComments((prev) => ({
+						...prev,
+						[idx]: { text: draft, raw: line?.raw || "" },
+					}));
+				}
+				setCommentMode(false);
+				setCommentDraft("");
+				e.preventDefault?.();
+				return;
+			}
+			return;
 		}
-		return res;
-	};
 
-	// Save comment for current editing line
-	const saveCurrentComment = () => {
-		const idx = editingIdx();
-		if (idx === null) return;
-		const lineObj = lines()[idx];
-		if (!lineObj) return;
-
-		const lineNum = lineObj.index;
-		const text = commentInput().trim();
-		const next = { ...comments() };
-		if (text) {
-			next[lineNum] = text;
-		} else {
-			delete next[lineNum];
+		if (key === "escape") {
+			if (props.api.ui?.dialog?.clear) {
+				props.api.ui.dialog.clear();
+			}
+			e.preventDefault?.();
+			return;
 		}
-		setComments(next);
-		setEditingIdx(null);
-	};
 
-	const submitReview = async (approved: boolean = true) => {
-		const formatted = formatReviewFeedback({
-			planName: plan().planName,
-			planFile: plan().planFile,
-			comments: activeCommentsList(),
-			approved,
-		});
+		if (key === "down" || key === "j") {
+			setSelectedIndex((prev) => Math.min(lines().length - 1, prev + 1));
+			e.preventDefault?.();
+			return;
+		}
 
-		try {
-			if (props.api?.client?.session?.prompt) {
-				await props.api.client.session.prompt({
+		if (key === "up" || key === "k") {
+			setSelectedIndex((prev) => Math.max(0, prev - 1));
+			e.preventDefault?.();
+			return;
+		}
+
+		if (key === "return") {
+			if (selectedIndex() >= 0) {
+				setCommentMode(true);
+				const existing = comments()[selectedIndex()];
+				setCommentDraft(existing ? existing.text : "");
+				e.preventDefault?.();
+			}
+			return;
+		}
+
+		if (key === "a" && (e.ctrl || e.meta)) {
+			const feedback = formatReviewFeedback(
+				planData().planName,
+				comments(),
+				true,
+			);
+			if (props.api.session?.prompt) {
+				props.api.session.prompt({
 					sessionID: props.sessionID,
-					parts: [{ type: "text", text: formatted }],
+					text: feedback,
 				});
 			}
-		} catch {}
-
-		if (props.onClose) {
-			props.onClose();
-		} else if (props.api?.ui?.dialog?.close) {
-			props.api.ui.dialog.close();
+			if (props.api.ui?.dialog?.clear) {
+				props.api.ui.dialog.clear();
+			}
+			if (props.api.ui?.toast) {
+				props.api.ui.toast({
+					variant: "success",
+					message: "Plan approved with comments",
+				});
+			}
+			e.preventDefault?.();
+			return;
 		}
 	};
 
-	// Dynamic Navigation Hint Footer
-	const navHint = () => {
-		if (editingIdx() !== null) {
-			return "⌨️ [Enter] Simpan Koreksi • [Ctrl+A] Approve & Kirim • [Esc] Batal Komentar";
+	onMount(() => {
+		if (props.api.terminal?.onKeyDown) {
+			const unbind = props.api.terminal.onKeyDown(handleKeyDown);
+			onCleanup(unbind);
 		}
-		if (selectedIdx() !== null) {
-			return "⌨️ [↑/↓] Pindah Baris • [Enter] Bantah/Luruskan Baris Ini • [Ctrl+A] Approve Plan • [Esc] Batal Sorot";
+	});
+
+	const getLineTypeColor = (type: string) => {
+		switch (type) {
+			case "heading":
+				return theme().accent || "#8b5cf6";
+			case "list":
+				return theme().warning || "#f59e0b";
+			case "code":
+				return theme().textMuted || "#6b7280";
+			default:
+				return theme().text || "#f3f4f6";
 		}
-		return "⌨️ [↓] Mulai Sorot Baris • [Scroll] Baca • [Ctrl+A] Approve Plan • [Esc] Tutup";
 	};
+
+	const commentCount = () => Object.keys(comments()).length;
 
 	return (
 		<box
@@ -303,35 +638,28 @@ function PlanReviewModal(props: {
 		>
 			<box flexDirection="row" justifyContent="space-between" width="100%">
 				<text fg={theme().text}>
-					<b>📋 Plan Line Reviewer: {plan().planName}</b>
+					<b>Interactive Plan Reviewer</b>
 				</text>
 				<text fg={theme().textMuted}>
-					{lines().length} baris • {activeCommentsList().length} koreksi
+					{planData().planName} · {lines().length} lines · {commentCount()}{" "}
+					comment{commentCount() === 1 ? "" : "s"}
 				</text>
 			</box>
 
-			<Show when={plan().planFile}>
-				<text fg={theme().textMuted} wrapMode="word">
-					File: <i>{plan().planFile}</i>
-				</text>
-			</Show>
-
-			<scrollbox width="100%" flexGrow={1} minHeight={12} maxHeight={30}>
+			<scrollbox width="100%" flexGrow={1} minHeight={12} maxHeight={28}>
 				<box flexDirection="column" gap={0} width="100%" minWidth={0}>
 					<Show
 						when={lines().length > 0}
 						fallback={
-							<text fg={theme().textMuted} wrapMode="word">
-								(Dokumen rencana belum memiliki isi teks. Gunakan /plan to-file
-								&lt;nama&gt; terlebih dahulu)
+							<text fg={theme().textMuted}>
+								(Dokumen rencana kosong atau belum dimuat)
 							</text>
 						}
 					>
 						<For each={lines()}>
 							{(line: any, idx) => {
-								const isSelected = () => selectedIdx() === idx();
-								const isEditing = () => editingIdx() === idx();
-								const hasComment = () => Boolean(comments()[line.index]);
+								const isSelected = () => selectedIndex() === idx();
+								const hasComment = () => Boolean(comments()[idx()]);
 
 								return (
 									<box
@@ -339,73 +667,35 @@ function PlanReviewModal(props: {
 										gap={0}
 										paddingLeft={1}
 										paddingRight={1}
+										backgroundColor={
+											isSelected() ? theme().bgSelected || "#1e293b" : undefined
+										}
 										borderStyle={isSelected() ? "single" : undefined}
 										borderColor={
 											isSelected() ? theme().accent || "#8b5cf6" : undefined
 										}
 									>
-										<box
-											flexDirection="row"
-											gap={1}
-											onMouseDown={() => {
-												setSelectedIdx(idx());
-											}}
-										>
+										<box flexDirection="row" gap={1}>
 											<text
-												flexShrink={0}
-												fg={
-													isSelected()
-														? theme().accent || "#8b5cf6"
-														: theme().textMuted
-												}
+												fg={isSelected() ? theme().text : theme().textMuted}
 											>
 												{String(line.index).padStart(3, " ")} |
 											</text>
 											<text
-												fg={
-													isSelected()
-														? theme().text
-														: line.type === "heading"
-															? theme().accent || "#8b5cf6"
-															: line.type === "checkbox" ||
-																	line.type === "bullet"
-																? theme().warning || "#f59e0b"
-																: theme().textMuted
-												}
+												fg={getLineTypeColor(line.type)}
 												wrapMode="word"
+												flexGrow={1}
 											>
-												{line.type === "heading" ? <b>{line.raw}</b> : line.raw}
+												{line.raw}
 											</text>
+											<Show when={hasComment()}>
+												<text fg={theme().warning || "#f59e0b"}>[comment]</text>
+											</Show>
 										</box>
-
-										{/* Inline comment display */}
-										<Show when={hasComment() && !isEditing()}>
-											<box
-												flexDirection="row"
-												gap={1}
-												paddingLeft={6}
-												paddingBottom={0}
-											>
-												<text fg={theme().warning || "#f59e0b"}>
-													↳ 💬 Koreksi: <b>{comments()[line.index]}</b>
-												</text>
-											</box>
-										</Show>
-
-										{/* Inline editor box */}
-										<Show when={isEditing()}>
-											<box
-												flexDirection="column"
-												gap={0}
-												paddingLeft={6}
-												borderStyle="single"
-												borderColor={theme().warning || "#f59e0b"}
-											>
-												<text fg={theme().warning || "#f59e0b"}>
-													💬 Masukkan arahan / koreksi untuk baris ini:
-												</text>
-												<text fg={theme().text}>
-													{commentInput() || "<i>(Ketik koreksi...)</i>"}
+										<Show when={hasComment()}>
+											<box paddingLeft={6} paddingTop={0} paddingBottom={0}>
+												<text fg={theme().warning || "#f59e0b"} wrapMode="word">
+													<i>↳ {comments()[idx()]?.text}</i>
 												</text>
 											</box>
 										</Show>
@@ -417,57 +707,103 @@ function PlanReviewModal(props: {
 				</box>
 			</scrollbox>
 
-			<box
-				flexDirection="row"
-				justifyContent="space-between"
-				width="100%"
-				paddingTop={1}
-			>
-				<text fg={theme().textMuted}>{navHint()}</text>
-				<box flexDirection="row" gap={2}>
-					<text
-						fg={theme().success || "#10b981"}
-						onMouseDown={() => submitReview(true)}
-					>
-						[✔ Approve & Submit]
+			<Show when={commentMode()}>
+				<box
+					flexDirection="column"
+					gap={0}
+					borderStyle="single"
+					borderColor={theme().warning || "#f59e0b"}
+					paddingLeft={1}
+					paddingRight={1}
+				>
+					<text fg={theme().warning || "#f59e0b"}>
+						<b>Tulis Komentar untuk Baris #{selectedLine()?.index}:</b>
+					</text>
+					<text fg={theme().textMuted}>"{selectedLine()?.raw}"</text>
+					<text fg={theme().text}>
+						{commentDraft() || "(ketik komentar...)"}
 					</text>
 				</box>
+			</Show>
+
+			<box flexDirection="row" justifyContent="space-between" width="100%">
+				<text fg={theme().textMuted}>
+					<Show
+						when={commentMode()}
+						fallback={
+							"↓/↑ pilih baris · enter komentar · ctrl+a approve · esc tutup"
+						}
+					>
+						ctrl+enter simpan · esc batal
+					</Show>
+				</text>
 			</box>
 		</box>
 	);
 }
 
-export const tui = async (api: any, options: any = {}) => {
-	if (!api) return;
-
+/**
+ * OpenCode TUI surface plugin entrypoint.
+ */
+export const tui = async function tui(api: any, options: any, meta: any) {
 	const directory = options?.directory || process.cwd();
 	const { config } = loadConfig();
+
 	let currentSessionID = resolveActiveSessionID(api) || "";
 
 	const unsubSession = createSessionSubscriber(api, (nextSessionID) => {
 		if (nextSessionID) currentSessionID = nextSessionID;
 	});
 
-	// 1. Register TUI slash command palette layer (/memory and /plan review) based on enabled configs
+	// 1. Register TUI command palette layer based on enabled configs
 	if (api.keymap?.registerLayer) {
 		const commands: any[] = [];
 
 		if (config?.memory?.enabled !== false) {
+			// 1a. Inspect All Memory
 			commands.push({
 				namespace: "palette",
 				name: "oh-my-hook.memory",
-				title: "Memory Inspector",
-				desc: "Tampilkan popup modal memory rules",
+				title: "Memory: All",
+				desc: "Semua memory aktif",
 				category: "oh-my-hook",
-				slashName: "memory",
-				run() {
+				run(input?: any) {
 					if (api.ui?.dialog?.replace) {
 						api.ui.dialog.replace(() => (
-							<MemoryModal api={api} directory={directory} />
+							<MemoryModal api={api} directory={directory} scope="all" />
 						));
-						if (api.ui.dialog.setSize) {
-							api.ui.dialog.setSize("large");
-						}
+					}
+				},
+			});
+
+			// 1b. Inspect Global Memory (Add / Edit / Delete)
+			commands.push({
+				namespace: "palette",
+				name: "oh-my-hook.memory.global",
+				title: "Memory: Global",
+				desc: "Global memory",
+				category: "oh-my-hook",
+				run(input?: any) {
+					if (api.ui?.dialog?.replace) {
+						api.ui.dialog.replace(() => (
+							<MemoryModal api={api} directory={directory} scope="global" />
+						));
+					}
+				},
+			});
+
+			// 1c. Inspect Project Rules (Add / Edit / Delete)
+			commands.push({
+				namespace: "palette",
+				name: "oh-my-hook.memory.project",
+				title: "Memory: Project",
+				desc: "Project memory",
+				category: "oh-my-hook",
+				run(input?: any) {
+					if (api.ui?.dialog?.replace) {
+						api.ui.dialog.replace(() => (
+							<MemoryModal api={api} directory={directory} scope="project" />
+						));
 					}
 				},
 			});
@@ -522,12 +858,7 @@ export const tui = async (api: any, options: any = {}) => {
 					return (
 						<ModeBadge
 							api={api}
-							sessionID={() =>
-								props?.session_id ||
-								currentSessionID ||
-								resolveActiveSessionID(api) ||
-								""
-							}
+							sessionID={() => props?.session_id || currentSessionID}
 						/>
 					);
 				},
@@ -535,13 +866,8 @@ export const tui = async (api: any, options: any = {}) => {
 					return (
 						<SidebarWidget
 							api={api}
-							sessionID={() =>
-								props?.session_id ||
-								currentSessionID ||
-								resolveActiveSessionID(api) ||
-								""
-							}
 							directory={directory}
+							sessionID={() => props?.session_id || currentSessionID}
 						/>
 					);
 				},

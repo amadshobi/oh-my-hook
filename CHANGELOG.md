@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **🧠 Pure Markdown Memory Engine & Native Agent Tool (`memory/`)**:
+  - Re-architected memory storage to 100% human-readable Markdown stores (`~/.config/opencode/memory/MEMORY.md` for Global and `projects/<slug>/MEMORY.md` for Project rules).
+  - Pushed over 1,000 lines of complex boilerplates (JSONL schemas, BM25 indexing, queue workers) out of the critical path.
+  - **Native OpenCode Agent Tool (`memory`)**: Exposes an autonomous 4-action tool (`add`, `replace`, `remove`, `list`) with Hermes-style substring matching (`old_text`) and secret scanner protection.
+  - **Unified `/memory` Slash Command**: Single deterministic command entrypoint with `noReply: true` + `createHandledError()` output delivery (0 token LLM).
+- **🖥️ Native OpenCode TUI Dialog Integration (`tui/`)**:
+  - Replaced custom scrollboxes with native OpenCode `api.ui.DialogSelect` and `api.ui.DialogPrompt` components for instant keyboard navigation (`↓/↑`, `j/k`, `Enter`, `Esc`, `PageUp/Down`) and live fuzzy search (`fuzzysort`).
+  - **3 Dedicated Scoped Modals**:
+    - `Memory: All` (Read & Replace/Edit on `Enter`).
+    - `Memory: Global` (Add via `Ctrl+A`, Delete via `Ctrl+D` 2x, Edit on `Enter`).
+    - `Memory: Project` (Add via `Ctrl+A`, Delete via `Ctrl+D` 2x, Edit on `Enter`).
+  - **Double-Trigger Delete Confirmation**: 1st press of `Ctrl+D` highlights row with red warning background (`theme.error`); 2nd press executes deletion. Moving cursor resets confirmation.
+  - **Native Clean Footer**: Typography-driven action bar (`edit enter   new ctrl+a   delete ctrl+d`) matching `/session` and `/models` styling without bracket clutter.
+  - **Streamlined Sidebar**: Focused 3-item monitor (`Mode`, `Shields`, `Memory`) with red color coding for disabled states.
+- **📚 Architectural Standard in `AGENTS.md`**:
+  - Added dedicated `## TUI & Slash Command Architecture` documenting dual execution models (Visual Modal vs Deterministic Transcript) and the autocomplete anti-collision rule.
+
 ## [0.4.0] - 2026-08-22
 
 ### Added

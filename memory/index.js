@@ -30,6 +30,7 @@ import {
 	rememberSessionAgent,
 } from "../share/agent.js";
 import { createNotifier } from "../share/notify.js";
+import { createHandledError, deliverCommandOutput } from "../share/handled.js";
 import { createMemoryTool } from "./tool.js";
 
 /** Get the latest OpenCode session ID (from `opencode session list`). */
@@ -123,15 +124,20 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 				}
 			: {}),
 
-		// --- register unified slash command (/memory) ---
+		// --- register slash command in server catalog ---
 		config: async (input) => {
 			if (memCfg.enabled === false) return;
 			const cfg = input ?? {};
 			cfg.command ??= {};
 			cfg.command.memory = {
-				template: "/memory [all|global|project|add|replace|remove|capture]",
+				template: "/memory $ARGUMENTS",
 				description:
 					"Kelola memory: /memory (semua) | global | project | add <note> | replace <old> -> <new> | remove <text> | capture",
+			};
+			cfg.command.remember = {
+				template: "/remember <note>",
+				description:
+					"Simpan catatan memory (--global untuk global, default project)",
 			};
 		},
 
@@ -163,17 +169,28 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 			output.context.push(memoryText.trim());
 		},
 
-		// --- unified /memory slash command execution ---
+		// --- unified /memory & /remember execution without LLM prompt ---
 		"command.execute.before": async (input, output) => {
 			const cmd = input.command;
 			const rawArgs = (input.arguments ?? "").trim();
+			const sessionID = input.sessionID;
 
-			// Support legacy alias /remember for quick backward compatibility
+			async function respond(text, variant = "info") {
+				if (output) output.parts = [];
+				const delivered = await deliverCommandOutput(client, sessionID, text);
+				if (!delivered) {
+					await notify(text, variant);
+				}
+				throw createHandledError();
+			}
+
+			// Legacy alias /remember
 			if (cmd === "remember") {
 				if (!rawArgs) {
-					await notify("Usage: /memory add <note> atau /remember <note>");
-					if (output) output.parts = [];
-					return;
+					await respond(
+						"Usage: /remember <note> atau /memory add <note>",
+						"warn",
+					);
 				}
 				const isGlobal = rawArgs.startsWith("--global ");
 				const clean = rawArgs.replace(/^--global\s+/, "").trim();
@@ -182,9 +199,7 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 					: resolveTargetMemoryFile(directory);
 				appendMemory(file, clean);
 				const scopeName = isGlobal ? "global" : "project";
-				await notify(`Memory saved (${scopeName}): ${clean}`);
-				if (output) output.parts = [];
-				return;
+				await respond(`Memory saved (${scopeName}): ${clean}`);
 			}
 
 			if (cmd === "memory") {
@@ -195,9 +210,7 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 				// 1. /memory add [--global] <note>
 				if (sub === "add") {
 					if (!rest) {
-						await notify("Usage: /memory add [--global] <note>");
-						if (output) output.parts = [];
-						return;
+						await respond("Usage: /memory add [--global] <note>", "warn");
 					}
 					const isGlobal = rest.startsWith("--global ");
 					const clean = rest.replace(/^--global\s+/, "").trim();
@@ -206,29 +219,25 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 						: resolveTargetMemoryFile(directory);
 					appendMemory(file, clean);
 					const scopeName = isGlobal ? "global" : "project";
-					await notify(`Memory saved (${scopeName}): ${clean}`);
-					if (output) output.parts = [];
-					return;
+					await respond(`Memory saved (${scopeName}): ${clean}`);
 				}
 
 				// 2. /memory replace <old_text> -> <new_text>
 				if (sub === "replace") {
 					const delimIdx = rest.indexOf("->");
 					if (delimIdx === -1) {
-						await notify(
+						await respond(
 							"Usage: /memory replace <old_substring> -> <new_note>",
+							"warn",
 						);
-						if (output) output.parts = [];
-						return;
 					}
 					const oldText = rest.slice(0, delimIdx).trim();
 					const newText = rest.slice(delimIdx + 2).trim();
 					if (!oldText || !newText) {
-						await notify(
+						await respond(
 							"Usage: /memory replace <old_substring> -> <new_note>",
+							"warn",
 						);
-						if (output) output.parts = [];
-						return;
 					}
 
 					const entries = listMemoryEntries(directory);
@@ -236,46 +245,36 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 						e.content.toLowerCase().includes(oldText.toLowerCase()),
 					);
 					if (!match) {
-						await notify(
+						await respond(
 							`Memory mengandung "${oldText}" tidak ditemukan.`,
 							"warn",
 						);
-						if (output) output.parts = [];
-						return;
 					}
 
 					replaceMemory(match.file, match.content, newText);
-					await notify(
+					await respond(
 						`Memory updated (${match.scope}):\n  Old: ${match.content}\n  New: ${newText}`,
 					);
-					if (output) output.parts = [];
-					return;
 				}
 
 				// 3. /memory remove <substring> | /memory rm <substring>
 				if (sub === "remove" || sub === "rm" || sub === "delete") {
 					if (!rest) {
-						await notify("Usage: /memory remove <substring>");
-						if (output) output.parts = [];
-						return;
+						await respond("Usage: /memory remove <substring>", "warn");
 					}
 					const entries = listMemoryEntries(directory);
 					const match = entries.find((e) =>
 						e.content.toLowerCase().includes(rest.toLowerCase()),
 					);
 					if (!match) {
-						await notify(
+						await respond(
 							`Memory mengandung "${rest}" tidak ditemukan.`,
 							"warn",
 						);
-						if (output) output.parts = [];
-						return;
 					}
 
 					removeMemory(match.file, match.content);
-					await notify(`Memory removed (${match.scope}): ${match.content}`);
-					if (output) output.parts = [];
-					return;
+					await respond(`Memory removed (${match.scope}): ${match.content}`);
 				}
 
 				// 4. /memory global
@@ -284,14 +283,12 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 					const text = readMemory(globalFile).trim();
 					const bullets = parseBullets(text);
 					if (!text || bullets.length === 0) {
-						await notify("(Global memory kosong)");
+						await respond("(Global memory kosong)");
 					} else {
-						await notify(
+						await respond(
 							`🌍 Global Memory (${bullets.length} bullets):\n\n${text}`,
 						);
 					}
-					if (output) output.parts = [];
-					return;
 				}
 
 				// 5. /memory project [optional-path]
@@ -301,32 +298,28 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 					const text = readMemory(projFile).trim();
 					const bullets = parseBullets(text);
 					if (!text || bullets.length === 0) {
-						await notify(`(Project memory kosong untuk ${targetDir})`);
+						await respond(`(Project memory kosong untuk ${targetDir})`);
 					} else {
-						await notify(
+						await respond(
 							`🎯 Project Memory (${bullets.length} bullets):\n\n${text}`,
 						);
 					}
-					if (output) output.parts = [];
-					return;
 				}
 
 				// 6. /memory capture
 				if (sub === "capture") {
-					await notify("Running memory capture via AI…");
 					try {
-						const sessionID =
+						const sessID =
 							(rest.match(/^[a-z0-9_]+$/) ? rest : null) ?? latestSessionID();
-						if (!sessionID) {
-							await notify("Gak ada session OpenCode buat di-capture.", "warn");
-							if (output) output.parts = [];
-							return;
+						if (!sessID) {
+							await respond(
+								"Gak ada session OpenCode buat di-capture.",
+								"warn",
+							);
 						}
-						const transcript = getSessionTranscript(sessionID);
+						const transcript = getSessionTranscript(sessID);
 						if (!transcript) {
-							await notify("Transcript session kosong.", "warn");
-							if (output) output.parts = [];
-							return;
+							await respond("Transcript session kosong.", "warn");
 						}
 						const n = await distillToMemory(
 							transcript,
@@ -335,17 +328,15 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 							directory,
 						);
 						if (n === 0) {
-							await notify(
+							await respond(
 								"Capture selesai, tidak ada poin baru yang disimpan.",
 							);
 						} else {
-							await notify(`Memory capture: ${n} poin berhasil disimpan.`);
+							await respond(`Memory capture: ${n} poin berhasil disimpan.`);
 						}
 					} catch (e) {
-						await notify(`Capture gagal: ${e.message}`, "error");
+						await respond(`Capture gagal: ${e.message}`, "error");
 					}
-					if (output) output.parts = [];
-					return;
 				}
 
 				// 7. /memory all (atau default /memory tanpa argumen)
@@ -354,22 +345,18 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 					const bullets = parseBullets(allText);
 
 					if (!allText.trim() || bullets.length === 0) {
-						await notify(
+						await respond(
 							"(Memory kosong — gunakan /memory add <note> atau tool memory)",
 						);
-						if (output) output.parts = [];
-						return;
 					}
 
-					await notify(
+					await respond(
 						`📋 Active Memory (${bullets.length} bullets total):\n\n${allText.trim()}`,
 					);
-					if (output) output.parts = [];
-					return;
 				}
 
-				// Fallback: If argument is treated as a note to quickly add
-				await notify(
+				// Fallback
+				await respond(
 					`❓ Perintah tidak dikenal: "/memory ${rawArgs}"\n` +
 						`💡 Usage:\n` +
 						`  • /memory                 (Tampilkan semua memory aktif)\n` +
@@ -380,7 +367,6 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 						`  • /memory remove <text>   (Hapus memory yang cocok)\n` +
 						`  • /memory capture         (Auto-capture via AI)`,
 				);
-				if (output) output.parts = [];
 			}
 		},
 	};
