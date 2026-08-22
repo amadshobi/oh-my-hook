@@ -119,16 +119,24 @@ _Stop AI agents from hallucinating file writes, leaking credentials, executing d
 
 ## 🗺️ Dual-Mode Planning Suite
 
-Seamlessly switch between quick conversational brainstorming and durable RFC file generation:
+Seamlessly switch between quick conversational brainstorming, durable RFC file generation, and interactive terminal review:
 
-| Command                            | Mode                     | Behavior                                                                                                                                                  |
-| :--------------------------------- | :----------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`/plan [topic]`**                | **In-Chat (Ephemeral)**  | Locks file mutations, loads `plan.md`, and brainstorms directly in the chat transcript with zero disk footprint.                                          |
-| **`/plan to-file <name> [notes]`** | **File-Based (Durable)** | Targets `~/.opencode/plans/<name>.md`. Auto-archives previous drafts to `plans/versions/<name>-v<N>.md` and whitelists **only** the plan file for writes. |
-| **`/design [topic]`**              | **In-Chat (UI/UX)**      | Dedicated UI/UX design workflow loaded from `design.md`.                                                                                                  |
-| **`/design to-file <name>`**       | **File-Based (UI/UX)**   | Generates structured UI/UX component specs in `~/.opencode/plans/designs/<name>.md`.                                                                      |
-| **`/approve`** _(alias: `/exec`)_  | **Execution Transition** | Injects `approve.md` with active plan file reference, unlocks all project mutations, and readies the agent to build.                                      |
-| **`/mode`**                        | **Status Check**         | Inspect active mode and active plan file in the current session.                                                                                          |
+| Command                            | Mode                      | Behavior                                                                                                                                                  |
+| :--------------------------------- | :------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`/plan [topic]`**                | **In-Chat (Ephemeral)**   | Locks file mutations, loads `plan.md`, and brainstorms directly in the chat transcript with zero disk footprint.                                          |
+| **`/plan to-file <name> [notes]`** | **File-Based (Durable)**  | Targets `~/.opencode/plans/<name>.md`. Auto-archives previous drafts to `plans/versions/<name>-v<N>.md` and whitelists **only** the plan file for writes. |
+| **`/plan review [name]`**          | **Interactive TUI Modal** | Opens the terminal-native line-by-line review modal to dispute or annotate specific lines with keyboard shortcuts.                                        |
+| **`/plan list`**                   | **Listing**               | Lists all stored plan and design documents in `~/.opencode/plans/`.                                                                                       |
+| **`/plan switch <name>`**          | **Context Switch**        | Switches active roadmap context to another existing plan file.                                                                                            |
+| **`/design [topic]`**              | **In-Chat (UI/UX)**       | Dedicated UI/UX design workflow loaded from `design.md`.                                                                                                  |
+| **`/design to-file <name>`**       | **File-Based (UI/UX)**    | Generates structured UI/UX component specs in `~/.opencode/plans/designs/<name>.md`.                                                                      |
+| **`/approve`** _(alias: `/exec`)_  | **Execution Transition**  | Injects `approve.md` with active plan file reference, unlocks all project mutations, and readies the agent to build.                                      |
+| **`/mode`**                        | **Status Check**          | Inspect active mode and active plan file in the current session.                                                                                          |
+
+### 🧙‍♂️ Goblin Plan Protocol & Interactive Review
+
+- **Autonomous Agent Gate**: When assigned a complex, multi-file task (≥3 files), the agent prompts for user permission (`[Yes, blin] | [Nope, proceed directly!]`) before entering Plan Mode.
+- **Line-Level Reviewer**: Keyboard-navigable (`[↓]/[↑]`, `[Enter]` to correct, `[Ctrl+A]` to approve) modal directly in the OpenCode TUI interface.
 
 ### 3-Level Prompt Template Precedence
 
@@ -277,6 +285,7 @@ Scans tool input arguments (`write`, `edit`, `patch`) against production regex s
 ```
 
 ### Key Highlights:
+
 - **Zero Token Bloat (BM25 Matcher)**: Uses pure JS Okapi BM25 scoring (`memory/matcher.js`) to inject only relevant rules matching the current prompt turn into `experimental.chat.system.transform`.
 - **Heuristic Auto-Learning**: Detects user corrections and prohibitions in real-time, queuing them for background AI distillation.
 - **Self-Healing & Dedup**: Automatically merges similar rules and supersedes contradictory rules using Jaccard similarity.
@@ -294,7 +303,7 @@ Scans tool input arguments (`write`, `edit`, `patch`) against production regex s
 
 ## 🧪 Testing & Development
 
-`oh-my-hook` includes **84 unit tests** and deterministic E2E hook pipeline test suites.
+`oh-my-hook` includes **93 unit tests** and deterministic E2E hook pipeline test suites.
 
 ```bash
 # Run unit tests

@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-08-22
+
+### Added
+
+- **📐 Terminal-Native Interactive Plan Line Reviewer (`plans/parser.js` & `tui/src/index.tsx`)**:
+  - Line-level markdown parser supporting arbitrary document structures (headings, checklists, codeblocks, tables, blockquotes).
+  - Contextual annotation modal in OpenCode TUI (`/plan review` / `oh-my-hook.plan.review`):
+    - `[↓]/[↑]` arrow navigation across document lines (unfocused by default).
+    - `[Enter]` opens inline correction box to dispute or rectify specific lines.
+    - `[Ctrl+A]` submits line-level feedback and auto-approves.
+    - Dynamic navigation hint footer adapting to current view state.
+- **🧙‍♂️ Goblin Plan Protocol (Anti-OVT Agent Gate)**:
+  - System prompt guidance enforcing that the agent MUST ask user confirmation via the `question` tool before entering Plan Mode on complex/multi-file tasks (`[Yes, blin] | [Nope, proceed directly!]`).
+- **New Planning Subcommands**:
+  - `/plan list`: Browse all stored plan and design documents in `~/.opencode/plans/`.
+  - `/plan switch <name>`: Switch active plan context.
+  - `/plan review [name]`: Open interactive review preview or modal.
+- **Dynamic Active Plan System Transform**:
+  - Automatically injects approved roadmap content into `experimental.chat.system.transform` during Execute Mode.
+- **Config & Slash Command Auto-Unregister**:
+  - Dynamically skips registering slash commands in `cfg.command` and TUI palette layers when `"memory": { "enabled": false }` or `"plans": { "enabled": false }`.
+  - Deep-propagated configuration from root `loadConfig()` down to all hook factories.
+
+### Changed
+
+- **Standardized Concise English Messages**:
+  - Re-architected `share/block.js` and `share/messages.js` into clean, concise English blockquotes (`#### 🚫 Title\n> *Reason*\n> *Hint*`).
+  - Updated template prompts (`plan.md`, `design.md`, `approve.md`) into structured RFC templates.
+- **Strict Regex Intent Detection**:
+  - Replaced naive substring matching with explicit regex phrase matchers (`PLAN_INTENT_PATTERNS` & `EXECUTE_INTENT_PATTERNS`) to eliminate false-positive plan mode triggers.
+- Increased test suite to **93 passing unit tests** and deterministic E2E verification.
+
 ## [0.3.0] - 2026-08-21
 
 ### Added
