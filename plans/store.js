@@ -1,7 +1,14 @@
 /**
- * plans/store.js — manages plan files, directories, and auto-versioning.
+ * plans/store.js — manages plan files, directories, listing, and auto-versioning.
  */
-import { existsSync, mkdirSync, renameSync, readdirSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	renameSync,
+	readdirSync,
+	readFileSync,
+	statSync,
+} from "node:fs";
 import path from "node:path";
 
 /**
@@ -11,13 +18,13 @@ import path from "node:path";
  * @returns {string}
  */
 export function sanitizePlanName(rawName) {
-  if (!rawName) return "plan-" + Date.now();
-  let clean = rawName
-    .toLowerCase()
-    .replace(/\.md$/i, "")
-    .replace(/[^a-z0-9_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return clean || "plan-" + Date.now();
+	if (!rawName) return "plan-" + Date.now();
+	let clean = rawName
+		.toLowerCase()
+		.replace(/\.md$/i, "")
+		.replace(/[^a-z0-9_-]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+	return clean || "plan-" + Date.now();
 }
 
 /**
@@ -29,10 +36,11 @@ export function sanitizePlanName(rawName) {
  * @returns {{ filePath: string, sanitizedName: string, targetDir: string }}
  */
 export function resolveTargetPlanPath(plansDir, rawName, kind = "plan") {
-  const sanitizedName = sanitizePlanName(rawName);
-  const targetDir = kind === "design" ? path.join(plansDir, "designs") : plansDir;
-  const filePath = path.join(targetDir, `${sanitizedName}.md`);
-  return { filePath, sanitizedName, targetDir };
+	const sanitizedName = sanitizePlanName(rawName);
+	const targetDir =
+		kind === "design" ? path.join(plansDir, "designs") : plansDir;
+	const filePath = path.join(targetDir, `${sanitizedName}.md`);
+	return { filePath, sanitizedName, targetDir };
 }
 
 /**
@@ -44,33 +52,110 @@ export function resolveTargetPlanPath(plansDir, rawName, kind = "plan") {
  * @returns {string|null} Archived file path or null if none existed
  */
 export function archivePlanFile(targetFilePath, targetDir, sanitizedName) {
-  if (!existsSync(targetFilePath)) return null;
+	if (!existsSync(targetFilePath)) return null;
 
-  const versionsDir = path.join(targetDir, "versions");
-  mkdirSync(versionsDir, { recursive: true });
+	const versionsDir = path.join(targetDir, "versions");
+	mkdirSync(versionsDir, { recursive: true });
 
-  let highestVersion = 0;
-  try {
-    const files = readdirSync(versionsDir);
-    const prefix = `${sanitizedName}-v`;
-    for (const f of files) {
-      if (f.startsWith(prefix) && f.endsWith(".md")) {
-        const numPart = f.slice(prefix.length, -3);
-        const v = parseInt(numPart, 10);
-        if (!isNaN(v) && v > highestVersion) {
-          highestVersion = v;
-        }
-      }
-    }
-  } catch {}
+	let highestVersion = 0;
+	try {
+		const files = readdirSync(versionsDir);
+		const prefix = `${sanitizedName}-v`;
+		for (const f of files) {
+			if (f.startsWith(prefix) && f.endsWith(".md")) {
+				const numPart = f.slice(prefix.length, -3);
+				const v = parseInt(numPart, 10);
+				if (!isNaN(v) && v > highestVersion) {
+					highestVersion = v;
+				}
+			}
+		}
+	} catch {}
 
-  const nextVersion = highestVersion + 1;
-  const archivePath = path.join(versionsDir, `${sanitizedName}-v${nextVersion}.md`);
+	const nextVersion = highestVersion + 1;
+	const archivePath = path.join(
+		versionsDir,
+		`${sanitizedName}-v${nextVersion}.md`,
+	);
 
-  try {
-    renameSync(targetFilePath, archivePath);
-    return archivePath;
-  } catch {
-    return null;
-  }
+	try {
+		renameSync(targetFilePath, archivePath);
+		return archivePath;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Read plan content safely from disk.
+ * @param {string} filePath
+ * @returns {string}
+ */
+export function readPlanContent(filePath) {
+	try {
+		if (filePath && existsSync(filePath)) {
+			return readFileSync(filePath, "utf8");
+		}
+	} catch {}
+	return "";
+}
+
+/**
+ * List all existing plan and design files in plans directory.
+ *
+ * @param {string} plansDir
+ * @returns {Array<{ name: string, path: string, kind: string, size: number, mtimeMs: number }>}
+ */
+export function listPlanFiles(plansDir) {
+	const list = [];
+	if (!existsSync(plansDir)) return list;
+
+	// 1. Root plan files
+	try {
+		const files = readdirSync(plansDir);
+		for (const f of files) {
+			if (f.endsWith(".md") && !f.startsWith(".")) {
+				const fullPath = path.join(plansDir, f);
+				try {
+					const st = statSync(fullPath);
+					if (st.isFile()) {
+						list.push({
+							name: f.replace(/\.md$/i, ""),
+							path: fullPath,
+							kind: "plan",
+							size: st.size,
+							mtimeMs: st.mtimeMs,
+						});
+					}
+				} catch {}
+			}
+		}
+	} catch {}
+
+	// 2. Designs subfolder
+	const designsDir = path.join(plansDir, "designs");
+	if (existsSync(designsDir)) {
+		try {
+			const files = readdirSync(designsDir);
+			for (const f of files) {
+				if (f.endsWith(".md") && !f.startsWith(".")) {
+					const fullPath = path.join(designsDir, f);
+					try {
+						const st = statSync(fullPath);
+						if (st.isFile()) {
+							list.push({
+								name: f.replace(/\.md$/i, ""),
+								path: fullPath,
+								kind: "design",
+								size: st.size,
+								mtimeMs: st.mtimeMs,
+							});
+						}
+					} catch {}
+				}
+			}
+		} catch {}
+	}
+
+	return list.sort((a, b) => b.mtimeMs - a.mtimeMs);
 }

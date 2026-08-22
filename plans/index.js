@@ -1,12 +1,21 @@
 /**
  * plans/index.js — Complete Planning suite for oh-my-hook:
  * 1. Slash commands (/plan, /design, /approve, /exec, /mode).
- * 2. Plan mode intent detection (via chat.message & message.part.updated).
- * 3. Plan mode mutation barrier (tool.execute.before & permission.ask).
- * 4. Durable plan file versioning & 3-level prompt templates.
+ * 2. Commands: /plan list, /plan review [name], /plan switch <name>, /plan to-file <name>.
+ * 3. Plan mode intent detection (via chat.message & message.part.updated).
+ * 4. Plan mode mutation barrier (tool.execute.before & permission.ask).
+ * 5. Dynamic Active Plan injection into experimental.chat.system.transform.
+ * 6. Durable plan file versioning & 3-level prompt templates.
  */
+import { loadConfig } from "../share/config.js";
 import { parsePlanningCommand, parseApproveCommand } from "./commands.js";
-import { resolveTargetPlanPath, archivePlanFile } from "./store.js";
+import {
+	resolveTargetPlanPath,
+	archivePlanFile,
+	listPlanFiles,
+	readPlanContent,
+} from "./store.js";
+import { parsePlanLines, formatReviewFeedback } from "./parser.js";
 import { loadTemplate, renderTemplate } from "./templates.js";
 import {
 	loadModeState,
@@ -26,39 +35,20 @@ import {
 import { formatBlockMessage } from "../share/messages.js";
 import { createNotifier } from "../share/notify.js";
 
-const PLAN_TRIGGERS = [
-	"plan",
-	"planning",
-	"mikir",
-	"arsitektur",
-	"design",
-	"rancang",
-	"pikirkan",
-	"analisis",
-	"review dulu",
-	"jangan edit",
-	"jangan sentuh",
-	"cuma bahas",
-	"bahas dulu",
-	"konsep",
-	"skema",
-	"alur",
+const PLAN_INTENT_PATTERNS = [
+	/\b(masuk|switch|ke)\s+(ke\s+)?mode\s+(plan|planning|desain|design)\b/i,
+	/\b(mikir\s+dulu|bahas\s+dulu|analisis\s+dulu|arsiteki\s+dulu|rancang\s+dulu)\b/i,
+	/\b(jangan\s+(langsung\s+)?(edit|tulis|ubah|coding|sentuh|bikin))\b/i,
+	/\b(cuma\s+mau\s+(bahas|diskusi|mikir|rancang))\b/i,
+	/\b(enter|start)\s+(plan|planning|design)\s+mode\b/i,
 ];
 
-const EXECUTE_TRIGGERS = [
-	"gas",
-	"approve",
-	"lanjut",
-	"eksekusi",
-	"implement",
-	"bikin",
-	"kerjain",
-	"mulai",
-	"go ahead",
-	"proceed",
-	"jalanin",
-	"kerjakan",
-	"tulis",
+const EXECUTE_INTENT_PATTERNS = [
+	/\b(masuk|switch|ke)\s+(ke\s+)?mode\s+(execute|eksekusi|exec)\b/i,
+	/\b(plan\s+approved|approved|approve)\b/i,
+	/\b(gasken|gas\s+blin|gas\s+lah|langsung\s+gas|gass+)\b/i,
+	/\b(eksekusi\s+(sekarang|kodenya)|implementasikan\s+sekarang|mulai\s+coding)\b/i,
+	/\b(proceed|go\s+ahead|execute\s+plan)\b/i,
 ];
 
 const MUTATING_TOOLS = new Set([
@@ -103,9 +93,10 @@ const MUTATING_BASH_PATTERNS = [
 
 function detectIntent(text) {
 	if (!text || typeof text !== "string") return null;
-	const lower = text.toLowerCase();
-	if (PLAN_TRIGGERS.some((w) => lower.includes(w))) return "plan";
-	if (EXECUTE_TRIGGERS.some((w) => lower.includes(w))) return "execute";
+	const trimmed = text.trim();
+	// Check execute intent first (e.g. "plan approved", "gasken")
+	if (EXECUTE_INTENT_PATTERNS.some((re) => re.test(trimmed))) return "execute";
+	if (PLAN_INTENT_PATTERNS.some((re) => re.test(trimmed))) return "plan";
 	return null;
 }
 
@@ -114,8 +105,20 @@ function isMutatingBash(command) {
 	return MUTATING_BASH_PATTERNS.some((re) => re.test(command));
 }
 
+const GOBLIN_PLAN_PROTOCOL = `
+### 🧙‍♂️ GOBLIN PLAN PROTOCOL:
+When user assigns a major or multi-file feature (≥3 files or architectural refactor), DO NOT silently lock the session into Plan Mode without approval.
+Ask user confirmation first using the \`question\` tool:
+- header: "Plan Mode?"
+- question: "This task involves architectural changes across multiple files, BOSS. Enter Plan Mode first to design the blueprint?"
+- options:
+  1. label: "Yes, blin (Recommended)", description: "Enter Plan Mode and create a structured RFC document"
+  2. label: "Nope, proceed directly!", description: "Execute implementation immediately without plan file"
+Exception: If the user explicitly uses /plan or asks to create a plan from the start, enter Plan Mode directly without asking.
+`.trim();
+
 export const planHooks = async ({ client, directory }, opts = {}) => {
-	const config = opts?.config || {};
+	const config = opts?.config || loadConfig().config;
 	const plansEnabled = config?.plans?.enabled ?? true;
 	const planModeEnabled =
 		config?.plans?.planMode ??
@@ -159,7 +162,7 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 
 			cfg.command["plan"] = {
 				description:
-					"Switch to Plan mode (use 'to-file <name>' to generate durable plan file)",
+					"Switch to Plan mode (use 'to-file <name>', 'list', 'review', or 'switch <name>')",
 				template: "Entering Plan mode...",
 			};
 
@@ -196,10 +199,103 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 				const parsed = parsePlanningCommand(input.arguments || "", kind);
 				const state = loadModeState();
 
+				// Subcommand: /plan list
+				if (parsed.mode === "list") {
+					const files = listPlanFiles(plansDir);
+					if (files.length === 0) {
+						output.parts = [
+							{
+								type: "text",
+								text: `📂 No plan files found in \`${plansDir}\`.\nUse \`/plan to-file <name>\` to create a new plan.`,
+							},
+						];
+						return;
+					}
+
+					let listText = `### 📋 Stored Plan Documents (${files.length}):\n`;
+					for (const f of files) {
+						const date = new Date(f.mtimeMs).toISOString().split("T")[0];
+						listText += `- **\`${f.name}\`** (${f.kind.toUpperCase()}) — *${date}*\n  Path: \`${f.path}\`\n`;
+					}
+					listText += `\n*Use \`/plan switch <name>\` to change the active plan.*`;
+					output.parts = [{ type: "text", text: listText }];
+					return;
+				}
+
+				// Subcommand: /plan switch <name>
+				if (parsed.mode === "switch") {
+					if (!parsed.name) {
+						output.parts = [
+							{
+								type: "text",
+								text: "⚠️ Please specify plan name. Example: `/plan switch auth-system`",
+							},
+						];
+						return;
+					}
+					const target = resolveTargetPlanPath(plansDir, parsed.name, kind);
+					setSessionMode(state, sessionID, "plan", {
+						planFile: target.filePath,
+						planName: target.sanitizedName,
+						planKind: kind,
+						planModeType: "file",
+					});
+					saveModeState(state);
+					output.parts = [
+						{
+							type: "text",
+							text: `🔄 Active plan switched to: **\`${target.sanitizedName}\`** (\`${target.filePath}\`)`,
+						},
+					];
+					await notify(
+						`[${sessionID}] Plan switched to ${target.sanitizedName}`,
+					);
+					return;
+				}
+
+				// Subcommand: /plan review [name]
+				if (parsed.mode === "review") {
+					const activePlan = currentPlan(state, sessionID);
+					const targetFile = parsed.name
+						? resolveTargetPlanPath(plansDir, parsed.name, kind).filePath
+						: activePlan?.file;
+
+					if (!targetFile) {
+						output.parts = [
+							{
+								type: "text",
+								text: "⚠️ No active plan file to review. Create one with `/plan to-file <name>` first.",
+							},
+						];
+						return;
+					}
+
+					const content = readPlanContent(targetFile);
+					if (!content) {
+						output.parts = [
+							{
+								type: "text",
+								text: `⚠️ Plan file \`${targetFile}\` is empty or hasn't been written yet.`,
+							},
+						];
+						return;
+					}
+
+					const parsedLines = parsePlanLines(content);
+					const preview =
+						`### 📋 Plan Review: \`${targetFile}\` (${parsedLines.length} lines)\n\n` +
+						content +
+						`\n\n---\n*Run \`/approve\` or use the interactive review modal to approve / add corrections.*`;
+
+					output.parts = [{ type: "text", text: preview }];
+					return;
+				}
+
+				// Default: /plan to-file <name> or /plan in-chat
 				let planFile = "";
 				let planName = "";
 				let fileInstruction =
-					"Diskusikan rencana dan analisis langsung di chat (In-Chat Mode).";
+					"Discuss architecture and design directly in chat (In-Chat Mode).";
 
 				if (parsed.mode === "file") {
 					const target = resolveTargetPlanPath(plansDir, parsed.name, kind);
@@ -213,14 +309,14 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 						target.sanitizedName,
 					);
 					if (archived) {
-						await notify(`Versi lama di-backup ke ${archived}`);
+						await notify(`Previous version archived to ${archived}`);
 					}
 
 					fileInstruction =
-						`Kamu DIHARUSKAN menulis dokumen ${kind} lengkap ke file:\n` +
+						`You are REQUIRED to write the complete ${kind} specification to file:\n` +
 						`\`${planFile}\`\n\n` +
-						`Gunakan tool write/edit untuk membuat dan memperbarui file rencana tersebut. ` +
-						`HANYA file rencana ini yang diizinkan untuk ditulis dalam mode plan.`;
+						`Use the write/edit tool to create and update this document. ` +
+						`ONLY this plan file is permitted for writing during Plan Mode.`;
 				}
 
 				setSessionMode(state, sessionID, "plan", {
@@ -243,7 +339,7 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 
 				output.parts = [{ type: "text", text: rendered }];
 				await notify(
-					`[${sessionID}] Mode ${kind.toUpperCase()} aktif (${parsed.mode})`,
+					`[${sessionID}] Mode ${kind.toUpperCase()} active (${parsed.mode})`,
 				);
 				return;
 			}
@@ -258,7 +354,7 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 
 				let planRef = "";
 				if (activePlan?.file) {
-					planRef = `Referensi Rencana:\n\`${activePlan.file}\``;
+					planRef = `Plan Reference:\n\`${activePlan.file}\``;
 				}
 
 				const template = loadTemplate("approve", directory);
@@ -269,7 +365,7 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 				});
 
 				output.parts = [{ type: "text", text: rendered }];
-				await notify(`[${sessionID}] Mode EXECUTE aktif (Approved)`);
+				await notify(`[${sessionID}] EXECUTE mode active (Approved)`);
 				return;
 			}
 
@@ -278,16 +374,46 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 				const mode = currentMode(state, sessionID);
 				const activePlan = currentPlan(state, sessionID);
 
-				let info = `Mode session saat ini: **${mode.toUpperCase()}**`;
+				let info = `Current session mode: **${mode.toUpperCase()}**`;
 				if (activePlan?.file) {
-					info += `\nFile plan aktif: \`${activePlan.file}\``;
+					info += `\nActive plan file: \`${activePlan.file}\``;
 				}
 
 				output.parts = [{ type: "text", text: info }];
 			}
 		},
 
-		// 3. Detect intent from message streams and chat turns
+		// 3. Inject active plan roadmap & goblin plan protocol into system prompt
+		"experimental.chat.system.transform": async (input, output) => {
+			if (!plansEnabled || !output) return;
+			const sessionID = input?.sessionID;
+			const state = loadModeState();
+			const mode = currentMode(state, sessionID);
+			const activePlan = currentPlan(state, sessionID);
+
+			const extra = [];
+			extra.push(GOBLIN_PLAN_PROTOCOL);
+
+			if (mode === "execute" && activePlan?.file) {
+				const content = readPlanContent(activePlan.file);
+				if (content) {
+					extra.push(
+						`### 🗺️ ACTIVE APPROVED PLAN ROADMAP:\n` +
+							`File: \`${activePlan.file}\`\n\n` +
+							content.slice(0, 4000) +
+							(content.length > 4000
+								? "\n\n...(plan document truncated)..."
+								: ""),
+					);
+				}
+			}
+
+			if (extra.length > 0) {
+				output.system = [...(output.system || []), ...extra];
+			}
+		},
+
+		// 4. Detect intent from message streams and chat turns
 		event: async ({ event }) => {
 			if (!planModeEnabled) return;
 			if (event?.type !== "message.part.updated") return;
@@ -307,7 +433,7 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 			}
 		},
 
-		// 4. Native OpenCode permission auto-deny during plan mode
+		// 5. Native OpenCode permission auto-deny during plan mode
 		"permission.ask": async (input, output) => {
 			if (!planModeEnabled || !output || !input) return;
 			const sessionID = input.sessionID;
@@ -332,7 +458,7 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 			}
 		},
 
-		// 5. Hard barrier on tool execution in plan mode
+		// 6. Hard barrier on tool execution in plan mode
 		"tool.execute.before": async (input, output) => {
 			if (!planModeEnabled) return;
 			const sessionID = input?.sessionID;
@@ -384,3 +510,4 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 };
 
 export default planHooks;
+export { parsePlanLines, formatReviewFeedback } from "./parser.js";

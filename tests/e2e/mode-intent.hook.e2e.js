@@ -35,7 +35,7 @@ try {
 	const before = hooks["tool.execute.before"];
 
 	// 1. Trigger Plan mode intent
-	console.log("  1. Emitting plan intent ('mikir dulu arsitekturnya')...");
+	console.log("  1. Emitting plan intent ('mikir dulu arsitekturnya ya')...");
 	await eventHandler({
 		event: {
 			type: "message.part.updated",
