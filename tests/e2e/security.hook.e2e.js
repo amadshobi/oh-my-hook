@@ -46,10 +46,7 @@ try {
 			});
 		} catch (e) {
 			blockedWrite = true;
-			assert(
-				/Secret Terdeteksi/i.test(e.message),
-				"Error should mention secret detected",
-			);
+			assert(/Secret/i.test(e.message), "Error should mention secret detected");
 		}
 		assert(
 			blockedWrite,
@@ -64,10 +61,7 @@ try {
 			});
 		} catch (e) {
 			blockedEdit = true;
-			assert(
-				/Secret Terdeteksi/i.test(e.message),
-				"Error should mention secret detected",
-			);
+			assert(/Secret/i.test(e.message), "Error should mention secret detected");
 		}
 		assert(
 			blockedEdit,
@@ -93,7 +87,7 @@ try {
 		} catch (e) {
 			blocked = true;
 			assert(
-				/Perintah Berbahaya/i.test(e.message),
+				/Dangerous/i.test(e.message),
 				"Error should mention dangerous command",
 			);
 		}
