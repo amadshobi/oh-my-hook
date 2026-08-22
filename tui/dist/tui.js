@@ -13,6 +13,7 @@ import { createSignal, Show, For } from "solid-js";
 import { watchModeState, currentMode } from "./lib/mode-watch.js";
 import { getMetrics, getMemoryRules, getPlanReviewData } from "./lib/metrics.js";
 import { resolveActiveSessionID, createSessionSubscriber } from "./lib/session.js";
+import { loadConfig } from "../../share/config.js";
 import { formatReviewFeedback } from "../../plans/parser.js";
 function ModeBadge(props) {
   const [modeState, setModeState] = createSignal({});

@@ -12,6 +12,7 @@ import {
 	resolveActiveSessionID,
 	createSessionSubscriber,
 } from "./lib/session.js";
+import { loadConfig } from "../../share/config.js";
 import { formatReviewFeedback } from "../../plans/parser.js";
 
 function ModeBadge(props: { api: any; sessionID: () => string }) {
