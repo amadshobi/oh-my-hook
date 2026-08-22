@@ -14,6 +14,7 @@ import {
 	appendMemory,
 	GLOBAL_FILE,
 	projectSlug,
+	resolveTargetMemoryFile,
 } from "./store.js";
 import { capture } from "./ai/index.js";
 import { loadConfig } from "../share/config.js";
@@ -121,15 +122,16 @@ async function projectMemoryFileDynamic(directory) {
 	return projectMemoryFile(directory);
 }
 
-export const memoryHooks = async ({ client, directory }) => {
+export const memoryHooks = async ({ client, directory }, opts = {}) => {
 	const notify = createNotifier(client, "memory", "info");
-	const { config } = loadConfig();
+	const config = opts?.config || loadConfig().config;
 	const memCfg = config.memory || {};
 	const agentModes = loadAgentModes(directory);
 
 	return {
 		// --- register slash commands (config hook, opencode-quota pattern) ---
 		config: async (input) => {
+			if (memCfg.enabled === false) return;
 			const cfg = input ?? {};
 			cfg.command ??= {};
 			cfg.command.remember = {
@@ -248,9 +250,7 @@ export const memoryHooks = async ({ client, directory }) => {
 				const clean = entry.replace(/^--global\s+/, "").trim();
 				const file = isGlobal
 					? GLOBAL_FILE
-					: await import("./store.js").then((m) =>
-							m.resolveTargetMemoryFile(directory),
-						);
+					: resolveTargetMemoryFile(directory);
 
 				// 1. Write clean markdown
 				const line = appendMemory(file, clean);

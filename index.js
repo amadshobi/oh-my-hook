@@ -8,6 +8,7 @@
  * Loaded as a directory plugin: OpenCode resolves a directory without
  * package.json to its index file (index.js / index.ts).
  */
+import { loadConfig } from "./share/config.js";
 import { mergeHooks } from "./share/merge.js";
 import { sandboxHooks } from "./sandbox/index.js";
 import { contextModule } from "./context/index.js";
@@ -16,12 +17,13 @@ import { memoryHooks } from "./memory/index.js";
 import { planHooks } from "./plans/index.js";
 
 export default async function ohMyHook(input) {
+	const { config } = loadConfig();
 	const [sandbox, context, reminder, memory, plans] = await Promise.all([
-		sandboxHooks(input),
-		contextModule(input),
-		reminderModule(input),
-		memoryHooks(input),
-		planHooks(input),
+		sandboxHooks(input, { config }),
+		contextModule(input, { config }),
+		reminderModule(input, { config }),
+		memoryHooks(input, { config }),
+		planHooks(input, { config }),
 	]);
 	return mergeHooks(sandbox, context, reminder, memory, plans);
 }
