@@ -109,16 +109,15 @@ function MemoryModal(props: { api: any; directory: string }) {
 	const filtered = () => {
 		const list = rules();
 		const currentTab = tab();
-		if (currentTab === "preference")
-			return list.filter((r: any) => r.category === "preference");
-		if (currentTab === "skill")
-			return list.filter((r: any) => r.category !== "preference");
+		if (currentTab === "global")
+			return list.filter((r: any) => r.scope === "global");
+		if (currentTab === "project")
+			return list.filter((r: any) => r.scope === "project");
 		return list;
 	};
 
-	const getTagColor = (cat: string) => {
-		if (cat === "preference") return theme().accent || "#8b5cf6";
-		if (cat === "project_skill") return theme().warning || "#f59e0b";
+	const getTagColor = (scope: string) => {
+		if (scope === "global") return theme().accent || "#8b5cf6";
 		return theme().success || "#10b981";
 	};
 
@@ -136,7 +135,7 @@ function MemoryModal(props: { api: any; directory: string }) {
 					<b>🧠 OpenCode Memory Inspector</b>
 				</text>
 				<text fg={theme().textMuted}>
-					{rules().length} active rule{rules().length === 1 ? "" : "s"}
+					{rules().length} memory bullet{rules().length === 1 ? "" : "s"}
 				</text>
 			</box>
 
@@ -150,21 +149,21 @@ function MemoryModal(props: { api: any; directory: string }) {
 				</text>
 				<text
 					fg={
-						tab() === "preference"
-							? theme().accent || "#8b5cf6"
-							: theme().textMuted
+						tab() === "global" ? theme().accent || "#8b5cf6" : theme().textMuted
 					}
-					onMouseDown={() => setTab("preference")}
+					onMouseDown={() => setTab("global")}
 				>
-					{tab() === "preference" ? "● [Preferences]" : "○ Preferences"}
+					{tab() === "global" ? "● [Global]" : "○ Global"}
 				</text>
 				<text
 					fg={
-						tab() === "skill" ? theme().accent || "#8b5cf6" : theme().textMuted
+						tab() === "project"
+							? theme().accent || "#8b5cf6"
+							: theme().textMuted
 					}
-					onMouseDown={() => setTab("skill")}
+					onMouseDown={() => setTab("project")}
 				>
-					{tab() === "skill" ? "● [Project Skills]" : "○ Project Skills"}
+					{tab() === "project" ? "● [Project]" : "○ Project"}
 				</text>
 			</box>
 
@@ -174,46 +173,25 @@ function MemoryModal(props: { api: any; directory: string }) {
 						when={filtered().length > 0}
 						fallback={
 							<text fg={theme().textMuted} wrapMode="word">
-								(Belum ada memory rules tersimpan. Gunakan /remember atau
-								koreksi respon agen di chat untuk merekam secara otomatis)
+								(Belum ada memory tersimpan. Gunakan /remember atau tool memory
+								untuk mencatat)
 							</text>
 						}
 					>
 						<For each={filtered()}>
 							{(r: any) => (
 								<box
-									flexDirection="column"
-									gap={0}
+									flexDirection="row"
+									gap={1}
 									borderStyle="single"
 									borderColor={theme().border || "#374151"}
 									paddingLeft={1}
 									paddingRight={1}
 								>
-									<box flexDirection="row" gap={1}>
-										<text fg={getTagColor(r.category)}>• [{r.category}]</text>
-										<text fg={theme().text} wrapMode="word">
-											<b>{r.content}</b>
-										</text>
-									</box>
-									<Show when={r.rationale}>
-										<text
-											fg={theme().textMuted}
-											wrapMode="word"
-											paddingLeft={2}
-										>
-											<i>Alasan: {r.rationale}</i>
-										</text>
-									</Show>
-									<Show when={r.triggers && r.triggers.length > 0}>
-										<text
-											fg={theme().textMuted}
-											wrapMode="word"
-											paddingLeft={2}
-										>
-											Triggers: {r.triggers.join(", ")} | Conf:{" "}
-											{Math.round((r.confidence || 0.5) * 100)}%
-										</text>
-									</Show>
+									<text fg={getTagColor(r.scope)}>• [{r.scope}]</text>
+									<text fg={theme().text} wrapMode="word">
+										{r.content}
+									</text>
 								</box>
 							)}
 						</For>
@@ -579,6 +557,6 @@ export const tui = async (api: any, options: any = {}) => {
 };
 
 export default {
-	id: "oh-my-hook-tui",
+	id: "oh-my-hook",
 	tui,
 };

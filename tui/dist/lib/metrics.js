@@ -1,18 +1,13 @@
 /**
- * tui/src/lib/metrics.js — calculates active guard counts and structured memory statistics.
+ * tui/src/lib/metrics.js — calculates active guard counts and markdown memory statistics.
  */
 import { loadConfig } from "../../../share/config.js";
 import {
 	readAllMemory,
 	parseBullets,
-	projectSlug,
+	listMemoryEntries,
 } from "../../../memory/store.js";
-import { listRules } from "../../../memory/rstore.js";
-import {
-	loadModeState,
-	currentPlan,
-	resolvePlansDir,
-} from "../../../share/state.js";
+import { loadModeState, currentPlan } from "../../../share/state.js";
 import { readPlanContent } from "../../../plans/store.js";
 import { parsePlanLines } from "../../../plans/parser.js";
 
@@ -50,41 +45,27 @@ export function getActiveGuardsCount(config) {
 }
 
 /**
- * Calculate the number of structured rules and legacy notes for a project directory.
+ * Calculate the number of memory bullets for a project directory.
  * @param {string} [projectDirectory] Target workspace directory.
- * @returns {{ count: number, preferences: number, projectSkills: number, sharedSkills: number }}
+ * @returns {{ count: number, global: number, project: number }}
  */
 export function getStructuredMemoryStats(projectDirectory) {
 	try {
-		const slug = projectSlug(projectDirectory);
-		const rules = listRules({ projectSlug: slug, activeOnly: true });
-
-		if (rules.length > 0) {
-			return {
-				count: rules.length,
-				preferences: rules.filter((r) => r.category === "preference").length,
-				projectSkills: rules.filter((r) => r.category === "project_skill")
-					.length,
-				sharedSkills: rules.filter((r) => r.category === "shared_skill").length,
-			};
-		}
-
-		// Fallback count to legacy
-		const raw = readAllMemory(projectDirectory);
-		const legacyCount = parseBullets(raw).length;
+		const entries = listMemoryEntries(projectDirectory);
+		const globalCount = entries.filter((e) => e.scope === "global").length;
+		const projectCount = entries.filter((e) => e.scope === "project").length;
 		return {
-			count: legacyCount,
-			preferences: 0,
-			projectSkills: legacyCount,
-			sharedSkills: 0,
+			count: entries.length,
+			global: globalCount,
+			project: projectCount,
 		};
 	} catch {
-		return { count: 0, preferences: 0, projectSkills: 0, sharedSkills: 0 };
+		return { count: 0, global: 0, project: 0 };
 	}
 }
 
 /**
- * Calculate total memory note/rule count.
+ * Calculate total memory bullet count.
  * @param {string} [projectDirectory]
  * @returns {number}
  */
@@ -93,14 +74,13 @@ export function getCuratedMemoryCount(projectDirectory) {
 }
 
 /**
- * Get all active memory rules for a directory.
+ * Get all active memory bullets for a directory.
  * @param {string} [projectDirectory]
- * @returns {object[]}
+ * @returns {Array<{ content: string, scope: string }>}
  */
 export function getMemoryRules(projectDirectory) {
 	try {
-		const slug = projectSlug(projectDirectory);
-		return listRules({ projectSlug: slug, activeOnly: true });
+		return listMemoryEntries(projectDirectory);
 	} catch {
 		return [];
 	}

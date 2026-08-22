@@ -175,13 +175,12 @@ function MemoryModal(props) {
   const filtered = () => {
     const list = rules();
     const currentTab = tab();
-    if (currentTab === "preference") return list.filter(r => r.category === "preference");
-    if (currentTab === "skill") return list.filter(r => r.category !== "preference");
+    if (currentTab === "global") return list.filter(r => r.scope === "global");
+    if (currentTab === "project") return list.filter(r => r.scope === "project");
     return list;
   };
-  const getTagColor = cat => {
-    if (cat === "preference") return theme().accent || "#8b5cf6";
-    if (cat === "project_skill") return theme().warning || "#f59e0b";
+  const getTagColor = scope => {
+    if (scope === "global") return theme().accent || "#8b5cf6";
     return theme().success || "#10b981";
   };
   return (() => {
@@ -190,7 +189,7 @@ function MemoryModal(props) {
       _el$29 = _$createElement("text"),
       _el$30 = _$createElement("b"),
       _el$32 = _$createElement("text"),
-      _el$33 = _$createTextNode(` active rule`),
+      _el$33 = _$createTextNode(` memory bullet`),
       _el$34 = _$createElement("box"),
       _el$35 = _$createElement("text"),
       _el$36 = _$createElement("text"),
@@ -225,10 +224,10 @@ function MemoryModal(props) {
     _$setProp(_el$34, "gap", 2);
     _$setProp(_el$35, "onMouseDown", () => setTab("all"));
     _$insert(_el$35, () => tab() === "all" ? "● [Semua]" : "○ Semua");
-    _$setProp(_el$36, "onMouseDown", () => setTab("preference"));
-    _$insert(_el$36, () => tab() === "preference" ? "● [Preferences]" : "○ Preferences");
-    _$setProp(_el$37, "onMouseDown", () => setTab("skill"));
-    _$insert(_el$37, () => tab() === "skill" ? "● [Project Skills]" : "○ Project Skills");
+    _$setProp(_el$36, "onMouseDown", () => setTab("global"));
+    _$insert(_el$36, () => tab() === "global" ? "● [Global]" : "○ Global");
+    _$setProp(_el$37, "onMouseDown", () => setTab("project"));
+    _$insert(_el$37, () => tab() === "project" ? "● [Project]" : "○ Project");
     _$insertNode(_el$38, _el$39);
     _$setProp(_el$38, "width", "100%");
     _$setProp(_el$38, "flexGrow", 1);
@@ -245,7 +244,7 @@ function MemoryModal(props) {
       get fallback() {
         return (() => {
           var _el$42 = _$createElement("text");
-          _$insertNode(_el$42, _$createTextNode(`(Belum ada memory rules tersimpan. Gunakan /remember atau koreksi respon agen di chat untuk merekam secara otomatis)`));
+          _$insertNode(_el$42, _$createTextNode(`(Belum ada memory tersimpan. Gunakan /remember atau tool memory untuk mencatat)`));
           _$setProp(_el$42, "wrapMode", "word");
           _$effect(_$p => _$setProp(_el$42, "fg", theme().textMuted, _$p));
           return _el$42;
@@ -258,72 +257,29 @@ function MemoryModal(props) {
           },
           children: r => (() => {
             var _el$44 = _$createElement("box"),
-              _el$45 = _$createElement("box"),
-              _el$46 = _$createElement("text"),
-              _el$47 = _$createTextNode(`• [`),
-              _el$48 = _$createTextNode(`]`),
-              _el$49 = _$createElement("text"),
-              _el$50 = _$createElement("b");
+              _el$45 = _$createElement("text"),
+              _el$46 = _$createTextNode(`• [`),
+              _el$47 = _$createTextNode(`]`),
+              _el$48 = _$createElement("text");
             _$insertNode(_el$44, _el$45);
-            _$setProp(_el$44, "flexDirection", "column");
-            _$setProp(_el$44, "gap", 0);
+            _$insertNode(_el$44, _el$48);
+            _$setProp(_el$44, "flexDirection", "row");
+            _$setProp(_el$44, "gap", 1);
             _$setProp(_el$44, "borderStyle", "single");
             _$setProp(_el$44, "paddingLeft", 1);
             _$setProp(_el$44, "paddingRight", 1);
             _$insertNode(_el$45, _el$46);
-            _$insertNode(_el$45, _el$49);
-            _$setProp(_el$45, "flexDirection", "row");
-            _$setProp(_el$45, "gap", 1);
-            _$insertNode(_el$46, _el$47);
-            _$insertNode(_el$46, _el$48);
-            _$insert(_el$46, () => r.category, _el$48);
-            _$insertNode(_el$49, _el$50);
-            _$setProp(_el$49, "wrapMode", "word");
-            _$insert(_el$50, () => r.content);
-            _$insert(_el$44, _$createComponent(Show, {
-              get when() {
-                return r.rationale;
-              },
-              get children() {
-                var _el$51 = _$createElement("text"),
-                  _el$52 = _$createElement("i"),
-                  _el$53 = _$createTextNode(`Alasan: `);
-                _$insertNode(_el$51, _el$52);
-                _$setProp(_el$51, "wrapMode", "word");
-                _$setProp(_el$51, "paddingLeft", 2);
-                _$insertNode(_el$52, _el$53);
-                _$insert(_el$52, () => r.rationale, null);
-                _$effect(_$p => _$setProp(_el$51, "fg", theme().textMuted, _$p));
-                return _el$51;
-              }
-            }), null);
-            _$insert(_el$44, _$createComponent(Show, {
-              get when() {
-                return _$memo(() => !!r.triggers)() && r.triggers.length > 0;
-              },
-              get children() {
-                var _el$54 = _$createElement("text"),
-                  _el$55 = _$createTextNode(`Triggers: `),
-                  _el$56 = _$createTextNode(` | Conf: `),
-                  _el$58 = _$createTextNode(`%`);
-                _$insertNode(_el$54, _el$55);
-                _$insertNode(_el$54, _el$56);
-                _$insertNode(_el$54, _el$58);
-                _$setProp(_el$54, "wrapMode", "word");
-                _$setProp(_el$54, "paddingLeft", 2);
-                _$insert(_el$54, () => r.triggers.join(", "), _el$56);
-                _$insert(_el$54, () => Math.round((r.confidence || 0.5) * 100), _el$58);
-                _$effect(_$p => _$setProp(_el$54, "fg", theme().textMuted, _$p));
-                return _el$54;
-              }
-            }), null);
+            _$insertNode(_el$45, _el$47);
+            _$insert(_el$45, () => r.scope, _el$47);
+            _$setProp(_el$48, "wrapMode", "word");
+            _$insert(_el$48, () => r.content);
             _$effect(_p$ => {
               var _v$14 = theme().border || "#374151",
-                _v$15 = getTagColor(r.category),
+                _v$15 = getTagColor(r.scope),
                 _v$16 = theme().text;
               _v$14 !== _p$.e && (_p$.e = _$setProp(_el$44, "borderColor", _v$14, _p$.e));
-              _v$15 !== _p$.t && (_p$.t = _$setProp(_el$46, "fg", _v$15, _p$.t));
-              _v$16 !== _p$.a && (_p$.a = _$setProp(_el$49, "fg", _v$16, _p$.a));
+              _v$15 !== _p$.t && (_p$.t = _$setProp(_el$45, "fg", _v$15, _p$.t));
+              _v$16 !== _p$.a && (_p$.a = _$setProp(_el$48, "fg", _v$16, _p$.a));
               return _p$;
             }, {
               e: undefined,
@@ -340,8 +296,8 @@ function MemoryModal(props) {
       var _v$0 = theme().text,
         _v$1 = theme().textMuted,
         _v$10 = tab() === "all" ? theme().accent || "#8b5cf6" : theme().textMuted,
-        _v$11 = tab() === "preference" ? theme().accent || "#8b5cf6" : theme().textMuted,
-        _v$12 = tab() === "skill" ? theme().accent || "#8b5cf6" : theme().textMuted,
+        _v$11 = tab() === "global" ? theme().accent || "#8b5cf6" : theme().textMuted,
+        _v$12 = tab() === "project" ? theme().accent || "#8b5cf6" : theme().textMuted,
         _v$13 = theme().textMuted;
       _v$0 !== _p$.e && (_p$.e = _$setProp(_el$29, "fg", _v$0, _p$.e));
       _v$1 !== _p$.t && (_p$.t = _$setProp(_el$32, "fg", _v$1, _p$.t));
@@ -445,77 +401,77 @@ function PlanReviewModal(props) {
     return "⌨️ [↓] Mulai Sorot Baris • [Scroll] Baca • [Ctrl+A] Approve Plan • [Esc] Tutup";
   };
   return (() => {
-    var _el$59 = _$createElement("box"),
-      _el$60 = _$createElement("box"),
-      _el$61 = _$createElement("text"),
-      _el$62 = _$createElement("b"),
-      _el$63 = _$createTextNode(`📋 Plan Line Reviewer: `),
-      _el$64 = _$createElement("text"),
-      _el$65 = _$createTextNode(` baris • `),
-      _el$66 = _$createTextNode(` koreksi`),
-      _el$70 = _$createElement("scrollbox"),
-      _el$71 = _$createElement("box"),
-      _el$72 = _$createElement("box"),
-      _el$73 = _$createElement("text"),
-      _el$74 = _$createElement("box"),
-      _el$75 = _$createElement("text");
-    _$insertNode(_el$59, _el$60);
-    _$insertNode(_el$59, _el$70);
-    _$insertNode(_el$59, _el$72);
-    _$setProp(_el$59, "gap", 1);
-    _$setProp(_el$59, "width", "100%");
-    _$setProp(_el$59, "flexGrow", 1);
-    _$setProp(_el$59, "paddingLeft", 2);
-    _$setProp(_el$59, "paddingRight", 2);
-    _$setProp(_el$59, "paddingBottom", 1);
-    _$insertNode(_el$60, _el$61);
-    _$insertNode(_el$60, _el$64);
-    _$setProp(_el$60, "flexDirection", "row");
-    _$setProp(_el$60, "justifyContent", "space-between");
-    _$setProp(_el$60, "width", "100%");
-    _$insertNode(_el$61, _el$62);
-    _$insertNode(_el$62, _el$63);
-    _$insert(_el$62, () => plan().planName, null);
-    _$insertNode(_el$64, _el$65);
-    _$insertNode(_el$64, _el$66);
-    _$insert(_el$64, () => lines().length, _el$65);
-    _$insert(_el$64, () => activeCommentsList().length, _el$66);
-    _$insert(_el$59, _$createComponent(Show, {
+    var _el$49 = _$createElement("box"),
+      _el$50 = _$createElement("box"),
+      _el$51 = _$createElement("text"),
+      _el$52 = _$createElement("b"),
+      _el$53 = _$createTextNode(`📋 Plan Line Reviewer: `),
+      _el$54 = _$createElement("text"),
+      _el$55 = _$createTextNode(` baris • `),
+      _el$56 = _$createTextNode(` koreksi`),
+      _el$60 = _$createElement("scrollbox"),
+      _el$61 = _$createElement("box"),
+      _el$62 = _$createElement("box"),
+      _el$63 = _$createElement("text"),
+      _el$64 = _$createElement("box"),
+      _el$65 = _$createElement("text");
+    _$insertNode(_el$49, _el$50);
+    _$insertNode(_el$49, _el$60);
+    _$insertNode(_el$49, _el$62);
+    _$setProp(_el$49, "gap", 1);
+    _$setProp(_el$49, "width", "100%");
+    _$setProp(_el$49, "flexGrow", 1);
+    _$setProp(_el$49, "paddingLeft", 2);
+    _$setProp(_el$49, "paddingRight", 2);
+    _$setProp(_el$49, "paddingBottom", 1);
+    _$insertNode(_el$50, _el$51);
+    _$insertNode(_el$50, _el$54);
+    _$setProp(_el$50, "flexDirection", "row");
+    _$setProp(_el$50, "justifyContent", "space-between");
+    _$setProp(_el$50, "width", "100%");
+    _$insertNode(_el$51, _el$52);
+    _$insertNode(_el$52, _el$53);
+    _$insert(_el$52, () => plan().planName, null);
+    _$insertNode(_el$54, _el$55);
+    _$insertNode(_el$54, _el$56);
+    _$insert(_el$54, () => lines().length, _el$55);
+    _$insert(_el$54, () => activeCommentsList().length, _el$56);
+    _$insert(_el$49, _$createComponent(Show, {
       get when() {
         return plan().planFile;
       },
       get children() {
-        var _el$67 = _$createElement("text"),
-          _el$68 = _$createTextNode(`File: `),
-          _el$69 = _$createElement("i");
-        _$insertNode(_el$67, _el$68);
-        _$insertNode(_el$67, _el$69);
-        _$setProp(_el$67, "wrapMode", "word");
-        _$insert(_el$69, () => plan().planFile);
-        _$effect(_$p => _$setProp(_el$67, "fg", theme().textMuted, _$p));
-        return _el$67;
+        var _el$57 = _$createElement("text"),
+          _el$58 = _$createTextNode(`File: `),
+          _el$59 = _$createElement("i");
+        _$insertNode(_el$57, _el$58);
+        _$insertNode(_el$57, _el$59);
+        _$setProp(_el$57, "wrapMode", "word");
+        _$insert(_el$59, () => plan().planFile);
+        _$effect(_$p => _$setProp(_el$57, "fg", theme().textMuted, _$p));
+        return _el$57;
       }
-    }), _el$70);
-    _$insertNode(_el$70, _el$71);
-    _$setProp(_el$70, "width", "100%");
-    _$setProp(_el$70, "flexGrow", 1);
-    _$setProp(_el$70, "minHeight", 12);
-    _$setProp(_el$70, "maxHeight", 30);
-    _$setProp(_el$71, "flexDirection", "column");
-    _$setProp(_el$71, "gap", 0);
-    _$setProp(_el$71, "width", "100%");
-    _$setProp(_el$71, "minWidth", 0);
-    _$insert(_el$71, _$createComponent(Show, {
+    }), _el$60);
+    _$insertNode(_el$60, _el$61);
+    _$setProp(_el$60, "width", "100%");
+    _$setProp(_el$60, "flexGrow", 1);
+    _$setProp(_el$60, "minHeight", 12);
+    _$setProp(_el$60, "maxHeight", 30);
+    _$setProp(_el$61, "flexDirection", "column");
+    _$setProp(_el$61, "gap", 0);
+    _$setProp(_el$61, "width", "100%");
+    _$setProp(_el$61, "minWidth", 0);
+    _$insert(_el$61, _$createComponent(Show, {
       get when() {
         return lines().length > 0;
       },
       get fallback() {
         return (() => {
-          var _el$77 = _$createElement("text");
-          _$insertNode(_el$77, _$createTextNode(`(Dokumen rencana belum memiliki isi teks. Gunakan /plan to-file &lt;nama&gt; terlebih dahulu)`));
-          _$setProp(_el$77, "wrapMode", "word");
-          _$effect(_$p => _$setProp(_el$77, "fg", theme().textMuted, _$p));
-          return _el$77;
+          var _el$67 = _$createElement("text");
+          _$insertNode(_el$67, _$createTextNode(`(Dokumen rencana belum memiliki isi teks. Gunakan /plan to-file &lt;nama&gt; terlebih dahulu)`));
+          _$setProp(_el$67, "wrapMode", "word");
+          _$effect(_$p => _$setProp(_el$67, "fg", theme().textMuted, _$p));
+          return _el$67;
         })();
       },
       get children() {
@@ -528,86 +484,86 @@ function PlanReviewModal(props) {
             const isEditing = () => editingIdx() === idx();
             const hasComment = () => Boolean(comments()[line.index]);
             return (() => {
-              var _el$79 = _$createElement("box"),
-                _el$80 = _$createElement("box"),
-                _el$81 = _$createElement("text"),
-                _el$82 = _$createTextNode(` |`),
-                _el$83 = _$createElement("text");
-              _$insertNode(_el$79, _el$80);
-              _$setProp(_el$79, "flexDirection", "column");
-              _$setProp(_el$79, "gap", 0);
-              _$setProp(_el$79, "paddingLeft", 1);
-              _$setProp(_el$79, "paddingRight", 1);
-              _$insertNode(_el$80, _el$81);
-              _$insertNode(_el$80, _el$83);
-              _$setProp(_el$80, "flexDirection", "row");
-              _$setProp(_el$80, "gap", 1);
-              _$setProp(_el$80, "onMouseDown", () => {
+              var _el$69 = _$createElement("box"),
+                _el$70 = _$createElement("box"),
+                _el$71 = _$createElement("text"),
+                _el$72 = _$createTextNode(` |`),
+                _el$73 = _$createElement("text");
+              _$insertNode(_el$69, _el$70);
+              _$setProp(_el$69, "flexDirection", "column");
+              _$setProp(_el$69, "gap", 0);
+              _$setProp(_el$69, "paddingLeft", 1);
+              _$setProp(_el$69, "paddingRight", 1);
+              _$insertNode(_el$70, _el$71);
+              _$insertNode(_el$70, _el$73);
+              _$setProp(_el$70, "flexDirection", "row");
+              _$setProp(_el$70, "gap", 1);
+              _$setProp(_el$70, "onMouseDown", () => {
                 setSelectedIdx(idx());
               });
-              _$insertNode(_el$81, _el$82);
-              _$setProp(_el$81, "flexShrink", 0);
-              _$insert(_el$81, () => String(line.index).padStart(3, " "), _el$82);
-              _$setProp(_el$83, "wrapMode", "word");
-              _$insert(_el$83, (() => {
+              _$insertNode(_el$71, _el$72);
+              _$setProp(_el$71, "flexShrink", 0);
+              _$insert(_el$71, () => String(line.index).padStart(3, " "), _el$72);
+              _$setProp(_el$73, "wrapMode", "word");
+              _$insert(_el$73, (() => {
                 var _c$ = _$memo(() => line.type === "heading");
                 return () => _c$() ? (() => {
-                  var _el$92 = _$createElement("b");
-                  _$insert(_el$92, () => line.raw);
-                  return _el$92;
+                  var _el$82 = _$createElement("b");
+                  _$insert(_el$82, () => line.raw);
+                  return _el$82;
                 })() : line.raw;
               })());
-              _$insert(_el$79, _$createComponent(Show, {
+              _$insert(_el$69, _$createComponent(Show, {
                 get when() {
                   return _$memo(() => !!hasComment())() && !isEditing();
                 },
                 get children() {
-                  var _el$84 = _$createElement("box"),
-                    _el$85 = _$createElement("text"),
-                    _el$86 = _$createTextNode(`↳ 💬 Koreksi: `),
-                    _el$87 = _$createElement("b");
-                  _$insertNode(_el$84, _el$85);
-                  _$setProp(_el$84, "flexDirection", "row");
-                  _$setProp(_el$84, "gap", 1);
-                  _$setProp(_el$84, "paddingLeft", 6);
-                  _$setProp(_el$84, "paddingBottom", 0);
-                  _$insertNode(_el$85, _el$86);
-                  _$insertNode(_el$85, _el$87);
-                  _$insert(_el$87, () => comments()[line.index]);
-                  _$effect(_$p => _$setProp(_el$85, "fg", theme().warning || "#f59e0b", _$p));
-                  return _el$84;
+                  var _el$74 = _$createElement("box"),
+                    _el$75 = _$createElement("text"),
+                    _el$76 = _$createTextNode(`↳ 💬 Koreksi: `),
+                    _el$77 = _$createElement("b");
+                  _$insertNode(_el$74, _el$75);
+                  _$setProp(_el$74, "flexDirection", "row");
+                  _$setProp(_el$74, "gap", 1);
+                  _$setProp(_el$74, "paddingLeft", 6);
+                  _$setProp(_el$74, "paddingBottom", 0);
+                  _$insertNode(_el$75, _el$76);
+                  _$insertNode(_el$75, _el$77);
+                  _$insert(_el$77, () => comments()[line.index]);
+                  _$effect(_$p => _$setProp(_el$75, "fg", theme().warning || "#f59e0b", _$p));
+                  return _el$74;
                 }
               }), null);
-              _$insert(_el$79, _$createComponent(Show, {
+              _$insert(_el$69, _$createComponent(Show, {
                 get when() {
                   return isEditing();
                 },
                 get children() {
-                  var _el$88 = _$createElement("box"),
-                    _el$89 = _$createElement("text"),
-                    _el$91 = _$createElement("text");
-                  _$insertNode(_el$88, _el$89);
-                  _$insertNode(_el$88, _el$91);
-                  _$setProp(_el$88, "flexDirection", "column");
-                  _$setProp(_el$88, "gap", 0);
-                  _$setProp(_el$88, "paddingLeft", 6);
-                  _$setProp(_el$88, "borderStyle", "single");
-                  _$insertNode(_el$89, _$createTextNode(`💬 Masukkan arahan / koreksi untuk baris ini:`));
-                  _$insert(_el$91, () => commentInput() || "<i>(Ketik koreksi...)</i>");
+                  var _el$78 = _$createElement("box"),
+                    _el$79 = _$createElement("text"),
+                    _el$81 = _$createElement("text");
+                  _$insertNode(_el$78, _el$79);
+                  _$insertNode(_el$78, _el$81);
+                  _$setProp(_el$78, "flexDirection", "column");
+                  _$setProp(_el$78, "gap", 0);
+                  _$setProp(_el$78, "paddingLeft", 6);
+                  _$setProp(_el$78, "borderStyle", "single");
+                  _$insertNode(_el$79, _$createTextNode(`💬 Masukkan arahan / koreksi untuk baris ini:`));
+                  _$insert(_el$81, () => commentInput() || "<i>(Ketik koreksi...)</i>");
                   _$effect(_p$ => {
                     var _v$21 = theme().warning || "#f59e0b",
                       _v$22 = theme().warning || "#f59e0b",
                       _v$23 = theme().text;
-                    _v$21 !== _p$.e && (_p$.e = _$setProp(_el$88, "borderColor", _v$21, _p$.e));
-                    _v$22 !== _p$.t && (_p$.t = _$setProp(_el$89, "fg", _v$22, _p$.t));
-                    _v$23 !== _p$.a && (_p$.a = _$setProp(_el$91, "fg", _v$23, _p$.a));
+                    _v$21 !== _p$.e && (_p$.e = _$setProp(_el$78, "borderColor", _v$21, _p$.e));
+                    _v$22 !== _p$.t && (_p$.t = _$setProp(_el$79, "fg", _v$22, _p$.t));
+                    _v$23 !== _p$.a && (_p$.a = _$setProp(_el$81, "fg", _v$23, _p$.a));
                     return _p$;
                   }, {
                     e: undefined,
                     t: undefined,
                     a: undefined
                   });
-                  return _el$88;
+                  return _el$78;
                 }
               }), null);
               _$effect(_p$ => {
@@ -615,10 +571,10 @@ function PlanReviewModal(props) {
                   _v$25 = isSelected() ? theme().accent || "#8b5cf6" : undefined,
                   _v$26 = isSelected() ? theme().accent || "#8b5cf6" : theme().textMuted,
                   _v$27 = isSelected() ? theme().text : line.type === "heading" ? theme().accent || "#8b5cf6" : line.type === "checkbox" || line.type === "bullet" ? theme().warning || "#f59e0b" : theme().textMuted;
-                _v$24 !== _p$.e && (_p$.e = _$setProp(_el$79, "borderStyle", _v$24, _p$.e));
-                _v$25 !== _p$.t && (_p$.t = _$setProp(_el$79, "borderColor", _v$25, _p$.t));
-                _v$26 !== _p$.a && (_p$.a = _$setProp(_el$81, "fg", _v$26, _p$.a));
-                _v$27 !== _p$.o && (_p$.o = _$setProp(_el$83, "fg", _v$27, _p$.o));
+                _v$24 !== _p$.e && (_p$.e = _$setProp(_el$69, "borderStyle", _v$24, _p$.e));
+                _v$25 !== _p$.t && (_p$.t = _$setProp(_el$69, "borderColor", _v$25, _p$.t));
+                _v$26 !== _p$.a && (_p$.a = _$setProp(_el$71, "fg", _v$26, _p$.a));
+                _v$27 !== _p$.o && (_p$.o = _$setProp(_el$73, "fg", _v$27, _p$.o));
                 return _p$;
               }, {
                 e: undefined,
@@ -626,33 +582,33 @@ function PlanReviewModal(props) {
                 a: undefined,
                 o: undefined
               });
-              return _el$79;
+              return _el$69;
             })();
           }
         });
       }
     }));
-    _$insertNode(_el$72, _el$73);
-    _$insertNode(_el$72, _el$74);
-    _$setProp(_el$72, "flexDirection", "row");
-    _$setProp(_el$72, "justifyContent", "space-between");
-    _$setProp(_el$72, "width", "100%");
-    _$setProp(_el$72, "paddingTop", 1);
-    _$insert(_el$73, navHint);
-    _$insertNode(_el$74, _el$75);
-    _$setProp(_el$74, "flexDirection", "row");
-    _$setProp(_el$74, "gap", 2);
-    _$insertNode(_el$75, _$createTextNode(`[✔ Approve & Submit]`));
-    _$setProp(_el$75, "onMouseDown", () => submitReview(true));
+    _$insertNode(_el$62, _el$63);
+    _$insertNode(_el$62, _el$64);
+    _$setProp(_el$62, "flexDirection", "row");
+    _$setProp(_el$62, "justifyContent", "space-between");
+    _$setProp(_el$62, "width", "100%");
+    _$setProp(_el$62, "paddingTop", 1);
+    _$insert(_el$63, navHint);
+    _$insertNode(_el$64, _el$65);
+    _$setProp(_el$64, "flexDirection", "row");
+    _$setProp(_el$64, "gap", 2);
+    _$insertNode(_el$65, _$createTextNode(`[✔ Approve & Submit]`));
+    _$setProp(_el$65, "onMouseDown", () => submitReview(true));
     _$effect(_p$ => {
       var _v$17 = theme().text,
         _v$18 = theme().textMuted,
         _v$19 = theme().textMuted,
         _v$20 = theme().success || "#10b981";
-      _v$17 !== _p$.e && (_p$.e = _$setProp(_el$61, "fg", _v$17, _p$.e));
-      _v$18 !== _p$.t && (_p$.t = _$setProp(_el$64, "fg", _v$18, _p$.t));
-      _v$19 !== _p$.a && (_p$.a = _$setProp(_el$73, "fg", _v$19, _p$.a));
-      _v$20 !== _p$.o && (_p$.o = _$setProp(_el$75, "fg", _v$20, _p$.o));
+      _v$17 !== _p$.e && (_p$.e = _$setProp(_el$51, "fg", _v$17, _p$.e));
+      _v$18 !== _p$.t && (_p$.t = _$setProp(_el$54, "fg", _v$18, _p$.t));
+      _v$19 !== _p$.a && (_p$.a = _$setProp(_el$63, "fg", _v$19, _p$.a));
+      _v$20 !== _p$.o && (_p$.o = _$setProp(_el$65, "fg", _v$20, _p$.o));
       return _p$;
     }, {
       e: undefined,
@@ -660,7 +616,7 @@ function PlanReviewModal(props) {
       a: undefined,
       o: undefined
     });
-    return _el$59;
+    return _el$49;
   })();
 }
 export const tui = async (api, options = {}) => {
@@ -761,6 +717,6 @@ export const tui = async (api, options = {}) => {
   }
 };
 export default {
-  id: "oh-my-hook-tui",
+  id: "oh-my-hook",
   tui
 };

@@ -1,20 +1,25 @@
 /**
- * memory/index.js — Memory hooks & commands suite for oh-my-hook.
+ * memory/index.js — Pure Markdown Memory hooks & unified /memory command suite.
  *
  * Provides:
- *   - Categorized structured memory store (rules/*.jsonl)
- *   - Dynamic BM25 relevance injection per prompt turn (zero prompt token bloat)
- *   - Heuristic auto-correction & success signal detector
- *   - Background queue-based distill & self-healing deduplication
- *   - Slash commands: /remember, /memory, /memory-rules, /memory-forget, /memory-scan, /capture
+ *   - File-backed Markdown stores: ~/.config/opencode/memory/MEMORY.md (global) & projects/<slug>/MEMORY.md
+ *   - Native OpenCode agent tool (`memory`) with 4 actions (add, replace, remove, list)
+ *   - Direct Markdown injection into System Prompt and Compaction context
+ *   - Unified Slash Command: `/memory [all|global|project|add|replace|remove|capture]`
  */
 import {
 	readMemory,
 	readAllMemory,
 	appendMemory,
+	replaceMemory,
+	removeMemory,
 	GLOBAL_FILE,
+	getGlobalFile,
 	projectSlug,
+	projectMemoryFile,
 	resolveTargetMemoryFile,
+	parseBullets,
+	listMemoryEntries,
 } from "./store.js";
 import { capture } from "./ai/index.js";
 import { loadConfig } from "../share/config.js";
@@ -25,12 +30,7 @@ import {
 	rememberSessionAgent,
 } from "../share/agent.js";
 import { createNotifier } from "../share/notify.js";
-
-import { listRules, appendRule, removeRule, enqueueJob } from "./rstore.js";
-import { injectMemory } from "./inject.js";
-import { sessionTracker } from "./ctx.js";
-import { analyzeUserMessage, shouldQueue } from "./detect.js";
-import { processQueue } from "./distill.js";
+import { createMemoryTool } from "./tool.js";
 
 /** Get the latest OpenCode session ID (from `opencode session list`). */
 function latestSessionID() {
@@ -97,29 +97,14 @@ async function distillToMemory(transcript, notify, memCfg, directory) {
 		.split("\n")
 		.map((l) => l.trim())
 		.filter((l) => l.startsWith("- "))
-		.slice(0, memCfg.maxBullets);
+		.slice(0, memCfg.maxBullets ?? 5);
 	if (bullets.length === 0) return 0;
-	const file = directory
-		? await projectMemoryFileDynamic(directory)
-		: GLOBAL_FILE;
+	const file = resolveTargetMemoryFile(directory);
 	for (const b of bullets) {
 		const clean = b.replace(/^-\s*/, "");
 		appendMemory(file, clean);
-		// Also save to structured store
-		appendRule({
-			content: clean,
-			scope: directory ? "project" : "global",
-			project: projectSlug(directory),
-			source: "capture",
-		});
 	}
 	return bullets.length;
-}
-
-// Dynamic import helper to avoid circular import at module top.
-async function projectMemoryFileDynamic(directory) {
-	const { projectMemoryFile } = await import("./store.js");
-	return projectMemoryFile(directory);
 }
 
 export const memoryHooks = async ({ client, directory }, opts = {}) => {
@@ -129,247 +114,272 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 	const agentModes = loadAgentModes(directory);
 
 	return {
-		// --- register slash commands (config hook, opencode-quota pattern) ---
+		// --- native agent tool (OpenCode tool registry pattern) ---
+		...(memCfg.enabled !== false
+			? {
+					tool: {
+						memory: createMemoryTool({ directory }),
+					},
+				}
+			: {}),
+
+		// --- register unified slash command (/memory) ---
 		config: async (input) => {
 			if (memCfg.enabled === false) return;
 			const cfg = input ?? {};
 			cfg.command ??= {};
-			cfg.command.remember = {
-				template: "/remember <note>",
+			cfg.command.memory = {
+				template: "/memory [all|global|project|add|replace|remove|capture]",
 				description:
-					"Simpan catatan memory (--global untuk global, default project)",
-			};
-			cfg.command["memory-forget"] = {
-				template: "/memory-forget <id>",
-				description: "Hapus / cabut rule memory berdasarkan ID",
-			};
-			cfg.command["memory-scan"] = {
-				template: "/memory-scan",
-				description: "Proses antrean distill memory background secara instan",
-			};
-			cfg.command.capture = {
-				template: "/capture",
-				description: "Auto-capture session terakhir ke memory via AI",
+					"Kelola memory: /memory (semua) | global | project | add <note> | replace <old> -> <new> | remove <text> | capture",
 			};
 		},
 
-		// --- record context & detect learning signals from user messages ---
+		// --- track session agent mode ---
 		"chat.message": async (input) => {
 			if (!input?.sessionID) return;
 			rememberSessionAgent(input.sessionID, input.agent);
-
-			// Extract user text defensively
-			let userText = "";
-			if (Array.isArray(input.message?.parts)) {
-				for (const part of input.message.parts) {
-					if (part.type === "text" && part.text) {
-						userText += part.text + " ";
-					}
-				}
-			} else if (typeof input.userMessage === "string") {
-				userText = input.userMessage;
-			}
-
-			if (userText.trim()) {
-				// Prune stale session tracker caches if accumulating
-				if (sessionTracker.sessions.size > 50) {
-					sessionTracker.prune();
-				}
-
-				const signal = analyzeUserMessage(userText);
-				const isCorrection = shouldQueue(
-					signal,
-					memCfg.detector?.minConfidence ?? 0.6,
-				);
-
-				sessionTracker.record(input.sessionID, {
-					userMessage: userText,
-					isCorrection,
-				});
-
-				if (isCorrection) {
-					enqueueJob({
-						type: "distill",
-						kind: "correction",
-						sessionID: input.sessionID,
-						project: projectSlug(directory),
-						context: userText.trim(),
-						signal: signal.label,
-					});
-				}
-			}
 		},
 
-		// --- dynamic injection into system prompt (BM25 relevance matched) ---
+		// --- direct Markdown injection into system prompt ---
 		"experimental.chat.system.transform": async (input, output) => {
-			if (!memCfg.enabled) return;
+			if (memCfg.enabled === false) return;
 			if (isSubagent(input, agentModes) && !memCfg.injectToSubagents) return;
 
-			const sessionID = input.sessionID;
-			const query = sessionTracker.getQuery(sessionID, "");
+			const memoryText = readAllMemory(directory);
+			if (!memoryText || !memoryText.trim()) return;
 
-			const { text } = injectMemory({
-				directory,
-				query,
-				config,
-				capBudget: true,
-			});
-
-			if (!text) return;
 			output.system = output.system || [];
-			output.system.push(`\n${text}\n`);
+			output.system.push(`\n${memoryText.trim()}\n`);
 		},
 
 		// --- inject memory into compaction context (lossless) ---
 		"experimental.session.compacting": async (input, output) => {
-			const { text } = injectMemory({
-				directory,
-				query: "",
-				config,
-				capBudget: false,
-			});
+			if (memCfg.enabled === false) return;
+			const memoryText = readAllMemory(directory);
+			if (!memoryText || !memoryText.trim()) return;
 
-			if (!text) return;
 			output.context = output.context || [];
-			output.context.push(text);
+			output.context.push(memoryText.trim());
 		},
 
-		// --- slash commands execution ---
+		// --- unified /memory slash command execution ---
 		"command.execute.before": async (input, output) => {
 			const cmd = input.command;
-			const args = input.arguments ?? "";
+			const rawArgs = (input.arguments ?? "").trim();
 
+			// Support legacy alias /remember for quick backward compatibility
 			if (cmd === "remember") {
-				const entry = args.trim();
-				if (!entry) {
-					await notify("Usage: /remember <note>");
+				if (!rawArgs) {
+					await notify("Usage: /memory add <note> atau /remember <note>");
 					if (output) output.parts = [];
 					return;
 				}
-				const isGlobal = entry.startsWith("--global ");
-				const clean = entry.replace(/^--global\s+/, "").trim();
+				const isGlobal = rawArgs.startsWith("--global ");
+				const clean = rawArgs.replace(/^--global\s+/, "").trim();
 				const file = isGlobal
-					? GLOBAL_FILE
+					? getGlobalFile()
 					: resolveTargetMemoryFile(directory);
-
-				// 1. Write clean markdown
-				const line = appendMemory(file, clean);
-
-				// 2. Also track in structured store
-				const rule = appendRule({
-					content: clean,
-					scope: isGlobal || file === GLOBAL_FILE ? "global" : "project",
-					project:
-						isGlobal || file === GLOBAL_FILE ? null : projectSlug(directory),
-					source: "remember",
-				});
-
-				await notify(`Memory saved [${rule.id}]: ${rule.content}`);
+				appendMemory(file, clean);
+				const scopeName = isGlobal ? "global" : "project";
+				await notify(`Memory saved (${scopeName}): ${clean}`);
 				if (output) output.parts = [];
 				return;
 			}
 
 			if (cmd === "memory") {
-				const pSlug = projectSlug(directory);
-				const rules = listRules({ projectSlug: pSlug, activeOnly: true });
-				const legacy = readAllMemory(directory);
+				const [subcmd, ...restParts] = rawArgs ? rawArgs.split(/\s+/) : [];
+				const sub = (subcmd || "").toLowerCase();
+				const rest = restParts.join(" ").trim();
 
-				if (rules.length === 0 && !legacy) {
-					await notify("(memory kosong — isi dengan /remember atau /capture)");
-					if (output) output.parts = [];
-					return;
-				}
-
-				const summary = `📊 Active Memory: ${rules.length} structured rules loaded.`;
-				await notify(legacy ? `${summary}\n\n${legacy}` : summary);
-				if (output) output.parts = [];
-				return;
-			}
-
-			if (cmd === "memory-rules") {
-				const pSlug = projectSlug(directory);
-				const rules = listRules({ projectSlug: pSlug, activeOnly: true });
-				if (rules.length === 0) {
-					await notify("Belum ada structured rules yang aktif.");
-					if (output) output.parts = [];
-					return;
-				}
-				const lines = rules.map(
-					(r) =>
-						`• [${r.id}] (${r.category}) ${r.content} [conf: ${(r.confidence * 100).toFixed(0)}%]`,
-				);
-				await notify(`📋 Structured Memory Rules:\n${lines.join("\n")}`);
-				if (output) output.parts = [];
-				return;
-			}
-
-			if (cmd === "memory-forget") {
-				const id = args.trim();
-				if (!id) {
-					await notify("Usage: /memory-forget <rule-id>");
-					if (output) output.parts = [];
-					return;
-				}
-				const ok = removeRule(id);
-				if (ok) {
-					await notify(`Rule [${id}] berhasil dicabut.`);
-				} else {
-					await notify(`Rule [${id}] tidak ditemukan.`, "warn");
-				}
-				if (output) output.parts = [];
-				return;
-			}
-
-			if (cmd === "memory-scan") {
-				await notify("Menjalankan pemrosesan background queue memory…");
-				const count = await processQueue({
-					config,
-					notify,
-					getTranscriptFn: getSessionTranscript,
-				});
-				await notify(
-					`Pemrosesan queue selesai. ${count} rules berhasil diproses.`,
-				);
-				if (output) output.parts = [];
-				return;
-			}
-
-			if (cmd === "capture") {
-				await notify("Running memory capture via AI…");
-				try {
-					const sessionID =
-						(args.trim().match(/^[a-z0-9_]+$/) ? args.trim() : null) ??
-						latestSessionID();
-					if (!sessionID) {
-						await notify("Gak ada session OpenCode buat di-capture.", "warn");
+				// 1. /memory add [--global] <note>
+				if (sub === "add") {
+					if (!rest) {
+						await notify("Usage: /memory add [--global] <note>");
 						if (output) output.parts = [];
 						return;
 					}
-					const transcript = getSessionTranscript(sessionID);
-					if (!transcript) {
-						await notify("Transcript session kosong.", "warn");
-						if (output) output.parts = [];
-						return;
-					}
-					const n = await distillToMemory(
-						transcript,
-						notify,
-						memCfg,
-						directory,
-					);
-					if (n === 0) {
+					const isGlobal = rest.startsWith("--global ");
+					const clean = rest.replace(/^--global\s+/, "").trim();
+					const file = isGlobal
+						? getGlobalFile()
+						: resolveTargetMemoryFile(directory);
+					appendMemory(file, clean);
+					const scopeName = isGlobal ? "global" : "project";
+					await notify(`Memory saved (${scopeName}): ${clean}`);
+					if (output) output.parts = [];
+					return;
+				}
+
+				// 2. /memory replace <old_text> -> <new_text>
+				if (sub === "replace") {
+					const delimIdx = rest.indexOf("->");
+					if (delimIdx === -1) {
 						await notify(
-							"Capture selesai, tapi gak ada poin yang layak disimpan.",
+							"Usage: /memory replace <old_substring> -> <new_note>",
 						);
-					} else {
-						const file = directory
-							? await projectMemoryFileDynamic(directory)
-							: GLOBAL_FILE;
-						await notify(`Memory capture: ${n} poin disimpan.`);
+						if (output) output.parts = [];
+						return;
 					}
-				} catch (e) {
-					await notify(`Capture gagal: ${e.message}`, "error");
+					const oldText = rest.slice(0, delimIdx).trim();
+					const newText = rest.slice(delimIdx + 2).trim();
+					if (!oldText || !newText) {
+						await notify(
+							"Usage: /memory replace <old_substring> -> <new_note>",
+						);
+						if (output) output.parts = [];
+						return;
+					}
+
+					const entries = listMemoryEntries(directory);
+					const match = entries.find((e) =>
+						e.content.toLowerCase().includes(oldText.toLowerCase()),
+					);
+					if (!match) {
+						await notify(
+							`Memory mengandung "${oldText}" tidak ditemukan.`,
+							"warn",
+						);
+						if (output) output.parts = [];
+						return;
+					}
+
+					replaceMemory(match.file, match.content, newText);
+					await notify(
+						`Memory updated (${match.scope}):\n  Old: ${match.content}\n  New: ${newText}`,
+					);
+					if (output) output.parts = [];
+					return;
 				}
+
+				// 3. /memory remove <substring> | /memory rm <substring>
+				if (sub === "remove" || sub === "rm" || sub === "delete") {
+					if (!rest) {
+						await notify("Usage: /memory remove <substring>");
+						if (output) output.parts = [];
+						return;
+					}
+					const entries = listMemoryEntries(directory);
+					const match = entries.find((e) =>
+						e.content.toLowerCase().includes(rest.toLowerCase()),
+					);
+					if (!match) {
+						await notify(
+							`Memory mengandung "${rest}" tidak ditemukan.`,
+							"warn",
+						);
+						if (output) output.parts = [];
+						return;
+					}
+
+					removeMemory(match.file, match.content);
+					await notify(`Memory removed (${match.scope}): ${match.content}`);
+					if (output) output.parts = [];
+					return;
+				}
+
+				// 4. /memory global
+				if (sub === "global") {
+					const globalFile = getGlobalFile();
+					const text = readMemory(globalFile).trim();
+					const bullets = parseBullets(text);
+					if (!text || bullets.length === 0) {
+						await notify("(Global memory kosong)");
+					} else {
+						await notify(
+							`🌍 Global Memory (${bullets.length} bullets):\n\n${text}`,
+						);
+					}
+					if (output) output.parts = [];
+					return;
+				}
+
+				// 5. /memory project [optional-path]
+				if (sub === "project") {
+					const targetDir = rest || directory;
+					const projFile = projectMemoryFile(targetDir);
+					const text = readMemory(projFile).trim();
+					const bullets = parseBullets(text);
+					if (!text || bullets.length === 0) {
+						await notify(`(Project memory kosong untuk ${targetDir})`);
+					} else {
+						await notify(
+							`🎯 Project Memory (${bullets.length} bullets):\n\n${text}`,
+						);
+					}
+					if (output) output.parts = [];
+					return;
+				}
+
+				// 6. /memory capture
+				if (sub === "capture") {
+					await notify("Running memory capture via AI…");
+					try {
+						const sessionID =
+							(rest.match(/^[a-z0-9_]+$/) ? rest : null) ?? latestSessionID();
+						if (!sessionID) {
+							await notify("Gak ada session OpenCode buat di-capture.", "warn");
+							if (output) output.parts = [];
+							return;
+						}
+						const transcript = getSessionTranscript(sessionID);
+						if (!transcript) {
+							await notify("Transcript session kosong.", "warn");
+							if (output) output.parts = [];
+							return;
+						}
+						const n = await distillToMemory(
+							transcript,
+							notify,
+							memCfg,
+							directory,
+						);
+						if (n === 0) {
+							await notify(
+								"Capture selesai, tidak ada poin baru yang disimpan.",
+							);
+						} else {
+							await notify(`Memory capture: ${n} poin berhasil disimpan.`);
+						}
+					} catch (e) {
+						await notify(`Capture gagal: ${e.message}`, "error");
+					}
+					if (output) output.parts = [];
+					return;
+				}
+
+				// 7. /memory all (atau default /memory tanpa argumen)
+				if (!sub || sub === "all") {
+					const allText = readAllMemory(directory);
+					const bullets = parseBullets(allText);
+
+					if (!allText.trim() || bullets.length === 0) {
+						await notify(
+							"(Memory kosong — gunakan /memory add <note> atau tool memory)",
+						);
+						if (output) output.parts = [];
+						return;
+					}
+
+					await notify(
+						`📋 Active Memory (${bullets.length} bullets total):\n\n${allText.trim()}`,
+					);
+					if (output) output.parts = [];
+					return;
+				}
+
+				// Fallback: If argument is treated as a note to quickly add
+				await notify(
+					`❓ Perintah tidak dikenal: "/memory ${rawArgs}"\n` +
+						`💡 Usage:\n` +
+						`  • /memory                 (Tampilkan semua memory aktif)\n` +
+						`  • /memory global          (Tampilkan global memory)\n` +
+						`  • /memory project         (Tampilkan project memory)\n` +
+						`  • /memory add <note>      (Tambah memory ke project, --global untuk global)\n` +
+						`  • /memory replace A -> B  (Ganti memory A dengan B)\n` +
+						`  • /memory remove <text>   (Hapus memory yang cocok)\n` +
+						`  • /memory capture         (Auto-capture via AI)`,
+				);
 				if (output) output.parts = [];
 			}
 		},

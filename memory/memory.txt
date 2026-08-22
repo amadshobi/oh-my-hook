@@ -1,0 +1,23 @@
+Manage persistent curated memory across sessions. Use this tool to proactively save, update, or remove key project conventions, architecture decisions, user preferences, and lessons learned.
+
+## ACTIONS:
+1. `add`: Save a new durable memory entry.
+   - Requires: `content`
+   - Use when: User introduces new tech preferences, repo conventions, architectural decisions, or important facts.
+
+2. `replace`: Replace an existing memory entry using substring matching.
+   - Requires: `old_text` (unique substring of existing memory) and `content` (new replacement text)
+   - Use when: User corrects an old rule or updates an existing convention.
+
+3. `remove`: Delete an existing memory entry using substring matching or ID.
+   - Requires: `old_text` (unique substring of existing memory or rule ID)
+   - Use when: A rule is obsolete or explicitly requested to be removed.
+
+4. `list`: Inspect all currently active memories for this project or global scope.
+   - Optional: `scope` ("project" or "global")
+
+## RULES & BEHAVIOR:
+- Be PROACTIVE: If user corrects you (e.g. "don't use X, use Y", "panggil saya BOSS", "always use bun test"), IMMEDIATELY call `memory(action="replace", ...)` or `memory(action="add", ...)`.
+- Keep entries concise, atomic, and dense with facts.
+- Do NOT save temporary conversation context, huge code snippets, or trivial chit-chat.
+- Scope: Use `scope="global"` for general user identity and persona preferences. Use `scope="project"` (default) for codebase, tech stack, and repo-specific rules.

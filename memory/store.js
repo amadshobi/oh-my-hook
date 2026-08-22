@@ -1,23 +1,33 @@
 /**
- * memory/store.js — memory file store.
+ * memory/store.js — Pure Markdown Memory File Store.
  *
- * Memory lives in markdown files, one bullet per topic (easy to parse and
- * hand-edit):
- *
+ * Memory lives strictly in markdown files, one bullet per topic:
  *   ~/.config/opencode/memory/MEMORY.md                      (global)
  *   ~/.config/opencode/memory/projects/<slug>/MEMORY.md      (per-project)
- *
- * Only curated content goes here — /remember (manual) or /capture (AI
- * distill). Never auto-log raw conversation.
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const MEMORY_ROOT =
-	process.env.OMH_MEMORY_ROOT ||
-	path.join(os.homedir(), ".config", "opencode", "memory");
+/** Dynamic memory root path (honors process.env.OMH_MEMORY_ROOT for test isolation). */
+export function getMemoryRoot() {
+	return (
+		process.env.OMH_MEMORY_ROOT ||
+		path.join(os.homedir(), ".config", "opencode", "memory")
+	);
+}
 
+/** Dynamic global memory file path. */
+export function getGlobalFile() {
+	return path.join(getMemoryRoot(), "MEMORY.md");
+}
+
+export const MEMORY_ROOT = path.join(
+	os.homedir(),
+	".config",
+	"opencode",
+	"memory",
+);
 export const GLOBAL_FILE = path.join(MEMORY_ROOT, "MEMORY.md");
 
 /**
@@ -36,7 +46,7 @@ export function projectSlug(projectDir) {
 
 export function projectMemoryFile(projectDir) {
 	return path.join(
-		MEMORY_ROOT,
+		getMemoryRoot(),
 		"projects",
 		projectSlug(projectDir),
 		"MEMORY.md",
@@ -44,7 +54,7 @@ export function projectMemoryFile(projectDir) {
 }
 
 export function ensureMemoryDir() {
-	mkdirSync(MEMORY_ROOT, { recursive: true });
+	mkdirSync(getMemoryRoot(), { recursive: true });
 }
 
 /** Read a memory file, returning the raw markdown (empty string if none). */
@@ -76,7 +86,7 @@ export function isGlobalDirectory(dir) {
  */
 export function resolveTargetMemoryFile(projectDir) {
 	if (isGlobalDirectory(projectDir)) {
-		return GLOBAL_FILE;
+		return getGlobalFile();
 	}
 	return projectMemoryFile(projectDir);
 }
@@ -85,7 +95,8 @@ export function resolveTargetMemoryFile(projectDir) {
  * Read global + project memory, concatenated (global first, then project).
  */
 export function readAllMemory(projectDir) {
-	const global = readMemory(GLOBAL_FILE).trim();
+	const globalFile = getGlobalFile();
+	const global = readMemory(globalFile).trim();
 	const parts = [];
 	if (global) parts.push(`# Global Memory\n\n${global}`);
 
@@ -119,4 +130,97 @@ export function parseBullets(markdown) {
 		.filter((l) => l.startsWith("- "))
 		.map((l) => l.slice(2).trim())
 		.filter(Boolean);
+}
+
+/**
+ * Replace an existing bullet in a memory markdown file by substring match.
+ * @param {string} file
+ * @param {string} oldMatch
+ * @param {string} newEntry
+ * @returns {boolean}
+ */
+export function replaceMemory(file, oldMatch, newEntry) {
+	if (!existsSync(file)) return false;
+	const content = readMemory(file);
+	const lines = content.split("\n");
+	const needle = oldMatch.toLowerCase();
+	let replaced = false;
+
+	const nextLines = lines.map((line) => {
+		if (
+			!replaced &&
+			line.trim().startsWith("- ") &&
+			line.toLowerCase().includes(needle)
+		) {
+			replaced = true;
+			return `- ${newEntry.replace(/\n/g, " ").trim()}`;
+		}
+		return line;
+	});
+
+	if (replaced) {
+		writeFileSync(file, nextLines.join("\n"));
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Remove an existing bullet from a memory markdown file by substring match.
+ * @param {string} file
+ * @param {string} oldMatch
+ * @returns {boolean}
+ */
+export function removeMemory(file, oldMatch) {
+	if (!existsSync(file)) return false;
+	const content = readMemory(file);
+	const lines = content.split("\n");
+	const needle = oldMatch.toLowerCase();
+	let removed = false;
+
+	const nextLines = lines.filter((line) => {
+		if (
+			!removed &&
+			line.trim().startsWith("- ") &&
+			line.toLowerCase().includes(needle)
+		) {
+			removed = true;
+			return false;
+		}
+		return true;
+	});
+
+	if (removed) {
+		writeFileSync(file, nextLines.join("\n"));
+		return true;
+	}
+	return false;
+}
+
+/**
+ * List all memory bullet entries with scope metadata.
+ * @param {string} [projectDir]
+ * @param {"global" | "project"} [scope]
+ * @returns {Array<{ content: string, scope: "global" | "project", file: string }>}
+ */
+export function listMemoryEntries(projectDir, scope) {
+	const entries = [];
+	const globalFile = getGlobalFile();
+
+	if (!scope || scope === "global") {
+		const rawGlobal = readMemory(globalFile);
+		for (const bullet of parseBullets(rawGlobal)) {
+			entries.push({ content: bullet, scope: "global", file: globalFile });
+		}
+	}
+
+	if ((!scope || scope === "project") && !isGlobalDirectory(projectDir)) {
+		const projFile = projectMemoryFile(projectDir);
+		const rawProj = readMemory(projFile);
+		for (const bullet of parseBullets(rawProj)) {
+			entries.push({ content: bullet, scope: "project", file: projFile });
+		}
+	}
+
+	return entries;
 }
