@@ -8,6 +8,13 @@ import {
 	projectSlug,
 } from "../../../memory/store.js";
 import { listRules } from "../../../memory/rstore.js";
+import {
+	loadModeState,
+	currentPlan,
+	resolvePlansDir,
+} from "../../../share/state.js";
+import { readPlanContent } from "../../../plans/store.js";
+import { parsePlanLines } from "../../../plans/parser.js";
 
 const BOOLEAN_GUARD_FLAGS = [
 	"readBeforeWrite",
@@ -26,7 +33,7 @@ const BOOLEAN_GUARD_FLAGS = [
  */
 export function getActiveGuardsCount(config) {
 	const cfg = config || loadConfig().config;
-	const guard = cfg?.guard || {};
+	const guard = cfg?.sandbox || cfg?.guard || {};
 
 	let count = 0;
 	for (const flag of BOOLEAN_GUARD_FLAGS) {
@@ -96,6 +103,31 @@ export function getMemoryRules(projectDirectory) {
 		return listRules({ projectSlug: slug, activeOnly: true });
 	} catch {
 		return [];
+	}
+}
+
+/**
+ * Get active plan review data for a session.
+ * @param {string} sessionID
+ * @param {string} [directory]
+ * @returns {{ planName: string, planFile: string, content: string, lines: object[] }}
+ */
+export function getPlanReviewData(sessionID, directory) {
+	try {
+		const state = loadModeState();
+		const plan = currentPlan(state, sessionID);
+		const planFile = plan?.file || "";
+		const planName = plan?.name || "Rencana Aktif";
+		const content = planFile ? readPlanContent(planFile) : "";
+		const lines = content ? parsePlanLines(content) : [];
+		return {
+			planName,
+			planFile,
+			content,
+			lines,
+		};
+	} catch {
+		return { planName: "Rencana", planFile: "", content: "", lines: [] };
 	}
 }
 

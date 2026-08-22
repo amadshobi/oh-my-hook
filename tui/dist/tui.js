@@ -11,8 +11,9 @@ import { createElement as _$createElement } from "@opentui/solid";
  */
 import { createSignal, Show, For } from "solid-js";
 import { watchModeState, currentMode } from "./lib/mode-watch.js";
-import { getMetrics, getMemoryRules } from "./lib/metrics.js";
+import { getMetrics, getMemoryRules, getPlanReviewData } from "./lib/metrics.js";
 import { resolveActiveSessionID, createSessionSubscriber } from "./lib/session.js";
+import { formatReviewFeedback } from "../../plans/parser.js";
 function ModeBadge(props) {
   const [modeState, setModeState] = createSignal({});
   const unwatch = watchModeState(nextState => {
@@ -359,18 +360,324 @@ function MemoryModal(props) {
     return _el$27;
   })();
 }
+
+/**
+ * OpenCode standard dialog popup for Interactive Line-Level Plan Review.
+ */
+function PlanReviewModal(props) {
+  const theme = () => props.api?.theme?.current || {};
+  const plan = () => getPlanReviewData(props.sessionID, props.directory);
+  const lines = () => plan().lines;
+  const [selectedIdx, setSelectedIdx] = createSignal(null);
+  const [editingIdx, setEditingIdx] = createSignal(null);
+  const [commentInput, setCommentInput] = createSignal("");
+  const [comments, setComments] = createSignal({});
+  const activeCommentsList = () => {
+    const res = [];
+    const rawMap = comments();
+    for (const [lineStr, text] of Object.entries(rawMap)) {
+      const lineNum = parseInt(lineStr, 10);
+      const lineObj = lines().find(l => l.index === lineNum);
+      if (text && text.trim()) {
+        res.push({
+          line: lineNum,
+          lineText: lineObj?.raw || "",
+          comment: text.trim()
+        });
+      }
+    }
+    return res;
+  };
+
+  // Save comment for current editing line
+  const saveCurrentComment = () => {
+    const idx = editingIdx();
+    if (idx === null) return;
+    const lineObj = lines()[idx];
+    if (!lineObj) return;
+    const lineNum = lineObj.index;
+    const text = commentInput().trim();
+    const next = {
+      ...comments()
+    };
+    if (text) {
+      next[lineNum] = text;
+    } else {
+      delete next[lineNum];
+    }
+    setComments(next);
+    setEditingIdx(null);
+  };
+  const submitReview = async (approved = true) => {
+    const formatted = formatReviewFeedback({
+      planName: plan().planName,
+      planFile: plan().planFile,
+      comments: activeCommentsList(),
+      approved
+    });
+    try {
+      if (props.api?.client?.session?.prompt) {
+        await props.api.client.session.prompt({
+          sessionID: props.sessionID,
+          parts: [{
+            type: "text",
+            text: formatted
+          }]
+        });
+      }
+    } catch {}
+    if (props.onClose) {
+      props.onClose();
+    } else if (props.api?.ui?.dialog?.close) {
+      props.api.ui.dialog.close();
+    }
+  };
+
+  // Dynamic Navigation Hint Footer
+  const navHint = () => {
+    if (editingIdx() !== null) {
+      return "⌨️ [Enter] Simpan Koreksi • [Ctrl+A] Approve & Kirim • [Esc] Batal Komentar";
+    }
+    if (selectedIdx() !== null) {
+      return "⌨️ [↑/↓] Pindah Baris • [Enter] Bantah/Luruskan Baris Ini • [Ctrl+A] Approve Plan • [Esc] Batal Sorot";
+    }
+    return "⌨️ [↓] Mulai Sorot Baris • [Scroll] Baca • [Ctrl+A] Approve Plan • [Esc] Tutup";
+  };
+  return (() => {
+    var _el$59 = _$createElement("box"),
+      _el$60 = _$createElement("box"),
+      _el$61 = _$createElement("text"),
+      _el$62 = _$createElement("b"),
+      _el$63 = _$createTextNode(`📋 Plan Line Reviewer: `),
+      _el$64 = _$createElement("text"),
+      _el$65 = _$createTextNode(` baris • `),
+      _el$66 = _$createTextNode(` koreksi`),
+      _el$70 = _$createElement("scrollbox"),
+      _el$71 = _$createElement("box"),
+      _el$72 = _$createElement("box"),
+      _el$73 = _$createElement("text"),
+      _el$74 = _$createElement("box"),
+      _el$75 = _$createElement("text");
+    _$insertNode(_el$59, _el$60);
+    _$insertNode(_el$59, _el$70);
+    _$insertNode(_el$59, _el$72);
+    _$setProp(_el$59, "gap", 1);
+    _$setProp(_el$59, "width", "100%");
+    _$setProp(_el$59, "flexGrow", 1);
+    _$setProp(_el$59, "paddingLeft", 2);
+    _$setProp(_el$59, "paddingRight", 2);
+    _$setProp(_el$59, "paddingBottom", 1);
+    _$insertNode(_el$60, _el$61);
+    _$insertNode(_el$60, _el$64);
+    _$setProp(_el$60, "flexDirection", "row");
+    _$setProp(_el$60, "justifyContent", "space-between");
+    _$setProp(_el$60, "width", "100%");
+    _$insertNode(_el$61, _el$62);
+    _$insertNode(_el$62, _el$63);
+    _$insert(_el$62, () => plan().planName, null);
+    _$insertNode(_el$64, _el$65);
+    _$insertNode(_el$64, _el$66);
+    _$insert(_el$64, () => lines().length, _el$65);
+    _$insert(_el$64, () => activeCommentsList().length, _el$66);
+    _$insert(_el$59, _$createComponent(Show, {
+      get when() {
+        return plan().planFile;
+      },
+      get children() {
+        var _el$67 = _$createElement("text"),
+          _el$68 = _$createTextNode(`File: `),
+          _el$69 = _$createElement("i");
+        _$insertNode(_el$67, _el$68);
+        _$insertNode(_el$67, _el$69);
+        _$setProp(_el$67, "wrapMode", "word");
+        _$insert(_el$69, () => plan().planFile);
+        _$effect(_$p => _$setProp(_el$67, "fg", theme().textMuted, _$p));
+        return _el$67;
+      }
+    }), _el$70);
+    _$insertNode(_el$70, _el$71);
+    _$setProp(_el$70, "width", "100%");
+    _$setProp(_el$70, "flexGrow", 1);
+    _$setProp(_el$70, "minHeight", 12);
+    _$setProp(_el$70, "maxHeight", 30);
+    _$setProp(_el$71, "flexDirection", "column");
+    _$setProp(_el$71, "gap", 0);
+    _$setProp(_el$71, "width", "100%");
+    _$setProp(_el$71, "minWidth", 0);
+    _$insert(_el$71, _$createComponent(Show, {
+      get when() {
+        return lines().length > 0;
+      },
+      get fallback() {
+        return (() => {
+          var _el$77 = _$createElement("text");
+          _$insertNode(_el$77, _$createTextNode(`(Dokumen rencana belum memiliki isi teks. Gunakan /plan to-file &lt;nama&gt; terlebih dahulu)`));
+          _$setProp(_el$77, "wrapMode", "word");
+          _$effect(_$p => _$setProp(_el$77, "fg", theme().textMuted, _$p));
+          return _el$77;
+        })();
+      },
+      get children() {
+        return _$createComponent(For, {
+          get each() {
+            return lines();
+          },
+          children: (line, idx) => {
+            const isSelected = () => selectedIdx() === idx();
+            const isEditing = () => editingIdx() === idx();
+            const hasComment = () => Boolean(comments()[line.index]);
+            return (() => {
+              var _el$79 = _$createElement("box"),
+                _el$80 = _$createElement("box"),
+                _el$81 = _$createElement("text"),
+                _el$82 = _$createTextNode(` |`),
+                _el$83 = _$createElement("text");
+              _$insertNode(_el$79, _el$80);
+              _$setProp(_el$79, "flexDirection", "column");
+              _$setProp(_el$79, "gap", 0);
+              _$setProp(_el$79, "paddingLeft", 1);
+              _$setProp(_el$79, "paddingRight", 1);
+              _$insertNode(_el$80, _el$81);
+              _$insertNode(_el$80, _el$83);
+              _$setProp(_el$80, "flexDirection", "row");
+              _$setProp(_el$80, "gap", 1);
+              _$setProp(_el$80, "onMouseDown", () => {
+                setSelectedIdx(idx());
+              });
+              _$insertNode(_el$81, _el$82);
+              _$setProp(_el$81, "flexShrink", 0);
+              _$insert(_el$81, () => String(line.index).padStart(3, " "), _el$82);
+              _$setProp(_el$83, "wrapMode", "word");
+              _$insert(_el$83, (() => {
+                var _c$ = _$memo(() => line.type === "heading");
+                return () => _c$() ? (() => {
+                  var _el$92 = _$createElement("b");
+                  _$insert(_el$92, () => line.raw);
+                  return _el$92;
+                })() : line.raw;
+              })());
+              _$insert(_el$79, _$createComponent(Show, {
+                get when() {
+                  return _$memo(() => !!hasComment())() && !isEditing();
+                },
+                get children() {
+                  var _el$84 = _$createElement("box"),
+                    _el$85 = _$createElement("text"),
+                    _el$86 = _$createTextNode(`↳ 💬 Koreksi: `),
+                    _el$87 = _$createElement("b");
+                  _$insertNode(_el$84, _el$85);
+                  _$setProp(_el$84, "flexDirection", "row");
+                  _$setProp(_el$84, "gap", 1);
+                  _$setProp(_el$84, "paddingLeft", 6);
+                  _$setProp(_el$84, "paddingBottom", 0);
+                  _$insertNode(_el$85, _el$86);
+                  _$insertNode(_el$85, _el$87);
+                  _$insert(_el$87, () => comments()[line.index]);
+                  _$effect(_$p => _$setProp(_el$85, "fg", theme().warning || "#f59e0b", _$p));
+                  return _el$84;
+                }
+              }), null);
+              _$insert(_el$79, _$createComponent(Show, {
+                get when() {
+                  return isEditing();
+                },
+                get children() {
+                  var _el$88 = _$createElement("box"),
+                    _el$89 = _$createElement("text"),
+                    _el$91 = _$createElement("text");
+                  _$insertNode(_el$88, _el$89);
+                  _$insertNode(_el$88, _el$91);
+                  _$setProp(_el$88, "flexDirection", "column");
+                  _$setProp(_el$88, "gap", 0);
+                  _$setProp(_el$88, "paddingLeft", 6);
+                  _$setProp(_el$88, "borderStyle", "single");
+                  _$insertNode(_el$89, _$createTextNode(`💬 Masukkan arahan / koreksi untuk baris ini:`));
+                  _$insert(_el$91, () => commentInput() || "<i>(Ketik koreksi...)</i>");
+                  _$effect(_p$ => {
+                    var _v$21 = theme().warning || "#f59e0b",
+                      _v$22 = theme().warning || "#f59e0b",
+                      _v$23 = theme().text;
+                    _v$21 !== _p$.e && (_p$.e = _$setProp(_el$88, "borderColor", _v$21, _p$.e));
+                    _v$22 !== _p$.t && (_p$.t = _$setProp(_el$89, "fg", _v$22, _p$.t));
+                    _v$23 !== _p$.a && (_p$.a = _$setProp(_el$91, "fg", _v$23, _p$.a));
+                    return _p$;
+                  }, {
+                    e: undefined,
+                    t: undefined,
+                    a: undefined
+                  });
+                  return _el$88;
+                }
+              }), null);
+              _$effect(_p$ => {
+                var _v$24 = isSelected() ? "single" : undefined,
+                  _v$25 = isSelected() ? theme().accent || "#8b5cf6" : undefined,
+                  _v$26 = isSelected() ? theme().accent || "#8b5cf6" : theme().textMuted,
+                  _v$27 = isSelected() ? theme().text : line.type === "heading" ? theme().accent || "#8b5cf6" : line.type === "checkbox" || line.type === "bullet" ? theme().warning || "#f59e0b" : theme().textMuted;
+                _v$24 !== _p$.e && (_p$.e = _$setProp(_el$79, "borderStyle", _v$24, _p$.e));
+                _v$25 !== _p$.t && (_p$.t = _$setProp(_el$79, "borderColor", _v$25, _p$.t));
+                _v$26 !== _p$.a && (_p$.a = _$setProp(_el$81, "fg", _v$26, _p$.a));
+                _v$27 !== _p$.o && (_p$.o = _$setProp(_el$83, "fg", _v$27, _p$.o));
+                return _p$;
+              }, {
+                e: undefined,
+                t: undefined,
+                a: undefined,
+                o: undefined
+              });
+              return _el$79;
+            })();
+          }
+        });
+      }
+    }));
+    _$insertNode(_el$72, _el$73);
+    _$insertNode(_el$72, _el$74);
+    _$setProp(_el$72, "flexDirection", "row");
+    _$setProp(_el$72, "justifyContent", "space-between");
+    _$setProp(_el$72, "width", "100%");
+    _$setProp(_el$72, "paddingTop", 1);
+    _$insert(_el$73, navHint);
+    _$insertNode(_el$74, _el$75);
+    _$setProp(_el$74, "flexDirection", "row");
+    _$setProp(_el$74, "gap", 2);
+    _$insertNode(_el$75, _$createTextNode(`[✔ Approve & Submit]`));
+    _$setProp(_el$75, "onMouseDown", () => submitReview(true));
+    _$effect(_p$ => {
+      var _v$17 = theme().text,
+        _v$18 = theme().textMuted,
+        _v$19 = theme().textMuted,
+        _v$20 = theme().success || "#10b981";
+      _v$17 !== _p$.e && (_p$.e = _$setProp(_el$61, "fg", _v$17, _p$.e));
+      _v$18 !== _p$.t && (_p$.t = _$setProp(_el$64, "fg", _v$18, _p$.t));
+      _v$19 !== _p$.a && (_p$.a = _$setProp(_el$73, "fg", _v$19, _p$.a));
+      _v$20 !== _p$.o && (_p$.o = _$setProp(_el$75, "fg", _v$20, _p$.o));
+      return _p$;
+    }, {
+      e: undefined,
+      t: undefined,
+      a: undefined,
+      o: undefined
+    });
+    return _el$59;
+  })();
+}
 export const tui = async (api, options = {}) => {
   if (!api) return;
   const directory = options?.directory || process.cwd();
+  const {
+    config
+  } = loadConfig();
   let currentSessionID = resolveActiveSessionID(api) || "";
   const unsubSession = createSessionSubscriber(api, nextSessionID => {
     if (nextSessionID) currentSessionID = nextSessionID;
   });
 
-  // 1. Register TUI slash command palette layer (Single source of truth for /memory)
+  // 1. Register TUI slash command palette layer (/memory and /plan review) based on enabled configs
   if (api.keymap?.registerLayer) {
-    const unregisterLayer = api.keymap.registerLayer({
-      commands: [{
+    const commands = [];
+    if (config?.memory?.enabled !== false) {
+      commands.push({
         namespace: "palette",
         name: "oh-my-hook.memory",
         title: "Memory Inspector",
@@ -388,11 +695,39 @@ export const tui = async (api, options = {}) => {
             }
           }
         }
-      }],
-      bindings: []
-    });
-    if (api.lifecycle?.onDispose) {
-      api.lifecycle.onDispose(unregisterLayer);
+      });
+    }
+    if (config?.plans?.enabled !== false) {
+      commands.push({
+        namespace: "palette",
+        name: "oh-my-hook.plan.review",
+        title: "Plan Reviewer",
+        desc: "Buka modal interaktif review baris dokumen rencana",
+        category: "oh-my-hook",
+        slashName: "plan-review",
+        run() {
+          if (api.ui?.dialog?.replace) {
+            const sess = currentSessionID || resolveActiveSessionID(api) || "default";
+            api.ui.dialog.replace(() => _$createComponent(PlanReviewModal, {
+              api: api,
+              sessionID: sess,
+              directory: directory
+            }));
+            if (api.ui.dialog.setSize) {
+              api.ui.dialog.setSize("large");
+            }
+          }
+        }
+      });
+    }
+    if (commands.length > 0) {
+      const unregisterLayer = api.keymap.registerLayer({
+        commands,
+        bindings: []
+      });
+      if (api.lifecycle?.onDispose) {
+        api.lifecycle.onDispose(unregisterLayer);
+      }
     }
   }
 
