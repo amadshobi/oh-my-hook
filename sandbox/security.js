@@ -162,14 +162,10 @@ export function checkCommitMessage(command) {
 
 export function checkPush(command) {
 	if (!command || !/\bgit\s+push\b/.test(command)) return null;
-	const isForce =
-		/\b(--force|-f|--force-with-lease)\b/.test(command) ||
-		command.includes("--force") ||
-		command.includes("-f");
-	const isMain =
-		/\b(main|master)\b/.test(command) ||
-		command.includes("main") ||
-		command.includes("master");
+	const isForce = /(?:^|\s)(-f|--force|--force-with-lease)(?:\s|$)/.test(
+		command,
+	);
+	const isMain = /(?:^|\s)(origin\s+)?(main|master)(?:\s|$)/.test(command);
 
 	if (isMain && isForce) {
 		return {
