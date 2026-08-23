@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2026-08-23
+
+### Added
+
+- **🗜️ Context Compression & Dynamic Pruning Suite (`compress/`)**:
+  - Re-architected `context/` into a dedicated `compress/` suite with backward-compatible deprecation shims.
+  - **Dynamic Tool Output Pruning (`experimental.chat.messages.transform`)**: Intelligently collapses bulky historical test/build/git outputs into clean, deterministic markers while preserving recent 2-turn window and failure outputs (`FAILED`, `panic:`, `Traceback`, `npm ERR!`).
+  - **Milestone & Post-Push Idle Auto-Compaction (`automation.js`)**: Automatically detects successful `git push` executions in bash, takes branch/diff snapshots, and triggers background compaction when the agent enters an idle state with strict safety gates (min 30 messages, 2-turn delay, 10-minute cooldown, max 2 auto-compactions per session).
+  - **Deterministic Slash Commands (`commands.js`)**: Added `/compress` (immediate compaction) and `/compress stats` (metrics inspection) delivered to session transcripts with 0 LLM token cost.
+  - **Persistent Stats Ledger (`stats.js`)**: Tracks pruned outputs, bytes saved, and estimated token savings per session and global aggregates bounded to 50 sessions.
+  - **TUI Observability Integration (`tui/`)**: Added live pruning and token savings counters to OpenCode TUI sidebar widget and metrics helpers.
+  - **E2E Hook Pipeline Expansion**: Added deterministic `compress.hook.e2e.js` test pipeline (**112 passing unit tests** and **5 E2E pipelines**).
+
 ## [0.4.2] - 2026-08-23
 
 ### Added

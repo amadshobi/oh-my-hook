@@ -11,7 +11,7 @@ The plugin assembles multiple hook modules into ONE hooks object via
 
 - `sandbox/` — pre-execution security (secret-scanner, dangerous-bash, commit-guard, dev-server), read-guard (read-before-write, stale detection), permission bridge, subshell env isolation.
 - `plans/` — dual-mode planning suite (`/plan`, `/design`, `/approve`, `/exec`, `/mode`), plan-mode mutation barrier, auto-versioning in `plans/versions/`, 3-level prompt templates.
-- `context/` — session context & compaction snapshot.
+- `compress/` — context compression suite: dynamic tool-output pruning (`experimental.chat.messages.transform`), post-push idle auto-compaction, `/compress` slash commands, compaction snapshotting, scoped agent context.
 - `reminder/` — soft nudges (verify loop, checklist).
 - `prompts/` — dynamic system prompt router hook (`experimental.chat.system.transform`) for gateway/custom models using provider assets (`~/.opencode/assets/provider/`).
 - `memory/` — curated memory: auto-loads into system prompt (main agent only) + compaction; `/remember`, `/memory`, `/capture` slash commands; pluggable AI adapters in `memory/ai/` for capture.

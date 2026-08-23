@@ -6,6 +6,7 @@ import { listMemoryEntries } from "../../../memory/store.js";
 import { loadModeState, currentPlan } from "../../../share/state.js";
 import { readPlanContent } from "../../../plans/store.js";
 import { parsePlanLines } from "../../../plans/parser.js";
+import { getCompressMetrics } from "../../../compress/stats.js";
 
 const BOOLEAN_GUARD_FLAGS = [
 	"readBeforeWrite",
@@ -113,21 +114,25 @@ export function getPlanReviewData(sessionID, directory) {
  * @param {object} [config] Optional config override.
  * @returns {object}
  */
-export function getMetrics(projectDirectory, config) {
+export function getMetrics(projectDirectory, config, sessionID) {
 	const cfg = config || loadConfig().config;
 	const memoryStats = getStructuredMemoryStats(projectDirectory);
 	const memoryEnabled = cfg?.memory?.enabled !== false;
 	const plansEnabled = cfg?.plans?.enabled !== false;
 	const sandboxEnabled = cfg?.sandbox?.enabled !== false;
+	const compressEnabled = cfg?.compress?.enabled !== false;
 	const planModeEnabled = plansEnabled && cfg?.sandbox?.planMode !== false;
+	const compressStats = getCompressMetrics(sessionID);
 
 	return {
 		config: cfg,
 		modeEnabled: planModeEnabled,
 		memoryEnabled,
 		sandboxEnabled,
+		compressEnabled,
 		guardsActive: getActiveGuardsCount(cfg),
 		memoryNotes: memoryStats.count,
 		memoryStats,
+		compress: compressStats,
 	};
 }

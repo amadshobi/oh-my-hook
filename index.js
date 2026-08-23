@@ -11,22 +11,32 @@
 import { loadConfig } from "./share/config.js";
 import { mergeHooks } from "./share/merge.js";
 import { sandboxHooks } from "./sandbox/index.js";
-import { contextModule } from "./context/index.js";
+import { compressModule } from "./compress/index.js";
 import { reminderModule } from "./reminder/index.js";
 import { memoryHooks } from "./memory/index.js";
 import { planHooks } from "./plans/index.js";
 import { promptHooks } from "./prompts/index.js";
+import { ompHooks } from "./omp/index.js";
 
 export default async function ohMyHook(input) {
 	const { config } = loadConfig();
-	const [sandbox, context, reminder, memory, plans, prompts] =
+	const [sandbox, compress, reminder, memory, plans, prompts, omp] =
 		await Promise.all([
 			sandboxHooks(input, { config }),
-			contextModule(input, { config }),
+			compressModule(input, { config: config.compress }),
 			reminderModule(input, { config }),
 			memoryHooks(input, { config }),
 			planHooks(input, { config }),
 			promptHooks(input, { config: config.prompts }),
+			ompHooks(input, { config }),
 		]);
-	return mergeHooks(sandbox, context, reminder, memory, plans, prompts);
+	return mergeHooks(
+		sandbox,
+		compress,
+		reminder,
+		memory,
+		plans,
+		prompts,
+		omp,
+	);
 }

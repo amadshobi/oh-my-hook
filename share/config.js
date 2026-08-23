@@ -46,6 +46,67 @@ export const DEFAULTS = {
 		directory: "~/.opencode/plans",
 		versionLimit: 20,
 	},
+	compress: {
+		enabled: true,
+		pruning: {
+			enabled: true,
+			recentTurns: 2,
+			keepHeadChars: 1000,
+			keepTailChars: 1500,
+			minOutputChars: 8000,
+			idempotent: true,
+			protectedTools: {
+				read: true,
+				write: true,
+				edit: true,
+				patch: true,
+				grep: true,
+				glob: true,
+				find: true,
+				ls: true,
+				todowrite: true,
+				webfetch: true,
+			},
+			eligibleTools: {
+				bash: true,
+			},
+			commandPatterns: {
+				test: "npm (test|run test)|pnpm test|yarn test|bun test",
+				build: "go (build|test)|cargo (build|test)|make",
+				gitlog: "git (log|diff|show)",
+				listing: "ls -la|kubectl get|docker ps",
+			},
+			failureSignals: {
+				fail: "FAILED|FAILURE|tests? failed",
+				crash: "panic:|Traceback|SyntaxError|TypeError|ReferenceError",
+				npm: "npm ERR!",
+				os: "EACCES|ENOENT|exit status 1|segmentation fault",
+			},
+		},
+		milestones: {
+			enabled: true,
+			pushAutoCompress: true,
+			snapshotEnabled: true,
+			snapshotMaxChars: 2500,
+			minMessages: 30,
+			minTurnsAfterPush: 2,
+			idleCooldownMs: 600000,
+			maxAutoCompressPerSession: 2,
+		},
+		commands: {
+			compress: true,
+		},
+		snapshot: {
+			compactionSnapshot: true,
+			promptCheck: true,
+			compactThreshold: 50,
+		},
+		agent: {
+			enabled: true,
+			main: [],
+			subagent: [],
+		},
+	},
 	context: {
 		compactionSnapshot: true,
 		promptCheck: true,
@@ -59,6 +120,14 @@ export const DEFAULTS = {
 	reminder: {
 		verify: true,
 		checklist: true,
+	},
+	omp: {
+		enabled: true,
+		url: "http://127.0.0.1:4000/v1",
+		providerId: "omp",
+		providerName: "OMP Gateway",
+		timeoutMs: 1000,
+		bridgeModelsYml: true,
 	},
 	prompts: {
 		enabled: true,

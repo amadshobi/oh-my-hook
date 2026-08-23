@@ -1,16 +1,11 @@
 /**
- * context/index.js — assemble session context hooks.
+ * context/index.js — Deprecation shim. Re-exports compressModule from compress/index.js.
  */
-import { loadConfig } from "../share/config.js";
-import { mergeHooks } from "../share/merge.js";
-import { contextHooks } from "./context.js";
-import { agentContextHooks } from "./agent-context.js";
+import { compressModule } from "../compress/index.js";
 
-export async function contextModule(input) {
-  const { config } = loadConfig();
-  const [session, agentContext] = await Promise.all([
-    contextHooks(input, { config: config.context }),
-    agentContextHooks(input, { config: config.context }),
-  ]);
-  return mergeHooks(session, agentContext);
+export async function contextModule(input, opts = {}) {
+	return compressModule(input, opts);
 }
+
+export { compressModule };
+export default contextModule;
