@@ -60,6 +60,12 @@ export const DEFAULTS = {
 		verify: true,
 		checklist: true,
 	},
+	prompts: {
+		enabled: true,
+		directory: "~/.opencode/assets/provider",
+		customDirectory: "~/.config/opencode/prompts",
+		routes: {},
+	},
 	messages: {},
 };
 

@@ -15,15 +15,18 @@ import { contextModule } from "./context/index.js";
 import { reminderModule } from "./reminder/index.js";
 import { memoryHooks } from "./memory/index.js";
 import { planHooks } from "./plans/index.js";
+import { promptHooks } from "./prompts/index.js";
 
 export default async function ohMyHook(input) {
 	const { config } = loadConfig();
-	const [sandbox, context, reminder, memory, plans] = await Promise.all([
-		sandboxHooks(input, { config }),
-		contextModule(input, { config }),
-		reminderModule(input, { config }),
-		memoryHooks(input, { config }),
-		planHooks(input, { config }),
-	]);
-	return mergeHooks(sandbox, context, reminder, memory, plans);
+	const [sandbox, context, reminder, memory, plans, prompts] =
+		await Promise.all([
+			sandboxHooks(input, { config }),
+			contextModule(input, { config }),
+			reminderModule(input, { config }),
+			memoryHooks(input, { config }),
+			planHooks(input, { config }),
+			promptHooks(input, { config: config.prompts }),
+		]);
+	return mergeHooks(sandbox, context, reminder, memory, plans, prompts);
 }

@@ -226,6 +226,17 @@ Dedicated configuration file located at `~/.config/opencode/omh.jsonc`:
     "verify": true, // Run auto-typecheck & linter after edits
     "checklist": true, // Nudge agents to split complex steps into todos
   },
+
+  // 🧭 Dynamic System Prompt Router
+  "prompts": {
+    "enabled": true,
+    "customDirectory": "~/.config/opencode/prompts", // User custom prompt overrides (exact, family, or default.md)
+    "directory": "~/.opencode/assets/provider", // Fallback provider prompt asset catalog
+    "routes": {
+      // "kilo/tencent/hy3:free": "hy3.md",
+      // "ollama-cloud/*": "minimax.md"
+    },
+  },
 }
 ```
 
@@ -311,9 +322,24 @@ Scans tool input arguments (`write`, `edit`, `patch`) against production regex s
 
 ---
 
+## 🧭 Dynamic System Prompt Router
+
+When using multi-provider models or local gateway proxies (like **Oh-My-Pi / OMP**), models outside OpenCode's hardcoded tier-1 list fall back to `PROMPT_DEFAULT`, leading to tool chatter and formatting mismatches.
+
+`prompts/` hooks into `experimental.chat.system.transform` to dynamically resolve and inject appropriate system prompts:
+
+- **Resolution Hierarchy**:
+  1. Explicit user routes in `omh.jsonc` (`prompts.routes`).
+  2. User custom files in `~/.config/opencode/prompts/` by **Exact Model ID** (`deepseek-v3.md`), **Family Name** (`deepseek.md`, `minimax.md`, `qwen.md`, `kimi.md`, `mistral.md`, `glm.md`), or **Provider Name** (`omp.md`).
+  3. User custom fallback: `default.md` / `default.txt` in `~/.config/opencode/prompts/`.
+  4. Built-in provider asset catalog fallback (`~/.opencode/assets/provider/`).
+- **Atomic System Transformation**: Replaces the generic base prompt with tailored guidelines while preserving 100% of session metadata (`<env>`, working directory, project `AGENTS.md`, MCP tools, and memory context).
+
+---
+
 ## 🧪 Testing & Development
 
-`oh-my-hook` includes **89 unit tests** and deterministic E2E hook pipeline test suites.
+`oh-my-hook` includes **96 unit tests** and deterministic E2E hook pipeline test suites.
 
 ```bash
 # Run unit tests

@@ -13,6 +13,7 @@ The plugin assembles multiple hook modules into ONE hooks object via
 - `plans/` — dual-mode planning suite (`/plan`, `/design`, `/approve`, `/exec`, `/mode`), plan-mode mutation barrier, auto-versioning in `plans/versions/`, 3-level prompt templates.
 - `context/` — session context & compaction snapshot.
 - `reminder/` — soft nudges (verify loop, checklist).
+- `prompts/` — dynamic system prompt router hook (`experimental.chat.system.transform`) for gateway/custom models using provider assets (`~/.opencode/assets/provider/`).
 - `memory/` — curated memory: auto-loads into system prompt (main agent only) + compaction; `/remember`, `/memory`, `/capture` slash commands; pluggable AI adapters in `memory/ai/` for capture.
 - `tui/` — OpenCode TUI frontend module (`session_prompt_right` live plan badge & `sidebar_content` collapsible widget).
 

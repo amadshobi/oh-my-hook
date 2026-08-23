@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-08-23
+
+### Added
+
+- **🧭 Dynamic System Prompt Router (`prompts/`)**:
+  - Implemented `experimental.chat.system.transform` hook to dynamically route custom and gateway models (such as Oh-My-Pi / OMP proxies) to appropriate system prompt templates instead of falling back to generic `PROMPT_DEFAULT`.
+  - **Cascading Resolution Engine**:
+    1. Explicit custom routes defined in `omh.jsonc` (`prompts.routes`).
+    2. Exact Model ID match (`~/.config/opencode/prompts/<model-id>.md` or `.txt`).
+    3. Model Family keyword match (`deepseek.md`, `minimax.md`, `qwen.md`, `kimi.md`, `mistral.md`, `glm.md`, `gemini.md`, `claude.md`, `gpt.md`, `grok.md`, `hy3.md`).
+    4. Provider Name match (`omp.md`, `kilo.md`, `ollama-cloud.md`).
+    5. User Custom Default fallback: `default.md` / `default.txt` in `~/.config/opencode/prompts/`.
+    6. Built-in provider asset catalog fallback (`~/.opencode/assets/provider/`).
+  - **Atomic System Transformation**: Replaces the generic base prompt with tailored guidelines while preserving 100% of session metadata (`<env>`, working directory, project `AGENTS.md`, MCP tools, and memory context).
+  - In-memory template caching for zero I/O latency on subsequent conversational turns.
+- **🧪 Test Suite Expansion**:
+  - Added unit test suite covering resolution hierarchy, wildcard routes, family keywords, and custom default fallbacks (**96 passing unit tests**).
+
 ## [0.4.1] - 2026-08-22
 
 ### Added
