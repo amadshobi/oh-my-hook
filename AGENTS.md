@@ -16,6 +16,7 @@ The plugin assembles multiple hook modules into ONE hooks object via
 - `prompts/` — dynamic system prompt router hook (`experimental.chat.system.transform`) for gateway/custom models using provider assets (`~/.opencode/assets/provider/`).
 - `memory/` — curated memory: auto-loads into system prompt (main agent only) + compaction; `/remember`, `/memory`, `/capture` slash commands; pluggable AI adapters in `memory/ai/` for capture.
 - `tui/` — OpenCode TUI frontend module (`session_prompt_right` live plan badge & `sidebar_content` collapsible widget).
+- `omp/` — OMP Gateway bridge: dynamic model auto-discovery from `:4000`, `models.yml` custom provider aggregation (Kilo, OpenCode Zen, OpenRouter, Charm Hyper), reasoning/non-chat model classification, and unified gateway proxy (`gateway-proxy.ts`).
 
 ## Config
 

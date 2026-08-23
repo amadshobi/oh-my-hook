@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **TUI Observability Integration (`tui/`)**: Added live pruning and token savings counters to OpenCode TUI sidebar widget and metrics helpers.
   - **E2E Hook Pipeline Expansion**: Added deterministic `compress.hook.e2e.js` test pipeline (**112 passing unit tests** and **5 E2E pipelines**).
 
+- **🔌 OMP Gateway Bridge (`omp/`)**:
+  - **Dynamic Auto-Discovery**: Fetches live models from local OMP Gateway (`:4000`) and registers them into OpenCode's `config.provider` at startup — zero hardcoding.
+  - **`models.yml` Aggregator**: Parses `~/.omp/agent/models.yml` and bridges custom providers (Kilo, OpenCode Zen, OpenRouter, Charm Hyper) with automatic API key resolution from env vars.
+  - **Model Intelligence**: Built-in classification for reasoning models (`deepseek-v4`, `o3`, `gpt-5`, `claude-sonnet-4`, etc.) and non-chat models (embedding, TTS, image-gen) with context window estimation.
+  - **OMP Extension (`extension.ts`)**: Generic TypeScript loader for OMP runtime — any provider added to `models.yml` becomes instantly available via `pi.registerProvider()`.
+  - **Unified Gateway Proxy (`gateway-proxy.ts`)**: Standalone Bun proxy on `:4000` that aggregates `models.yml` curated providers + internal OMP Auth-Gateway (`:4002`) into a single OpenAI-compatible endpoint.
+
 ## [0.4.2] - 2026-08-23
 
 ### Added

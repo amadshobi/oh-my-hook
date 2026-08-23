@@ -360,6 +360,29 @@ Long coding sessions inevitably fill the LLM context window with bloated histori
 
 ---
 
+## 🔌 OMP Gateway Bridge
+
+When running a local **Oh-My-Pi (OMP)** multi-provider gateway, `omp/` automatically discovers and registers all available models into OpenCode — no manual provider configuration needed.
+
+- **Live Model Discovery**: Fetches from `http://127.0.0.1:4000/v1/models` at startup and registers into `config.provider.omp`.
+- **`models.yml` Bridging**: Parses `~/.omp/agent/models.yml` and registers custom providers (Kilo, OpenCode Zen, OpenRouter, Charm Hyper) with automatic env-var API key resolution.
+- **Reasoning & Context Intelligence**: Auto-classifies reasoning models and estimates context windows from model ID patterns.
+- **Unified Gateway Proxy**: Standalone Bun proxy (`gateway-proxy.ts`) aggregating curated providers + OMP Auth-Gateway into one OpenAI-compatible endpoint on `:4000`.
+
+```jsonc
+// omh.jsonc
+"omp": {
+  "enabled": true,
+  "url": "http://127.0.0.1:4000/v1",
+  "providerId": "omp",
+  "providerName": "OMP Gateway",
+  "bridgeModelsYml": true,  // Auto-bridge ~/.omp/agent/models.yml
+  "timeoutMs": 1000,
+}
+```
+
+---
+
 ## 🧪 Testing & Development
 
 `oh-my-hook` includes **112 unit tests** and **5 deterministic E2E hook pipeline test suites**.
