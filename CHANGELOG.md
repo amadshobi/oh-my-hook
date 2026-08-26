@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **🛡️ Prompt Router No Longer Overwrites Custom Agent Personas (#12)**:
+  - `prompts/` router previously replaced the base prompt segment unconditionally, destroying user-authored agent personas defined in OpenCode config (`agent.<name>.prompt`).
+  - Added built-in base prompt fingerprint detection (`hasCustomPersona`) — the router now only swaps OpenCode's generic provider prompts (`default`, `anthropic`, `beast`, `gpt`, `gemini`, `kimi`, `meta`) and leaves custom personas untouched.
+  - New opt-in flag `prompts.overridePersona` in `omh.jsonc` restores the old overwrite-everything behavior when explicitly desired.
+
 ## [0.4.3] - 2026-08-23
 
 ### Added

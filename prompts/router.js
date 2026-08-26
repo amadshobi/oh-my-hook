@@ -23,6 +23,20 @@ const BOUNDARY_MARKERS = [
 	"\nSkills provide specialized instructions",
 ];
 
+// First-line fingerprints of OpenCode's built-in base prompts (session/prompt/*.txt).
+// If system[0] starts with none of these, the agent carries a custom persona
+// that must never be overwritten by a model preset.
+const BUILTIN_PROMPT_PREFIXES = [
+	"You are opencode, an interactive CLI tool that helps users with software engineering tasks.",
+	"You are OpenCode, the best coding agent on the planet.",
+	"You are opencode, an agent - please keep going until the user’s query is completely resolved",
+	"You are OpenCode, You and the user share the same workspace and collaborate to achieve the user's goals.",
+	"You are opencode, an interactive CLI agent specializing in software engineering tasks.",
+	"You are an expert AI programming assistant",
+	"You are OpenCode, an interactive general AI agent running on a user's computer.",
+	"You are OpenCode, a coding agent that helps users with software engineering tasks.",
+];
+
 function expandHome(p) {
 	if (!p) return "";
 	if (p === "~") return os.homedir();
@@ -219,6 +233,18 @@ export function loadPromptContent(filePath) {
 	} catch {}
 
 	return null;
+}
+
+/**
+ * True when system[0] starts with a custom agent persona instead of one of
+ * OpenCode's built-in base prompts. Custom personas are user-authored and
+ * must take precedence over model presets.
+ */
+export function hasCustomPersona(systemArray) {
+	if (!Array.isArray(systemArray) || systemArray.length === 0) return false;
+	const head = (systemArray[0] || "").trimStart();
+	if (!head) return false;
+	return !BUILTIN_PROMPT_PREFIXES.some((prefix) => head.startsWith(prefix));
 }
 
 /**

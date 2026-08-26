@@ -134,6 +134,7 @@ export const DEFAULTS = {
 		directory: "~/.opencode/assets/provider",
 		customDirectory: "~/.config/opencode/prompts",
 		routes: {},
+		overridePersona: false,
 	},
 	messages: {},
 };
