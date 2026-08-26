@@ -4,11 +4,100 @@
  * Fetches models from local OMP Gateway (:4000) and parses ~/.omp/agent/models.yml,
  * automatically registering them into OpenCode's config.provider during the config hook.
  */
-import { readFileSync, existsSync } from "node:fs";
+import {
+	readFileSync,
+	existsSync,
+	writeFileSync,
+	mkdirSync,
+	readdirSync,
+} from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-const DEFAULT_MODELS_YML_PATH = path.join(os.homedir(), ".omp", "agent", "models.yml");
+const DEFAULT_MODELS_YML_PATH = path.join(
+	os.homedir(),
+	".omp",
+	"agent",
+	"models.yml",
+);
+
+export function formatModelName(rawId) {
+	const parts = rawId.split("/");
+	let provider = "omp";
+	let modelName = rawId;
+
+	if (parts.length > 1) {
+		provider = parts[0].toLowerCase();
+		modelName = parts.slice(1).join("/");
+	}
+
+	let displayName = modelName
+		.split(/[-_\/]/)
+		.map((word) => {
+			if (!word) return "";
+			if (/^[0-9]/.test(word)) return word;
+			const lower = word.toLowerCase();
+			if (lower === "gemini") return "Gemini";
+			if (lower === "claude") return "Claude";
+			if (lower === "deepseek") return "DeepSeek";
+			if (lower === "gpt") return "GPT";
+			if (lower === "qwen") return "Qwen";
+			if (lower === "qwq") return "QwQ";
+			return word.charAt(0).toUpperCase() + word.slice(1);
+		})
+		.join(" ")
+		.trim();
+
+	const aliases = {
+		"google-antigravity": "agy",
+		openai: "oai",
+		"openai-codex": "codex",
+		"github-copilot": "copilot",
+		"ollama-cloud": "ollama",
+		moonshot: "moon",
+		nvidia: "nv",
+		kilo: "kilo",
+		zai: "zai",
+		cursor: "cur",
+	};
+
+	const alias = aliases[provider] || provider;
+	return `${displayName} (${alias})`;
+}
+
+function getHealthyModelIds() {
+	const healthy = new Set();
+	const gnPingCacheDir = path.join(
+		os.homedir(),
+		".config",
+		"gn",
+		"cache",
+		"ping",
+	);
+	if (!existsSync(gnPingCacheDir)) return healthy;
+	try {
+		const files = readdirSync(gnPingCacheDir);
+		for (const file of files) {
+			if (!file.endsWith(".json")) continue;
+			const filePath = path.join(gnPingCacheDir, file);
+			try {
+				const content = JSON.parse(readFileSync(filePath, "utf8"));
+				if (Array.isArray(content?.items)) {
+					for (const item of content.items) {
+						if (item.status === "OK" && item.id) {
+							healthy.add(item.id);
+						}
+					}
+				}
+			} catch {
+				// ignore malformed
+			}
+		}
+	} catch {
+		// ignore readdir
+	}
+	return healthy;
+}
 
 const NON_CHAT_PATTERNS = [
 	/\bembed(?:ding)?\b/i,
@@ -44,7 +133,11 @@ export function isReasoningModel(modelId) {
 
 export function estimateContextWindow(modelId) {
 	const lower = modelId.toLowerCase();
-	if (lower.includes("1m") || lower.includes("1.1m") || lower.includes("gemini")) {
+	if (
+		lower.includes("1m") ||
+		lower.includes("1.1m") ||
+		lower.includes("gemini")
+	) {
 		return 1_000_000;
 	}
 	if (lower.includes("500k") || lower.includes("400k")) {
@@ -63,6 +156,27 @@ export function estimateContextWindow(modelId) {
 }
 
 export async function fetchGatewayModels(url, timeoutMs = 1000) {
+	const cacheDir = path.join(os.homedir(), ".config", "opencode", "cache");
+	const cacheFile = path.join(cacheDir, "omp-catalog-cache.json");
+	const now = Date.now();
+	const TTL = 3600000; // 1 hour
+
+	let cachedData = null;
+	if (existsSync(cacheFile)) {
+		try {
+			cachedData = JSON.parse(readFileSync(cacheFile, "utf8"));
+		} catch {}
+	}
+
+	if (
+		cachedData &&
+		cachedData.timestamp &&
+		now - cachedData.timestamp < TTL &&
+		Array.isArray(cachedData.models)
+	) {
+		return cachedData.models;
+	}
+
 	try {
 		const controller = new AbortController();
 		const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -72,12 +186,36 @@ export async function fetchGatewayModels(url, timeoutMs = 1000) {
 		});
 		clearTimeout(timeout);
 
-		if (!res.ok) return [];
-		const data = await res.json();
-		return Array.isArray(data?.data) ? data.data : [];
+		if (res.ok) {
+			const data = await res.json();
+			const liveModels = Array.isArray(data?.data) ? data.data : [];
+			if (liveModels.length > 0) {
+				if (!existsSync(cacheDir)) {
+					mkdirSync(cacheDir, { recursive: true });
+				}
+				writeFileSync(
+					cacheFile,
+					JSON.stringify(
+						{
+							timestamp: now,
+							models: liveModels,
+						},
+						null,
+						2,
+					),
+					"utf8",
+				);
+				return liveModels;
+			}
+		}
 	} catch {
-		return [];
+		// fallback to stale cache on network failure
 	}
+
+	if (cachedData && Array.isArray(cachedData.models)) {
+		return cachedData.models;
+	}
+	return [];
 }
 
 export function registerGatewayModels(config, models, options = {}) {
@@ -100,13 +238,17 @@ export function registerGatewayModels(config, models, options = {}) {
 	const declaredIds = new Set(
 		Object.values(entry.models)
 			.map((m) => m?.id)
-			.filter((id) => typeof id === "string")
+			.filter((id) => typeof id === "string"),
 	);
+
+	const healthyIds = getHealthyModelIds();
+	const useFilter = healthyIds.size > 0;
 
 	for (const item of models) {
 		const rawId = item.id;
 		if (!rawId || isNonChatModel(rawId)) continue;
 		if (declaredIds.has(rawId)) continue;
+		if (useFilter && !healthyIds.has(rawId)) continue;
 
 		const shortAlias = rawId.split("/").pop() || rawId;
 		const modelKey = entry.models[shortAlias] ? rawId : shortAlias;
@@ -115,9 +257,10 @@ export function registerGatewayModels(config, models, options = {}) {
 
 		const reasoning = isReasoningModel(rawId);
 		const context = estimateContextWindow(rawId);
+		const formattedName = formatModelName(rawId);
 
 		entry.models[modelKey] = {
-			name: `[OMP] ${shortAlias}`,
+			name: formattedName,
 			id: rawId,
 			reasoning,
 			limit: {
@@ -231,7 +374,7 @@ export function registerModelsYaml(config, yamlPath = DEFAULT_MODELS_YML_PATH) {
 			const declaredIds = new Set(
 				Object.values(entry.models)
 					.map((m) => m?.id)
-					.filter((id) => typeof id === "string")
+					.filter((id) => typeof id === "string"),
 			);
 
 			for (const m of p.models) {
@@ -246,9 +389,10 @@ export function registerModelsYaml(config, yamlPath = DEFAULT_MODELS_YML_PATH) {
 
 				const reasoning = isReasoningModel(rawId);
 				const context = estimateContextWindow(rawId);
+				const formattedName = formatModelName(rawId);
 
 				entry.models[modelKey] = {
-					name: `[${p.name}] ${shortAlias}`,
+					name: formattedName,
 					id: rawId,
 					reasoning,
 					limit: {
