@@ -190,21 +190,25 @@ export async function fetchGatewayModels(url, timeoutMs = 1000) {
 			const data = await res.json();
 			const liveModels = Array.isArray(data?.data) ? data.data : [];
 			if (liveModels.length > 0) {
-				if (!existsSync(cacheDir)) {
-					mkdirSync(cacheDir, { recursive: true });
-				}
-				writeFileSync(
-					cacheFile,
-					JSON.stringify(
-						{
-							timestamp: now,
-							models: liveModels,
-						},
-						null,
-						2,
-					),
-					"utf8",
-				);
+				// Cache write must never discard freshly fetched models — a
+				// full disk or permission error here is not a fetch failure.
+				try {
+					if (!existsSync(cacheDir)) {
+						mkdirSync(cacheDir, { recursive: true });
+					}
+					writeFileSync(
+						cacheFile,
+						JSON.stringify(
+							{
+								timestamp: now,
+								models: liveModels,
+							},
+							null,
+							2,
+						),
+						"utf8",
+					);
+				} catch {}
 				return liveModels;
 			}
 		}

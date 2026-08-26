@@ -98,7 +98,7 @@ export async function commandHooks({ client }, opts = {}) {
 				].join("\n");
 			}
 
-			await deliverCommandOutput(client, sessionID, text, output);
+			await deliverCommandOutput(client, sessionID, text);
 			throw createHandledError();
 		},
 	};
