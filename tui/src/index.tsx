@@ -206,6 +206,25 @@ function SidebarWidget(props: {
 							</Show>
 						</text>
 					</box>
+
+					{/* 4. Context Pruning & Savings */}
+					<box flexDirection="row" gap={1}>
+						<text fg={mutedColor()}>•</text>
+						<text fg={mutedColor()}>
+							Pruned:{" "}
+							<Show
+								when={metrics().compressEnabled}
+								fallback={<span style={{ fg: redColor() }}>disabled</span>}
+							>
+								<span style={{ fg: textNormal() }}>
+									{metrics().compress?.session?.prunedCount || 0} outputs
+									{metrics().compress?.session?.tokensSaved > 0
+										? ` · ~${metrics().compress.session.tokensSaved.toLocaleString()} tokens`
+										: ""}
+								</span>
+							</Show>
+						</text>
+					</box>
 				</box>
 			</Show>
 		</box>

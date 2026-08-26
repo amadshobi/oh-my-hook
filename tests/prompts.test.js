@@ -7,6 +7,7 @@ import {
 	resolvePresetPath,
 	loadPromptContent,
 	replaceSystemPrompt,
+	hasCustomPersona,
 } from "../prompts/router.js";
 import { promptHooks } from "../prompts/index.js";
 
@@ -163,7 +164,7 @@ test("promptHooks transforms system prompt during chat session", async () => {
 
 	const output = {
 		system: [
-			`You are default opencode.\n\nYou are powered by the model named deepseek-chat.\n<env>\n  Platform: linux\n</env>`,
+			`You are opencode, an interactive CLI tool that helps users with software engineering tasks.\n\nYou are powered by the model named deepseek-chat.\n<env>\n  Platform: linux\n</env>`,
 		],
 	};
 
@@ -200,4 +201,90 @@ test("promptHooks does nothing when enabled is false", async () => {
 	);
 
 	assert.deepEqual(output.system, original);
+});
+
+test("hasCustomPersona detects built-in vs custom base prompts", () => {
+	// Built-in default prompt → not a custom persona
+	assert.equal(
+		hasCustomPersona([
+			"You are opencode, an interactive CLI tool that helps users with software engineering tasks. Use the instructions below...",
+		]),
+		false,
+	);
+
+	// Built-in anthropic/codex base prompt
+	assert.equal(
+		hasCustomPersona([
+			"You are OpenCode, the best coding agent on the planet.",
+		]),
+		false,
+	);
+
+	// Custom agent persona from opencode config
+	assert.equal(hasCustomPersona(["You are BOSS's loyal coding butler."]), true);
+
+	// Empty/missing system
+	assert.equal(hasCustomPersona([]), false);
+});
+
+test("promptHooks preserves custom agent persona", async () => {
+	const dir = mkdtempSync(path.join(os.tmpdir(), "persona-test-"));
+	mkdirSync(path.join(dir, "DeepSeek"), { recursive: true });
+	writeFileSync(
+		path.join(dir, "DeepSeek/deepseek-chat.md"),
+		"DEEPSEEK EXPERT INSTRUCTIONS",
+	);
+
+	const hooks = await promptHooks(
+		{},
+		{ config: { enabled: true, directory: dir } },
+	);
+
+	const persona = `You are BOSS's loyal coding butler.\n\nYou are powered by the model named deepseek-chat.\n<env>\n  Platform: linux\n</env>`;
+	const output = { system: [persona] };
+
+	await hooks["experimental.chat.system.transform"](
+		{ model: { id: "deepseek-chat", providerID: "deepseek" } },
+		output,
+	);
+
+	assert.equal(output.system[0], persona);
+
+	rmSync(dir, { recursive: true, force: true });
+});
+
+test("promptHooks overridePersona replaces even custom personas", async () => {
+	const dir = mkdtempSync(path.join(os.tmpdir(), "override-test-"));
+	mkdirSync(path.join(dir, "DeepSeek"), { recursive: true });
+	writeFileSync(
+		path.join(dir, "DeepSeek/deepseek-chat.md"),
+		"DEEPSEEK EXPERT INSTRUCTIONS",
+	);
+
+	const hooks = await promptHooks(
+		{},
+		{
+			config: {
+				enabled: true,
+				directory: dir,
+				overridePersona: true,
+			},
+		},
+	);
+
+	const output = {
+		system: [
+			"You are BOSS's loyal coding butler.\n\nYou are powered by the model named deepseek-chat.\n<env>\n  Platform: linux\n</env>",
+		],
+	};
+
+	await hooks["experimental.chat.system.transform"](
+		{ model: { id: "deepseek-chat", providerID: "deepseek" } },
+		output,
+	);
+
+	assert.match(output.system[0], /^DEEPSEEK EXPERT INSTRUCTIONS/);
+	assert.match(output.system[0], /<env>\n  Platform: linux\n<\/env>/);
+
+	rmSync(dir, { recursive: true, force: true });
 });

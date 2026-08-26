@@ -11,11 +11,12 @@ The plugin assembles multiple hook modules into ONE hooks object via
 
 - `sandbox/` — pre-execution security (secret-scanner, dangerous-bash, commit-guard, dev-server), read-guard (read-before-write, stale detection), permission bridge, subshell env isolation.
 - `plans/` — dual-mode planning suite (`/plan`, `/design`, `/approve`, `/exec`, `/mode`), plan-mode mutation barrier, auto-versioning in `plans/versions/`, 3-level prompt templates.
-- `context/` — session context & compaction snapshot.
+- `compress/` — context compression suite: dynamic tool-output pruning (`experimental.chat.messages.transform`), post-push idle auto-compaction, `/compress` slash commands, compaction snapshotting, scoped agent context.
 - `reminder/` — soft nudges (verify loop, checklist).
 - `prompts/` — dynamic system prompt router hook (`experimental.chat.system.transform`) for gateway/custom models using provider assets (`~/.opencode/assets/provider/`).
 - `memory/` — curated memory: auto-loads into system prompt (main agent only) + compaction; `/remember`, `/memory`, `/capture` slash commands; pluggable AI adapters in `memory/ai/` for capture.
 - `tui/` — OpenCode TUI frontend module (`session_prompt_right` live plan badge & `sidebar_content` collapsible widget).
+- `omp/` — OMP Gateway bridge: dynamic model auto-discovery from `:4000`, `models.yml` custom provider aggregation (Kilo, OpenCode Zen, OpenRouter, Charm Hyper), reasoning/non-chat model classification, and unified gateway proxy (`gateway-proxy.ts`).
 
 ## Config
 
@@ -102,7 +103,7 @@ Error(blockMessage(...))` so the model sees a clear reason. Reminders use
 - Block/warn messages follow `share/style-guide.md` — build them with
   `formatBlockMessage()` / `formatWarnMessage()` in `share/messages.js`.
 - When committing, follow Conventional Commits and append the appropriate co-author trailer:
-  - In OpenCode: `git commit -m "type(scope): description" -m "Co-authored-by: OpenCode <noreply@opencode.ai>"`
+  - In OpenCode: `git commit -m "type(scope): description" -m "Co-authored-by: opencode-agent[bot] <219766164+opencode-agent[bot]@users.noreply.github.com>"`
   - In Command Code: `git commit -m "type(scope): description" -m "Co-authored-by: Command Code <noreply@commandcode.ai>"`
 
 ## Testing

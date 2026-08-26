@@ -214,11 +214,17 @@ Dedicated configuration file located at `~/.config/opencode/omh.jsonc`:
     "versionLimit": 20,
   },
 
-  // 🧠 Context & Compaction Engine
-  "context": {
-    "compactionSnapshot": true, // Inject git diff & pending todos into compaction
-    "promptCheck": true, // Warn on ambiguous / single-word prompts
-    "compactThreshold": 50,
+  // 🗜️ Context Compression & Dynamic Pruning Engine
+  "compress": {
+    "enabled": true,
+    "pruning": {
+      "enabled": true,
+      "recentTurns": 2, // Keep last 2 conversational turns 100% intact
+      "minOutputChars": 8000, // Threshold before historical bash outputs are pruned
+    },
+    "milestones": {
+      "pushAutoCompress": true, // Auto-compact & snapshot when git push finishes and agent goes idle
+    },
   },
 
   // 🔔 Post-Execution Verification
@@ -337,9 +343,49 @@ When using multi-provider models or local gateway proxies (like **Oh-My-Pi / OMP
 
 ---
 
+## 🗜️ Context Compression & Dynamic Pruning Suite
+
+Long coding sessions inevitably fill the LLM context window with bloated historical logs (`npm test`, `go build`, `cargo test`, `git log`). `compress/` intelligently optimizes context usage:
+
+- **Dynamic In-Memory Pruning (`experimental.chat.messages.transform`)**:
+  - Automatically collapses historical, bulky tool outputs into clean, deterministic markers (`── OMH-PRUNE ── X chars collapsed ──`).
+  - **Zero Database Modification**: Pruning operates in-memory per request turn, preserving full transcript integrity for OpenCode's undo/revert functionality.
+  - **Failure Signal Protection**: Test failures and stack traces (`FAILED`, `panic:`, `Traceback`, `npm ERR!`) are **never pruned** so debugging context is never lost.
+  - **Protected Window & Tools**: Last 2 conversational turns and critical tools (`read`, `write`, `edit`, `todowrite`, `grep`, `glob`) are strictly protected.
+- **Post-Push Idle Auto-Compaction**:
+  - Automatically captures git diffs and branch milestones when a successful `git push` is detected and triggers background compaction when the agent enters an idle state.
+- **Interactive Slash Commands**:
+  - `/compress`: Trigger immediate session compaction with zero token overhead.
+  - `/compress stats`: View live token savings and pruning metrics.
+
+---
+
+## 🔌 OMP Gateway Bridge
+
+When running a local **Oh-My-Pi (OMP)** multi-provider gateway, `omp/` automatically discovers and registers all available models into OpenCode — no manual provider configuration needed.
+
+- **Live Model Discovery**: Fetches from `http://127.0.0.1:4000/v1/models` at startup and registers into `config.provider.omp`.
+- **`models.yml` Bridging**: Parses `~/.omp/agent/models.yml` and registers custom providers (Kilo, OpenCode Zen, OpenRouter, Charm Hyper) with automatic env-var API key resolution.
+- **Reasoning & Context Intelligence**: Auto-classifies reasoning models and estimates context windows from model ID patterns.
+- **Unified Gateway Proxy**: Standalone Bun proxy (`gateway-proxy.ts`) aggregating curated providers + OMP Auth-Gateway into one OpenAI-compatible endpoint on `:4000`.
+
+```jsonc
+// omh.jsonc
+"omp": {
+  "enabled": true,
+  "url": "http://127.0.0.1:4000/v1",
+  "providerId": "omp",
+  "providerName": "OMP Gateway",
+  "bridgeModelsYml": true,  // Auto-bridge ~/.omp/agent/models.yml
+  "timeoutMs": 1000,
+}
+```
+
+---
+
 ## 🧪 Testing & Development
 
-`oh-my-hook` includes **96 unit tests** and deterministic E2E hook pipeline test suites.
+`oh-my-hook` includes **112 unit tests** and **5 deterministic E2E hook pipeline test suites**.
 
 ```bash
 # Run unit tests
@@ -347,9 +393,6 @@ npm test
 
 # Run modular E2E hook pipelines
 npm run test:e2e:hooks
-
-# Run headless model E2E test (real OpenCode runner)
-npm run test:e2e:read-guard
 
 # Run all test suites
 npm run test:all

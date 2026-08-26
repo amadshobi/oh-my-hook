@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **🛡️ Prompt Router No Longer Overwrites Custom Agent Personas (#12)**:
+  - `prompts/` router previously replaced the base prompt segment unconditionally, destroying user-authored agent personas defined in OpenCode config (`agent.<name>.prompt`).
+  - Added built-in base prompt fingerprint detection (`hasCustomPersona`) — the router now only swaps OpenCode's generic provider prompts (`default`, `anthropic`, `beast`, `gpt`, `gemini`, `kimi`, `meta`) and leaves custom personas untouched.
+  - New opt-in flag `prompts.overridePersona` in `omh.jsonc` restores the old overwrite-everything behavior when explicitly desired.
+
+## [0.4.3] - 2026-08-23
+
+### Added
+
+- **🗜️ Context Compression & Dynamic Pruning Suite (`compress/`)**:
+  - Re-architected `context/` into a dedicated `compress/` suite with backward-compatible deprecation shims.
+  - **Dynamic Tool Output Pruning (`experimental.chat.messages.transform`)**: Intelligently collapses bulky historical test/build/git outputs into clean, deterministic markers while preserving recent 2-turn window and failure outputs (`FAILED`, `panic:`, `Traceback`, `npm ERR!`).
+  - **Milestone & Post-Push Idle Auto-Compaction (`automation.js`)**: Automatically detects successful `git push` executions in bash, takes branch/diff snapshots, and triggers background compaction when the agent enters an idle state with strict safety gates (min 30 messages, 2-turn delay, 10-minute cooldown, max 2 auto-compactions per session).
+  - **Deterministic Slash Commands (`commands.js`)**: Added `/compress` (immediate compaction) and `/compress stats` (metrics inspection) delivered to session transcripts with 0 LLM token cost.
+  - **Persistent Stats Ledger (`stats.js`)**: Tracks pruned outputs, bytes saved, and estimated token savings per session and global aggregates bounded to 50 sessions.
+  - **TUI Observability Integration (`tui/`)**: Added live pruning and token savings counters to OpenCode TUI sidebar widget and metrics helpers.
+  - **E2E Hook Pipeline Expansion**: Added deterministic `compress.hook.e2e.js` test pipeline (**112 passing unit tests** and **5 E2E pipelines**).
+
+- **🔌 OMP Gateway Bridge (`omp/`)**:
+  - **Dynamic Auto-Discovery**: Fetches live models from local OMP Gateway (`:4000`) and registers them into OpenCode's `config.provider` at startup — zero hardcoding.
+  - **`models.yml` Aggregator**: Parses `~/.omp/agent/models.yml` and bridges custom providers (Kilo, OpenCode Zen, OpenRouter, Charm Hyper) with automatic API key resolution from env vars.
+  - **Model Intelligence**: Built-in classification for reasoning models (`deepseek-v4`, `o3`, `gpt-5`, `claude-sonnet-4`, etc.) and non-chat models (embedding, TTS, image-gen) with context window estimation.
+  - **OMP Extension (`extension.ts`)**: Generic TypeScript loader for OMP runtime — any provider added to `models.yml` becomes instantly available via `pi.registerProvider()`.
+  - **Unified Gateway Proxy (`gateway-proxy.ts`)**: Standalone Bun proxy on `:4000` that aggregates `models.yml` curated providers + internal OMP Auth-Gateway (`:4002`) into a single OpenAI-compatible endpoint.
+
 ## [0.4.2] - 2026-08-23
 
 ### Added

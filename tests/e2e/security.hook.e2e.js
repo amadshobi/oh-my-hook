@@ -157,7 +157,7 @@ try {
 			tool: "bash",
 			args: {
 				command:
-					"git commit -m 'feat(auth): implement token refresh' -m 'Co-authored-by: OpenCode <noreply@opencode.ai>'",
+					"git commit -m 'feat(auth): implement token refresh' -m 'Co-authored-by: opencode-agent[bot] <219766164+opencode-agent[bot]@users.noreply.github.com>'",
 			},
 		});
 	} catch {
