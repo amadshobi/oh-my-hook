@@ -5,7 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.4] - 2026-08-26
+
+### Changed
+
+- **🔌 OMP Catalog Enhancement**:
+  - **Pretty Model Names**: `formatModelName()` renders `[OMP] deepseek-chat` as `Deepseek (omp)` with brand casing (Gemini, GPT, QwQ, Claude) and provider aliases (`openai` → `oai`, `github-copilot` → `copilot`).
+  - **Health Filtering**: Registers only healthy models based on `gn ping` cache (`~/.config/gn/cache/ping/`) when health data is available.
+  - **Gateway Disk Cache**: Fetch results cached for 1 hour in `~/.config/opencode/cache/omp-catalog-cache.json`; network failures fall back to stale cache.
 
 ### Fixed
 
@@ -13,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `prompts/` router previously replaced the base prompt segment unconditionally, destroying user-authored agent personas defined in OpenCode config (`agent.<name>.prompt`).
   - Added built-in base prompt fingerprint detection (`hasCustomPersona`) — the router now only swaps OpenCode's generic provider prompts (`default`, `anthropic`, `beast`, `gpt`, `gemini`, `kimi`, `meta`) and leaves custom personas untouched.
   - New opt-in flag `prompts.overridePersona` in `omh.jsonc` restores the old overwrite-everything behavior when explicitly desired.
+- **PR Review Fixes**:
+  - Dropped dead 4th argument in `/compress` `deliverCommandOutput` call.
+  - Isolated gateway cache write so disk failures never discard freshly fetched models.
+  - Retargeted agent-context tests to the live `compress/agent-context.js` and removed the orphaned duplicate in `context/`.
 
 ## [0.4.3] - 2026-08-23
 
