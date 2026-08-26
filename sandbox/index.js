@@ -46,6 +46,7 @@ export async function sandboxHooks({ client, directory }, opts = {}) {
 }
 
 export { securityHooks } from "./security.js";
-export { createReadGuard, refreshReads } from "./read-guard.js";
+export { createReadGuard } from "./read-guard.js";
+export { refreshReads } from "../share/state.js";
 export { createPermissionGuard } from "./permission.js";
 export { createEnvInjector } from "./env.js";

@@ -64,6 +64,11 @@ OpenCode mendukung dua model eksekusi perintah deterministik tanpa memicu pemang
 
 ## Architecture rules
 
+- **Adapter boundary contract** — modules (`sandbox/`, `compress/`, `memory/`,
+  `plans/`, `prompts/`, `reminder/`, `omp/`) are pure logic: only `node:`
+  builtins, self-references, and `share/` imports. Root `index.js` is the sole
+  OpenCode hook assembler (adapter layer). Enforced by `tests/boundary.test.js`;
+  backward-compat shims live in `SHIM_ALLOWLIST` there.
 - **One package, dual surfaces.** Root `package.json` declares `"oc-plugin": ["server", "tui"]` with `"exports"` pointing `.` and `./server` to `index.js` and `./tui` to `tui/dist/tui.js`.
 - **`share/` is the only shared dependency layer.** Cross-module helpers go
   here: `path.js`, `notify.js`, `block.js`, `messages.js`, `state.js` (ledger + mode state),
