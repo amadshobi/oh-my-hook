@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.6] - 2026-08-28
+
+### Removed
+
+- **Amputated `omp/` Module**:
+  - Removed obsolete `omp/` directory (`catalog.js`, `gateway-proxy.ts`, `extension.ts`, `index.js`) and deprecated `models.yml` parser.
+  - Relocated CommandCode discovery logic to dedicated OMP runtime extension in `~/.omp/agent/extensions/commandcode-loader.ts`.
+  - Cleaned up `ompHooks` and `omp` configuration schema from `share/config.js` and `index.js`.
+
 ## [0.4.5] - 2026-08-28
 
 ### Added

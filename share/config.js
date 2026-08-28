@@ -121,14 +121,6 @@ export const DEFAULTS = {
 		verify: true,
 		checklist: true,
 	},
-	omp: {
-		enabled: true,
-		url: "http://127.0.0.1:4000/v1",
-		providerId: "omp",
-		providerName: "OMP Gateway",
-		timeoutMs: 1000,
-		bridgeModelsYml: true,
-	},
 	prompts: {
 		enabled: true,
 		directory: "~/.opencode/assets/provider",

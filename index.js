@@ -16,12 +16,11 @@ import { reminderModule } from "./reminder/index.js";
 import { memoryHooks } from "./memory/index.js";
 import { planHooks } from "./plans/index.js";
 import { promptHooks } from "./prompts/index.js";
-import { ompHooks } from "./omp/index.js";
 import { imgseeModule } from "./imgsee/index.js";
 
 export default async function ohMyHook(input) {
 	const { config } = loadConfig();
-	const [sandbox, compress, reminder, memory, plans, prompts, omp, imgsee] =
+	const [sandbox, compress, reminder, memory, plans, prompts, imgsee] =
 		await Promise.all([
 			sandboxHooks(input, { config }),
 			compressModule(input, { config: config.compress }),
@@ -29,7 +28,6 @@ export default async function ohMyHook(input) {
 			memoryHooks(input, { config }),
 			planHooks(input, { config }),
 			promptHooks(input, { config: config.prompts }),
-			ompHooks(input, { config }),
 			imgseeModule(input, { config }),
 		]);
 	return mergeHooks(
@@ -39,7 +37,6 @@ export default async function ohMyHook(input) {
 		memory,
 		plans,
 		prompts,
-		omp,
 		imgsee,
 	);
 }
