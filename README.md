@@ -371,6 +371,26 @@ Long coding sessions inevitably fill the LLM context window with bloated histori
 
 ---
 
+## 🔌 Local Gateway Bridge (`gateway/`)
+
+`gateway/` acts as the native OpenCode bridge to your local AI daemon (`gn gw` on `:4010` or `:4000`), eliminating manual JSON configuration and protecting against Google CCA schema rejections.
+
+### Key Capabilities:
+
+- **Zero-Config Interactive Auth**: Connects seamlessly with `opencode auth -p local-gateway` (or TUI login).
+- **Dynamic Model Auto-Discovery**: Fetches all available upstream models from `:4010/v1/models` at runtime with offline snapshot caching.
+- **OMP Catalog Metadata Enrichment**: Enriches models with exact token pricing (`cost`), context window limits, and thinking tiers (`variants`) directly from Oh-My-Pi catalog (`models.json`).
+- **Antigravity CCA Armor**: Intercepts and normalizes tool definitions in-flight, stripping OpenAPI keywords (`$schema`, `title`, `additionalProperties`) to prevent HTTP 400 Malformed Argument errors from Google Cloud Code Assist.
+
+```jsonc
+// omh.jsonc
+"gateway": {
+  "enabled": true
+}
+```
+
+---
+
 ## 👁️ Multimodal Vision Engine (`imgsee/`)
 
 When coding agents need to inspect UI layouts, error screenshots, diagrams, or web pages, `imgsee/` provides out-of-band visual inspection by delegating directly to a vision-capable model (like `gemini-2.5-flash` or `gemini-3.7-flash` via local OMP gateway on `:4010` / `:4000`).

@@ -16,6 +16,7 @@ The plugin assembles multiple hook modules into ONE hooks object via
 - `prompts/` — dynamic system prompt router hook (`experimental.chat.system.transform`) for gateway/custom models using provider assets (`~/.opencode/assets/provider/`).
 - `memory/` — curated memory: auto-loads into system prompt (main agent only) + compaction; `/remember`, `/memory`, `/capture` slash commands; pluggable AI adapters in `memory/ai/` for capture.
 - `tui/` — OpenCode TUI frontend module (`session_prompt_right` live plan badge & `sidebar_content` collapsible widget).
+- `gateway/` — Local Gateway bridge: dynamic model discovery from `:4010` / `:4000`, OMP catalog metadata enrichment (pricing, thinking variants, context limits), interactive auth registration (`opencode auth -p local-gateway`), and Google Antigravity CCA schema sanitization guard.
 - `imgsee/` — Multimodal vision engine: native agent tool `imgsee` delegating one-shot image analysis (OCR, UI layout, diagrams, debugging) to local vision gateway (:4010/:4000) without context poisoning.
 
 ## Config
@@ -65,7 +66,7 @@ OpenCode mendukung dua model eksekusi perintah deterministik tanpa memicu pemang
 ## Architecture rules
 
 - **Adapter boundary contract** — modules (`sandbox/`, `compress/`, `memory/`,
-  `plans/`, `prompts/`, `reminder/`, `imgsee/`) are pure logic: only `node:`
+  `plans/`, `prompts/`, `reminder/`, `gateway/`, `imgsee/`) are pure logic: only `node:`
   builtins, self-references, and `share/` imports. Root `index.js` is the sole
   OpenCode hook assembler (adapter layer). Enforced by `tests/boundary.test.js`;
   backward-compat shims live in `SHIM_ALLOWLIST` there.

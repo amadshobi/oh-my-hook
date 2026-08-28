@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.7] - 2026-08-28
+
+### Added
+
+- **🔌 Local Gateway Bridge (`gateway/`)**:
+  - **Single Plugin Consolidation**: Consolidated `opencode-local-gateway` capabilities directly into `oh-my-hook` with zero external dependencies.
+  - **Dynamic Model Auto-Discovery (`discovery.js`)**: Real-time discovery from `:4010` with resilient offline disk caching in `~/.cache/opencode/gateway-models-cache.json`.
+  - **OMP Catalog Metadata Enrichment (`normalizer.js`, `variants.js`)**: Direct extraction of exact token pricing (`cost`), context window limits, and thinking effort tiers from Oh-My-Pi catalog (`models.json`).
+  - **Antigravity CCA Schema Armor (`antigravity.js`)**: Strips forbidden OpenAPI keywords (`$schema`, `title`, `additionalProperties`) in `tool.definition` to protect against Google Antigravity HTTP 400 errors.
+  - **Security & Loopback Protection**: URL normalization with strict loopback validation guards.
+
 ## [0.4.6] - 2026-08-28
 
 ### Removed

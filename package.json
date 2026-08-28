@@ -1,6 +1,6 @@
 {
   "name": "oh-my-hook",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "type": "module",
   "description": "Command Code-style workflow plugins for OpenCode: mode enforcement, read-before-write, security guardrails, session context, and verification reminders.",
   "main": "index.js",
@@ -22,6 +22,7 @@
     "memory",
     "plans",
     "prompts",
+    "gateway",
     "imgsee",
     "share",
     "tui"
