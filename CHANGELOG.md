@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.5] - 2026-08-28
+
+### Added
+
+- **👁️ Multimodal Vision Engine (`imgsee/`)**:
+  - **Native Agent Tool (`imgsee`)**: Enables agents to inspect local screenshots, UI mockups, diagrams, and image URLs via out-of-band one-shot vision requests (`path`, `question`, `mode`).
+  - **Isolated Gateway Bridge (`client.js`)**: Routes vision tasks to local OMP Gateway (`:4010` / `:4000`) or OpenAI-compatible vision endpoints without polluting primary session contexts.
+  - **Format Sniffer & Loader (`loader.js`)**: Validates PNG, JPEG, GIF, and WEBP formats via file magic bytes with a 20 MiB safety cap.
+  - **Diagnostic Prompt Directives (`prompts/vision-system.md`)**: Evidence-first analysis, verbatim OCR extraction, spatial UI coordinates, and root cause debugging.
+  - **Deterministic `/imgsee` Slash Command**: Inspect visual artifacts directly in session transcripts with 0 LLM token cost.
+  - **Test Suite Expansion**: Added unit tests in `tests/imgsee.test.js` (**128 passing unit tests**).
+
 ## [0.4.4] - 2026-08-26
 
 ### Changed

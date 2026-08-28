@@ -24,6 +24,7 @@ const MODULE_DIRS = [
 	"reminder",
 	"context",
 	"omp",
+	"imgsee",
 	"share",
 ];
 
@@ -95,6 +96,7 @@ test("boundary: root index.js is the sole OpenCode hook assembler", () => {
 		"planHooks",
 		"promptHooks",
 		"ompHooks",
+		"imgseeModule",
 	]) {
 		assert.ok(
 			indexSource.includes(factory),

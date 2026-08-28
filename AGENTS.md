@@ -17,6 +17,7 @@ The plugin assembles multiple hook modules into ONE hooks object via
 - `memory/` — curated memory: auto-loads into system prompt (main agent only) + compaction; `/remember`, `/memory`, `/capture` slash commands; pluggable AI adapters in `memory/ai/` for capture.
 - `tui/` — OpenCode TUI frontend module (`session_prompt_right` live plan badge & `sidebar_content` collapsible widget).
 - `omp/` — OMP Gateway bridge: dynamic model auto-discovery from `:4000`, `models.yml` custom provider aggregation (Kilo, OpenCode Zen, OpenRouter, Charm Hyper), reasoning/non-chat model classification, and unified gateway proxy (`gateway-proxy.ts`).
+- `imgsee/` — Multimodal vision engine: native agent tool `imgsee` delegating one-shot image analysis (OCR, UI layout, diagrams, debugging) to local vision gateway (:4010/:4000) without context poisoning.
 
 ## Config
 
@@ -65,7 +66,7 @@ OpenCode mendukung dua model eksekusi perintah deterministik tanpa memicu pemang
 ## Architecture rules
 
 - **Adapter boundary contract** — modules (`sandbox/`, `compress/`, `memory/`,
-  `plans/`, `prompts/`, `reminder/`, `omp/`) are pure logic: only `node:`
+  `plans/`, `prompts/`, `reminder/`, `omp/`, `imgsee/`) are pure logic: only `node:`
   builtins, self-references, and `share/` imports. Root `index.js` is the sole
   OpenCode hook assembler (adapter layer). Enforced by `tests/boundary.test.js`;
   backward-compat shims live in `SHIM_ALLOWLIST` there.

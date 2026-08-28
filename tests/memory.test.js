@@ -144,7 +144,10 @@ test("memoryHooks: system.transform injects for main agent, not subagent", async
 
 test("memoryHooks: compaction injects memory", async () => {
 	const project = makeProject();
-	const hooks = await memoryHooks({ client: {}, directory: project });
+	const hooks = await memoryHooks(
+		{ client: {}, directory: project },
+		{ config: { memory: { enabled: true } } },
+	);
 	await runCmd(hooks, "memory", "add compact-note");
 
 	const out = { context: [] };

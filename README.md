@@ -17,8 +17,9 @@ _Stop AI agents from hallucinating file writes, leaking credentials, executing d
 [Key Pillars](#-key-pillars) •
 [Why oh-my-hook?](#-why-oh-my-hook) •
 [Architecture](#-architecture-flow) •
-[TUI Experience](#-openCode-tui-experience) •
+[TUI Experience](#-opencode-tui-experience) •
 [Planning Suite](#-dual-mode-planning-suite) •
+[Multimodal Vision](#-multimodal-vision-engine-imgsee) •
 [Installation](#-installation) •
 [Configuration](#-configuration-omhjsonc) •
 [Guardrail Suite](#-guardrail-suite) •
@@ -33,6 +34,7 @@ _Stop AI agents from hallucinating file writes, leaking credentials, executing d
 
 - 🔒 **Sandbox Enforcement (`sandbox/`)**: Strict pre-execution gates that reject destructive bash commands, unread file overrides, stale concurrent mutations, and credential leaks. Native `permission.ask` and `shell.env` integration.
 - 🗺️ **Dual-Mode Planning Suite (`plans/`)**: In-chat brainstorming or durable RFC file creation (`~/.opencode/plans/`) with auto-versioning, plan mode write boundaries, and 3-level prompt templates.
+- 👁️ **Multimodal Vision Engine (`imgsee/`)**: Native visual inspection tool delegating one-shot image analysis (OCR, UI layout, diagrams, and debugging) to local vision gateways (`:4010` / `:4000`) without context poisoning or session errors.
 - 🖥️ **Native TUI Integration**: Real-time `🔒 [plan mode]` prompt badges and collapsible sidebar metrics rendered natively in OpenCode TUI via `@opentui/solid`.
 - 🧠 **Curated Distilled Memory (`/capture`)**: Zero-noise memory engine. Only loads curated bullets into the primary agent, keeping subagent contexts clean and compaction snapshots lossless.
 - 🔔 **Autonomous Verification Loop**: Runs typechecking, linter auto-fixes, and tests immediately after edits while automatically refreshing ledger state.
@@ -243,6 +245,15 @@ Dedicated configuration file located at `~/.config/opencode/omh.jsonc`:
       // "ollama-cloud/*": "minimax.md"
     },
   },
+
+  // 👁️ Multimodal Vision Engine
+  "imgsee": {
+    "enabled": true,
+    "gatewayUrl": "http://127.0.0.1:4010/v1/chat/completions",
+    "model": "google-antigravity/gemini-2.5-flash",
+    "timeoutMs": 60000,
+    "maxBytes": 5242880, // 5 MiB
+  },
 }
 ```
 
@@ -383,9 +394,24 @@ When running a local **Oh-My-Pi (OMP)** multi-provider gateway, `omp/` automatic
 
 ---
 
+## 👁️ Multimodal Vision Engine (`imgsee/`)
+
+When coding agents need to inspect UI layouts, error screenshots, diagrams, or web pages, `imgsee/` provides out-of-band visual inspection by delegating directly to a vision-capable model (like `gemini-2.5-flash` or `gemini-3.7-flash` via local OMP gateway on `:4010` / `:4000`).
+
+### Key Capabilities:
+
+- **Zero Context-Poisoning**: Keeps primary text-only LLMs stable by executing one-shot vision analysis and returning clean, structured Markdown back to the session.
+- **Magic Bytes Sniffing**: Header sniffing support for PNG, JPEG, GIF, and WEBP with a 20 MiB safety cap.
+- **Diagnostic System Directives**: Evidence-first analysis, verbatim OCR extraction, spatial UI coordinates, and actionable root cause debugging.
+- **Dual Invocation**:
+  - **Autonomous Tool (`imgsee`)**: Agents invoke `imgsee(path, question, mode)` when examining screenshots or visual artifacts.
+  - **Deterministic Slash Command (`/imgsee`)**: Users can trigger `/imgsee <path> [question]` directly in chat with zero LLM overhead.
+
+---
+
 ## 🧪 Testing & Development
 
-`oh-my-hook` includes **112 unit tests** and **5 deterministic E2E hook pipeline test suites**.
+`oh-my-hook` includes **128 unit tests** and **5 deterministic E2E hook pipeline test suites**.
 
 ```bash
 # Run unit tests
