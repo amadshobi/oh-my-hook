@@ -79,6 +79,11 @@ export function lookupOmpModel(rawModelId) {
 		if (catalog[p][bareSlug]) {
 			return catalog[p][bareSlug];
 		}
+		for (const key of Object.keys(catalog[p])) {
+			if (key.endsWith(`/${bareSlug}`) || key === bareSlug) {
+				return catalog[p][key];
+			}
+		}
 	}
 
 	return null;
