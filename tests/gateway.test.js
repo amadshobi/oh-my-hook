@@ -13,7 +13,11 @@ import {
 	estimateContextWindow,
 	normalizeGatewayModels,
 } from "../gateway/normalizer.js";
-import { generateModelVariants } from "../gateway/variants.js";
+import {
+	generateModelVariants,
+	resetOmpCatalog,
+	getOmpCatalog,
+} from "../gateway/variants.js";
 import {
 	gatewayHooks,
 	resolveGatewayUrl,
@@ -24,7 +28,7 @@ import {
 	getSnapshotCachePath,
 } from "../gateway/discovery.js";
 
-test("gateway/antigravity: strips forbidden CCA keywords recursively", () => {
+test("gateway/antigravity: strips forbidden CCA keywords recursively across properties, $defs, and conditionals", () => {
 	const dirtySchema = {
 		$schema: "http://json-schema.org/draft-07/schema#",
 		title: "CreateFileParams",
@@ -32,6 +36,30 @@ test("gateway/antigravity: strips forbidden CCA keywords recursively", () => {
 		additionalProperties: false,
 		patternProperties: {
 			"^x-": { type: "string" },
+		},
+		$defs: {
+			AdvancedConfig: {
+				title: "AdvancedConfig",
+				type: "object",
+				additionalProperties: false,
+				properties: {
+					retries: { type: "number", title: "Retries" },
+				},
+			},
+		},
+		definitions: {
+			LegacyDef: {
+				title: "LegacyDef",
+				type: "string",
+			},
+		},
+		if: {
+			title: "ConditionIf",
+			properties: { mode: { const: "strict" } },
+		},
+		then: {
+			title: "ConditionThen",
+			properties: { timeout: { type: "number" } },
 		},
 		properties: {
 			path: {
@@ -56,6 +84,21 @@ test("gateway/antigravity: strips forbidden CCA keywords recursively", () => {
 	assert.equal(cleaned.title, undefined);
 	assert.equal(cleaned.additionalProperties, undefined);
 	assert.equal(cleaned.patternProperties, undefined);
+
+	// $defs and definitions sanitized
+	assert.equal(cleaned.$defs.AdvancedConfig.title, undefined);
+	assert.equal(cleaned.$defs.AdvancedConfig.additionalProperties, undefined);
+	assert.equal(
+		cleaned.$defs.AdvancedConfig.properties.retries.title,
+		undefined,
+	);
+	assert.equal(cleaned.definitions.LegacyDef.title, undefined);
+
+	// Conditional schema sanitized
+	assert.equal(cleaned.if.title, undefined);
+	assert.equal(cleaned.then.title, undefined);
+
+	// Properties sanitized
 	assert.equal(cleaned.properties.path.title, undefined);
 	assert.equal(cleaned.properties.path.type, "string");
 	assert.equal(cleaned.properties.options.additionalProperties, undefined);
@@ -94,7 +137,8 @@ test("gateway/normalizer: isReasoningModel identifies reasoning patterns", () =>
 		true,
 	);
 	assert.equal(isReasoningModel("openrouter/openai/o3-mini"), true);
-	assert.equal(isReasoningModel("openrouter/openai/gpt-4o-mini"), false);
+	assert.equal(isReasoningModel("openrouter/openai/gpt-4o-mini"), true);
+	assert.equal(isReasoningModel("openrouter/custom/simple-chat"), false);
 });
 
 test("gateway/normalizer: normalizeGatewayModels includes required V1/V2 runtime schema fields", () => {
@@ -120,7 +164,11 @@ test("gateway/normalizer: normalizeGatewayModels includes required V1/V2 runtime
 	assert.equal(typeof model.family, "string");
 });
 
-test("gateway/variants: generates thinking variants when reasoning is supported", () => {
+test("gateway/variants: generates thinking variants and supports resetOmpCatalog", () => {
+	resetOmpCatalog();
+	const catalog = getOmpCatalog();
+	assert.ok(typeof catalog === "object");
+
 	const variants = generateModelVariants("openrouter/google/gemini-3.7-flash");
 	assert.ok(variants);
 	assert.ok(variants.thinking);

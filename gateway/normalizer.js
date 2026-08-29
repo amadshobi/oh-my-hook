@@ -60,6 +60,7 @@ export function formatModelDisplayName(rawId, catalogName) {
 
 /**
  * Heuristic check if model supports reasoning / extended thinking.
+ * Covers known reasoning model families without locking to fragile version numbers.
  */
 export function isReasoningModel(rawId) {
 	const lower = rawId.toLowerCase();
@@ -72,22 +73,15 @@ export function isReasoningModel(rawId) {
 		lower.includes("reason") ||
 		lower.includes("thinking") ||
 		lower.includes("tiered") ||
-		lower.includes("deepseek-v4") ||
-		lower.includes("claude-sonnet-4") ||
-		lower.includes("claude-sonnet-5") ||
-		lower.includes("claude-opus-4") ||
-		lower.includes("claude-opus-5") ||
-		lower.includes("claude-haiku-4") ||
-		lower.includes("claude-fable") ||
-		lower.includes("claude-3.7") ||
-		lower.includes("gemini-3") ||
-		lower.includes("gpt-5") ||
-		lower.includes("grok-3") ||
-		lower.includes("grok-4") ||
-		lower.includes("kimi-k3") ||
-		lower.includes("minimax-m3") ||
-		lower.includes("glm-5") ||
-		lower.includes("qwen3.8")
+		lower.includes("deepseek") ||
+		lower.includes("claude") ||
+		lower.includes("gemini") ||
+		lower.includes("gpt") ||
+		lower.includes("grok") ||
+		lower.includes("kimi") ||
+		lower.includes("minimax") ||
+		lower.includes("glm") ||
+		lower.includes("qwen")
 	);
 }
 

@@ -47,8 +47,6 @@ export async function fetchGatewayModels(
 			signal: controller.signal,
 		});
 
-		clearTimeout(timer);
-
 		if (res.ok) {
 			const data = await res.json();
 			const rawList = Array.isArray(data?.data) ? data.data : [];
@@ -73,6 +71,8 @@ export async function fetchGatewayModels(
 			}
 		}
 	} catch {
+		// ignore network/timeout errors and fallback to disk cache below
+	} finally {
 		clearTimeout(timer);
 	}
 

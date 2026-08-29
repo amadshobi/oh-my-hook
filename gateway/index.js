@@ -102,6 +102,8 @@ export function gatewayHooks(_input, opts = {}) {
 	}
 
 	return {
+		// OpenCode plugin config hook contract: OpenCode passes the mutable global
+		// config object for plugins to register their custom AI provider definitions.
 		config: async (cfg) => {
 			const auth = getStoredAuth();
 			const target =
@@ -193,7 +195,8 @@ export function gatewayHooks(_input, opts = {}) {
 		},
 
 		// Antigravity CCA JSON Schema Normalizer (Anti-Malformed Guard)
-		// Intercepts tool parameters schema before it gets sent to Google Cloud Code Assist
+		// OpenCode tool.definition contract: output is an in-flight tool schema container;
+		// normalizeSchemaForCCA produces immutable sanitized copies of parameters and jsonSchema.
 		"tool.definition": async (_input, output) => {
 			if (output?.parameters) {
 				output.parameters = normalizeSchemaForCCA(output.parameters);

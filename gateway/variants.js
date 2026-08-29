@@ -28,6 +28,13 @@ const OMP_CATALOG_PATHS = [
 ];
 
 /**
+ * Invalidate in-memory OMP catalog cache (useful for tests and disk updates)
+ */
+export function resetOmpCatalog() {
+	ompCatalogCache = null;
+}
+
+/**
  * Load OMP models.json catalog into memory once
  */
 export function getOmpCatalog() {
@@ -101,51 +108,14 @@ export function lookupOmpCatalogEfforts(rawModelId) {
 }
 
 /**
- * Resilient heuristic fallback for future/unindexed zero-day models
+ * Universal safe fallback for future/zero-day models not yet indexed in OMP catalog.
+ * Avoids fragile version hardcoding and protects against upstream HTTP 400 errors.
  */
 export function fallbackHeuristicEfforts(rawModelId) {
 	if (!isReasoningModel(rawModelId)) return null;
 
-	const lower = rawModelId.toLowerCase();
-
-	if (lower.includes("claude") || lower.includes("fable")) {
-		if (
-			lower.includes("opus-4-7") ||
-			lower.includes("opus-5") ||
-			lower.includes("sonnet-5")
-		) {
-			return ["low", "medium", "high", "xhigh", "max"];
-		}
-		if (lower.includes("haiku")) return ["minimal", "low", "medium", "high"];
-		return ["low", "medium", "high", "max"];
-	}
-
-	if (lower.includes("gemini")) {
-		if (lower.includes("pro")) return ["low", "high"];
-		return ["minimal", "low", "medium", "high"];
-	}
-
-	if (lower.includes("deepseek")) return ["low", "high", "max"];
-
-	if (lower.includes("gpt") || lower.includes("o1") || lower.includes("o3")) {
-		if (lower.includes("5.6")) return ["low", "medium", "high", "xhigh", "max"];
-		return ["low", "medium", "high", "xhigh"];
-	}
-
-	if (lower.includes("glm")) {
-		if (lower.includes("5.3")) return ["low", "high", "max"];
-		if (lower.includes("5.2") && lower.includes("openrouter")) {
-			return ["minimal", "low", "medium", "high", "xhigh"];
-		}
-		return ["high", "max"];
-	}
-
-	if (lower.includes("kimi")) return ["low", "high", "max"];
-	if (lower.includes("qwen")) return ["low", "medium", "xhigh"];
-	if (lower.includes("minimax")) return ["low", "high", "max"];
-	if (lower.includes("grok")) return ["low", "high"];
-
-	return ["low", "medium", "high", "max"];
+	// Canonical universal baseline tiers (safe across OpenAI, Anthropic, Gemini, DeepSeek)
+	return ["low", "medium", "high"];
 }
 
 /**

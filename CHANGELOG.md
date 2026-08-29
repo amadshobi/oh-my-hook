@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Solid Highlight Prompt Tag (`session_prompt_right`)**: Added high-contrast yellow solid badge (`PLAN` with active plan name) in input prompt bar with `wrapMode="none"` and `flexShrink={0}` to prevent line breaking.
   - **Accurate Sidebar Health Status**: Fixed misleading red `OFF` badge when `plans.enabled: false` by dynamically reflecting overall active guards (`● ACTIVE` / `● PLAN` / `● EXEC`).
   - **Initial State Synchronous Loading**: Initialized reactive signals with synchronous `loadModeState()` on tick 0, preventing race conditions.
+- **🛡️ Gateway & Vision Engine Hardening**:
+  - **Timer Leak Prevention (`gateway/discovery.js`)**: Wrapped `AbortController` timer cleanup in `try...finally` to ensure immediate cancellation on all HTTP response paths.
+  - **Deep CCA Schema Sanitization (`gateway/antigravity.js`)**: Extended recursive keyword stripping across `$defs`, `definitions`, `if`, `then`, `else`, and `not`.
+  - **Universal Safe Thinking Fallback (`gateway/variants.js`)**: Replaced version string heuristics with canonical baseline tiers (`["low", "medium", "high"]`) for zero-day models, adding `resetOmpCatalog()` cache invalidation.
+  - **Ecosystem Port & Security Alignment**: Standardized `imgsee` default endpoint to `:4010` (`gn gw`), added pre-flight `Content-Length` stream limits (20 MiB) in `imgsee/loader.js`, and sanitized upstream vision error logs.
+- **📦 Broadened Package Metadata**:
+  - Updated package description to a high-level suite overview and broadened ecosystem keywords.
 
 ## [0.4.7] - 2026-08-28
 

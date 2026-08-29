@@ -2,11 +2,12 @@
  * imgsee/client.js — Multimodal Vision Model HTTP Client.
  *
  * Dispatches one-shot vision requests to OpenAI-compatible endpoints
- * (e.g. Oh-My-Pi gateway on port 4000, OpenRouter, OpenAI, etc).
+ * (e.g. Local Gateway on port 4010/4000, OpenRouter, OpenAI, etc).
  */
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { scanContentForSecrets } from "../share/security.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SYSTEM_PROMPT_FILE = path.join(__dirname, "prompts", "vision-system.md");
@@ -38,7 +39,7 @@ export async function analyzeImage({
 	buffer,
 	mime,
 	question,
-	gatewayUrl = "http://127.0.0.1:4000/v1/chat/completions",
+	gatewayUrl = "http://127.0.0.1:4010/v1/chat/completions",
 	model = "google-antigravity/gemini-2.5-flash",
 	apiKey = process.env.OMP_API_KEY || process.env.OPENAI_API_KEY || "dummy",
 	timeoutMs = 60000,
@@ -98,12 +99,14 @@ export async function analyzeImage({
 			signal: controller.signal,
 		});
 
-		clearTimeout(timeoutId);
-
 		if (!res.ok) {
 			const errText = await res.text().catch(() => "");
+			// Sanitize error text to ensure no bearer tokens or secrets leak into logs
+			const sanitizedError = scanContentForSecrets(errText).hasSecret
+				? "[Redacted secret in upstream error response]"
+				: errText.slice(0, 300);
 			throw new Error(
-				`Vision Gateway request failed with status ${res.status} (${res.statusText}): ${errText.slice(0, 300)}`,
+				`Vision Gateway request failed with status ${res.status} (${res.statusText}): ${sanitizedError}`,
 			);
 		}
 
@@ -120,21 +123,18 @@ export async function analyzeImage({
 					: "";
 
 		if (!content) {
-			throw new Error("Vision model returned an empty response.");
-		}
-
-		return {
-			content,
-			model: data?.model || model,
-			durationMs: Date.now() - startTime,
-		};
-	} catch (err) {
-		clearTimeout(timeoutId);
-		if (err.name === "AbortError") {
 			throw new Error(
-				`Vision request timed out after ${Math.round(timeoutMs / 1000)}s.`,
+				"Vision gateway returned an empty response. Verify model vision support.",
 			);
 		}
-		throw err;
+
+		const durationMs = Date.now() - startTime;
+		return {
+			content,
+			model: data.model || model,
+			durationMs,
+		};
+	} finally {
+		clearTimeout(timeoutId);
 	}
 }

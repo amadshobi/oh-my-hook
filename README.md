@@ -408,7 +408,7 @@ When coding agents need to inspect UI layouts, error screenshots, diagrams, or w
 
 ## 🧪 Testing & Development
 
-`oh-my-hook` includes **128 unit tests** and **5 deterministic E2E hook pipeline test suites**.
+`oh-my-hook` includes **131 unit tests** and **5 deterministic E2E hook pipeline test suites**.
 
 ```bash
 # Run unit tests

@@ -41,27 +41,41 @@ export function normalizeSchemaForCCA(schema) {
 			continue;
 		}
 
-		// Recursively clean properties
-		if (key === "properties" && value && typeof value === "object") {
-			const cleanedProps = {};
-			for (const [propKey, propVal] of Object.entries(value)) {
-				cleanedProps[propKey] = normalizeSchemaForCCA(propVal);
+		// Recursively clean properties, definitions and defs
+		if (
+			(key === "properties" || key === "$defs" || key === "definitions") &&
+			value &&
+			typeof value === "object"
+		) {
+			const cleanedDict = {};
+			for (const [subKey, subVal] of Object.entries(value)) {
+				cleanedDict[subKey] = normalizeSchemaForCCA(subVal);
 			}
-			cleaned[key] = cleanedProps;
+			cleaned[key] = cleanedDict;
 			continue;
 		}
 
-		// Recursively clean items
-		if (key === "items") {
+		// Recursively clean items, additionalItems
+		if ((key === "items" || key === "additionalItems") && value) {
 			cleaned[key] = normalizeSchemaForCCA(value);
 			continue;
 		}
 
-		// Clean schema combiners
+		// Clean schema combiners (anyOf, oneOf, allOf)
 		if (key === "anyOf" || key === "oneOf" || key === "allOf") {
 			if (Array.isArray(value)) {
 				cleaned[key] = value.map(normalizeSchemaForCCA);
 			}
+			continue;
+		}
+
+		// Clean conditional sub-schemas (if, then, else, not)
+		if (
+			(key === "if" || key === "then" || key === "else" || key === "not") &&
+			value &&
+			typeof value === "object"
+		) {
+			cleaned[key] = normalizeSchemaForCCA(value);
 			continue;
 		}
 

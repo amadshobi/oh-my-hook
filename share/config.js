@@ -133,7 +133,7 @@ export const DEFAULTS = {
 	},
 	imgsee: {
 		enabled: true,
-		gatewayUrl: "http://127.0.0.1:4000/v1/chat/completions",
+		gatewayUrl: "http://127.0.0.1:4010/v1/chat/completions",
 		model: "google-antigravity/gemini-2.5-flash",
 		maxBytes: 5242880, // 5 MiB
 		timeoutMs: 60000,

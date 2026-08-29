@@ -83,6 +83,21 @@ export async function loadImage(inputPath, cwd = process.cwd()) {
 				`Failed to fetch image from URL: ${trimmed} (${res.status} ${res.statusText})`,
 			);
 		}
+
+		// Pre-flight content-length check to prevent loading massive remote streams into memory
+		const contentLengthHeader = res.headers.get("content-length");
+		if (contentLengthHeader) {
+			const expectedBytes = parseInt(contentLengthHeader, 10);
+			if (
+				!Number.isNaN(expectedBytes) &&
+				expectedBytes > MAX_IMAGE_INPUT_BYTES
+			) {
+				throw new Error(
+					`Image from URL exceeds maximum allowed size of 20 MiB (content-length reports ${Math.round(expectedBytes / 1024 / 1024)} MiB).`,
+				);
+			}
+		}
+
 		const arrayBuf = await res.arrayBuffer();
 		const buffer = Buffer.from(arrayBuf);
 		if (buffer.length > MAX_IMAGE_INPUT_BYTES) {
