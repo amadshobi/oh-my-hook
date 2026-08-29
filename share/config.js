@@ -121,13 +121,8 @@ export const DEFAULTS = {
 		verify: true,
 		checklist: true,
 	},
-	omp: {
+	gateway: {
 		enabled: true,
-		url: "http://127.0.0.1:4000/v1",
-		providerId: "omp",
-		providerName: "OMP Gateway",
-		timeoutMs: 1000,
-		bridgeModelsYml: true,
 	},
 	prompts: {
 		enabled: true,
@@ -135,6 +130,13 @@ export const DEFAULTS = {
 		customDirectory: "~/.config/opencode/prompts",
 		routes: {},
 		overridePersona: false,
+	},
+	imgsee: {
+		enabled: true,
+		gatewayUrl: "http://127.0.0.1:4010/v1/chat/completions",
+		model: "google-antigravity/gemini-2.5-flash",
+		maxBytes: 5242880, // 5 MiB
+		timeoutMs: 60000,
 	},
 	messages: {},
 };

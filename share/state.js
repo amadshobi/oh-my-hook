@@ -102,6 +102,24 @@ export function statOf(filePath) {
 	}
 }
 
+/**
+ * Re-mark files as freshly read with current disk state. Call after another
+ * tool mutates a file so stale-write guards don't false-positive.
+ */
+export function refreshReads(filePaths, sessionID = "global") {
+	const ledger = loadLedger();
+	for (const filePath of filePaths) {
+		const st = statOf(filePath);
+		markRead(
+			ledger,
+			filePath,
+			{ mtimeMs: st?.mtimeMs, size: st?.size },
+			sessionID,
+		);
+	}
+	saveLedger(ledger);
+}
+
 // ---- mode-state ----
 
 const MODE_FILE = statePath("oh-my-hook-mode.json");

@@ -18,7 +18,7 @@ import {
 	listMemoryEntries,
 	GLOBAL_FILE,
 } from "./store.js";
-import { scanContentForSecrets } from "../sandbox/security.js";
+import { scanContentForSecrets } from "../share/security.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DESCRIPTION_FILE = path.join(__dirname, "memory.txt");

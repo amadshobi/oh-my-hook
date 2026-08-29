@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.8] - 2026-08-28
+
+### Fixed
+
+- **🎨 Solid High-Contrast Plan Badge & Accurate TUI Health Status (Fixes #17)**:
+  - **Solid Highlight Prompt Tag (`session_prompt_right`)**: Added high-contrast yellow solid badge (`PLAN` with active plan name) in input prompt bar with `wrapMode="none"` and `flexShrink={0}` to prevent line breaking.
+  - **Accurate Sidebar Health Status**: Fixed misleading red `OFF` badge when `plans.enabled: false` by dynamically reflecting overall active guards (`● ACTIVE` / `● PLAN` / `● EXEC`).
+  - **Initial State Synchronous Loading**: Initialized reactive signals with synchronous `loadModeState()` on tick 0, preventing race conditions.
+- **🛡️ Gateway & Vision Engine Hardening**:
+  - **Timer Leak Prevention (`gateway/discovery.js`)**: Wrapped `AbortController` timer cleanup in `try...finally` to ensure immediate cancellation on all HTTP response paths.
+  - **Deep CCA Schema Sanitization (`gateway/antigravity.js`)**: Extended recursive keyword stripping across `$defs`, `definitions`, `if`, `then`, `else`, and `not`.
+  - **Universal Safe Thinking Fallback (`gateway/variants.js`)**: Replaced version string heuristics with canonical baseline tiers (`["low", "medium", "high"]`) for zero-day models, adding `resetOmpCatalog()` cache invalidation.
+  - **Ecosystem Port & Security Alignment**: Standardized `imgsee` default endpoint to `:4010` (`gn gw`), added pre-flight `Content-Length` stream limits (20 MiB) in `imgsee/loader.js`, and sanitized upstream vision error logs.
+- **📦 Broadened Package Metadata**:
+  - Updated package description to a high-level suite overview and broadened ecosystem keywords.
+
+## [0.4.7] - 2026-08-28
+
+### Added
+
+- **🔌 Local Gateway Bridge (`gateway/`)**:
+  - **Single Plugin Consolidation**: Consolidated `opencode-local-gateway` capabilities directly into `oh-my-hook` with zero external dependencies.
+  - **Dynamic Model Auto-Discovery (`discovery.js`)**: Real-time discovery from `:4010` with resilient offline disk caching in `~/.cache/opencode/gateway-models-cache.json`.
+  - **OMP Catalog Metadata Enrichment (`normalizer.js`, `variants.js`)**: Direct extraction of exact token pricing (`cost`), context window limits, and thinking effort tiers from Oh-My-Pi catalog (`models.json`).
+  - **Antigravity CCA Schema Armor (`antigravity.js`)**: Strips forbidden OpenAPI keywords (`$schema`, `title`, `additionalProperties`) in `tool.definition` to protect against Google Antigravity HTTP 400 errors.
+  - **Security & Loopback Protection**: URL normalization with strict loopback validation guards.
+
+## [0.4.6] - 2026-08-28
+
+### Removed
+
+- **Amputated `omp/` Module**:
+  - Removed obsolete `omp/` directory (`catalog.js`, `gateway-proxy.ts`, `extension.ts`, `index.js`) and deprecated `models.yml` parser.
+  - Relocated CommandCode discovery logic to dedicated OMP runtime extension in `~/.omp/agent/extensions/commandcode-loader.ts`.
+  - Cleaned up `ompHooks` and `omp` configuration schema from `share/config.js` and `index.js`.
+
+## [0.4.5] - 2026-08-28
+
+### Added
+
+- **👁️ Multimodal Vision Engine (`imgsee/`)**:
+  - **Native Agent Tool (`imgsee`)**: Enables agents to inspect local screenshots, UI mockups, diagrams, and image URLs via out-of-band one-shot vision requests (`path`, `question`, `mode`).
+  - **Isolated Gateway Bridge (`client.js`)**: Routes vision tasks to local OMP Gateway (`:4010` / `:4000`) or OpenAI-compatible vision endpoints without polluting primary session contexts.
+  - **Format Sniffer & Loader (`loader.js`)**: Validates PNG, JPEG, GIF, and WEBP formats via file magic bytes with a 20 MiB safety cap.
+  - **Diagnostic Prompt Directives (`prompts/vision-system.md`)**: Evidence-first analysis, verbatim OCR extraction, spatial UI coordinates, and root cause debugging.
+  - **Deterministic `/imgsee` Slash Command**: Inspect visual artifacts directly in session transcripts with 0 LLM token cost.
+  - **Test Suite Expansion**: Added unit tests in `tests/imgsee.test.js` (**128 passing unit tests**).
+
 ## [0.4.4] - 2026-08-26
 
 ### Changed

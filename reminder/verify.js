@@ -7,8 +7,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { refreshReads } from "../sandbox/read-guard.js";
-import { statOf } from "../share/state.js";
+import { refreshReads, statOf } from "../share/state.js";
 import { toolArgs, filePathOf } from "../share/hook.js";
 import { createNotifier } from "../share/notify.js";
 
