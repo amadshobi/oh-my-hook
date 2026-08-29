@@ -9,7 +9,7 @@ import {
 	onCleanup,
 	createMemo,
 } from "solid-js";
-import { watchModeState, currentMode } from "./lib/mode-watch.js";
+import { watchModeState } from "./lib/mode-watch.js";
 import {
 	getMetrics,
 	getMemoryRules,
@@ -21,7 +21,7 @@ import {
 } from "./lib/session.js";
 import { loadConfig } from "../../share/config.js";
 import { formatReviewFeedback } from "../../plans/parser.js";
-import { currentPlan } from "../../share/state.js";
+import { loadModeState, currentMode, currentPlan } from "../../share/state.js";
 import {
 	appendMemory,
 	replaceMemory,
@@ -32,20 +32,48 @@ import {
 } from "../../memory/store.js";
 
 function ModeBadge(props: { api: any; sessionID: () => string }) {
-	const [modeState, setModeState] = createSignal({});
+	const [modeState, setModeState] = createSignal(loadModeState() || {});
 
 	const unwatch = watchModeState((nextState) => {
-		setModeState(nextState);
+		setModeState(nextState || {});
 	});
 
-	const mode = () => currentMode(modeState(), props.sessionID());
+	onCleanup(() => {
+		unwatch();
+	});
+
+	const mode = () => {
+		const sid = props.sessionID();
+		if (sid && modeState()[sid]?.mode) return modeState()[sid].mode;
+		return "execute";
+	};
 	const isPlan = () => mode() === "plan";
 	const warningColor = () => props.api?.theme?.current?.warning || "#f59e0b";
 
+	const activePlan = () => {
+		const sid = props.sessionID();
+		if (sid && modeState()[sid]?.planName) return modeState()[sid].planName;
+		return null;
+	};
+
 	return (
 		<Show when={isPlan()}>
-			<box flexDirection="row">
-				<text fg={warningColor()}>PLAN MODE</text>
+			<box flexDirection="row" gap={1} alignItems="center" flexShrink={0}>
+				<box
+					backgroundColor={warningColor()}
+					paddingLeft={1}
+					paddingRight={1}
+					flexShrink={0}
+				>
+					<text fg="#000000" wrapMode="none">
+						<b>PLAN</b>
+					</text>
+				</box>
+				<Show when={activePlan()}>
+					<text fg={warningColor()} wrapMode="none">
+						({activePlan()})
+					</text>
+				</Show>
 			</box>
 		</Show>
 	);
@@ -82,14 +110,27 @@ function SidebarWidget(props: {
 	const textNormal = () => theme().text || "#f3f4f6";
 	const accentColor = () => theme().accent || "#8b5cf6";
 
+	const isPluginActive = () =>
+		metrics().guardsActive > 0 ||
+		metrics().memoryEnabled ||
+		metrics().compressEnabled ||
+		metrics().modeEnabled;
+
 	const headerBadgeText = () => {
-		if (!metrics().modeEnabled) return "OFF";
-		return isPlan() ? "PLAN" : "EXEC";
+		if (metrics().modeEnabled) {
+			return isPlan() ? "● PLAN" : "● EXEC";
+		}
+		if (isPluginActive()) {
+			return "● ACTIVE";
+		}
+		return "○ OFF";
 	};
 
 	const headerBadgeColor = () => {
-		if (!metrics().modeEnabled) return redColor();
-		return isPlan() ? yellowColor() : greenColor();
+		if (metrics().modeEnabled) {
+			return isPlan() ? yellowColor() : greenColor();
+		}
+		return isPluginActive() ? greenColor() : redColor();
 	};
 
 	return (
@@ -768,10 +809,12 @@ export const tui = async function tui(api: any, options: any, meta: any) {
 	const directory = options?.directory || process.cwd();
 	const { config } = loadConfig();
 
-	let currentSessionID = resolveActiveSessionID(api) || "";
+	const [activeSessionID, setActiveSessionID] = createSignal<string>(
+		resolveActiveSessionID(api) || "",
+	);
 
 	const unsubSession = createSessionSubscriber(api, (nextSessionID) => {
-		if (nextSessionID) currentSessionID = nextSessionID;
+		if (nextSessionID) setActiveSessionID(nextSessionID);
 	});
 
 	// 1. Register TUI command palette layer based on enabled configs
@@ -873,20 +916,26 @@ export const tui = async function tui(api: any, options: any, meta: any) {
 			id: "oh-my-hook-sidebar",
 			order: 160,
 			slots: {
-				session_prompt_right(_ctx: any, props: { session_id?: string }) {
+				session_prompt_right(ctx: any, props: { session_id?: string }) {
 					return (
 						<ModeBadge
 							api={api}
-							sessionID={() => props?.session_id || currentSessionID}
+							sessionID={() => props?.session_id || ctx?.session_id || ""}
 						/>
 					);
 				},
-				sidebar_content(_ctx: any, props: { session_id?: string }) {
+				sidebar_content(ctx: any, props: { session_id?: string }) {
 					return (
 						<SidebarWidget
 							api={api}
 							directory={directory}
-							sessionID={() => props?.session_id || currentSessionID}
+							sessionID={() =>
+								props?.session_id ||
+								ctx?.session_id ||
+								activeSessionID() ||
+								resolveActiveSessionID(api) ||
+								""
+							}
 						/>
 					);
 				},

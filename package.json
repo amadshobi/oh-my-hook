@@ -1,6 +1,6 @@
 {
   "name": "oh-my-hook",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "type": "module",
   "description": "Command Code-style workflow plugins for OpenCode: mode enforcement, read-before-write, security guardrails, session context, and verification reminders.",
   "main": "index.js",
@@ -42,6 +42,7 @@
   },
   "scripts": {
     "test": "node --test tests/*.test.js",
+    "build:tui": "node tui/scripts/build.mjs",
     "test:e2e": "npm run test:e2e:hooks && npm run test:e2e:read-guard",
     "test:e2e:hooks": "node tests/e2e/stale-write.hook.e2e.js && node tests/e2e/mode-intent.hook.e2e.js && node tests/e2e/security.hook.e2e.js && node tests/e2e/plans-commands.hook.e2e.js && node tests/e2e/compress.hook.e2e.js",
     "test:e2e:read-guard": "node tests/e2e/read-guard.e2e.js",
