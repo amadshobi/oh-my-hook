@@ -4,19 +4,19 @@ The `memory/` engine provides a lightweight, human-readable, Markdown-backed per
 
 ---
 
-## 🧠 Memory Architecture Overview
+## Memory Architecture Overview
 
 ```
 ~/.config/opencode/memory/
-├── MEMORY.md                          # Global cross-project memory (auto-selected in ~)
+├── MEMORY.md # Global cross-project memory (auto-selected in ~)
 └── projects/
-    └── <project-slug>/
-        └── MEMORY.md                  # Project-specific curated rules (auto-selected in workspace)
+ └── <project-slug>/
+ └── MEMORY.md # Project-specific curated rules (auto-selected in workspace)
 ```
 
 ---
 
-## 🔍 Memory Engine Sub-Components
+## Memory Engine Sub-Components
 
 - [**Native Agent Tool (`memory`)**](./agent-tool.md): Exposes 4 atomic operations (`add`, `replace`, `remove`, `list`) with built-in credential leak protection and substring matching.
 - [**Ephemeral AI Distillation (`/capture`)**](./distillation.md): Background worker distilling session lessons using pluggable AI adapters (`commandcode`, `opencode`, `omp`).
@@ -24,7 +24,7 @@ The `memory/` engine provides a lightweight, human-readable, Markdown-backed per
 
 ---
 
-## ⚡ Key Highlights
+## Key Highlights
 
 1. **100% Pure Markdown**: Stored as standard Markdown bullet lists (`- Note`). You can inspect, modify, or version control them with standard text tools.
 2. **Subagent Context Isolation**: Memory is injected **only** into the primary agent's system prompt. Subagents receive clean, isolated contexts without memory contamination.

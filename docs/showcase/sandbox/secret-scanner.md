@@ -4,7 +4,7 @@ The `secretScanner` guardrail intercepts tool arguments across `write`, `edit`, 
 
 ---
 
-## 🔍 Supported Secret Signatures
+## Supported Secret Signatures
 
 `sandbox/security.js` scans tool inputs against high-precision regular expression signatures covering major cloud providers, identity providers, and cryptographic keys:
 
@@ -22,32 +22,32 @@ The `secretScanner` guardrail intercepts tool arguments across `write`, `edit`, 
 
 ---
 
-## 🚫 Terminal Block Output
+## Terminal Block Output
 
 When a secret signature is detected in a tool payload, execution is halted immediately:
 
 ```
-#### 🚫 GUARDRAIL BLOCK: Secret Detected
+#### GUARDRAIL BLOCK: Secret Detected
 > *Payload contains sensitive credentials:*
-> *  - Line 42: Anthropic API Key*
+> * - Line 42: Anthropic API Key*
 > *Use environment variables or .env files instead.*
 ```
 
 ---
 
-## 🔒 Custom Message Configuration
+## Custom Message Configuration
 
 You can override the rejection message or route it through an external template file in `omh.jsonc`:
 
 ```jsonc
 // ~/.config/opencode/omh.jsonc
 {
-  "messages": {
-    "secretDetected": {
-      "title": "Credential Leak Blocked",
-      "reason": "Hardcoded token detected in payload:\n{detail}",
-      "suggestion": "Store secrets securely in environment variables or a .env file."
-    }
-  }
+ "messages": {
+ "secretDetected": {
+ "title": "Credential Leak Blocked",
+ "reason": "Hardcoded token detected in payload:\n{detail}",
+ "suggestion": "Store secrets securely in environment variables or a .env file."
+ }
+ }
 }
 ```

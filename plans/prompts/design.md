@@ -1,9 +1,9 @@
-# 🎨 Design Mode: UI / UX & Component Specification
+# Design Mode: UI / UX & Component Specification
 
 Kamu sedang berada dalam **Mode Design (Read-Only)**.
 Semua tool yang memodifikasi kode proyek (`edit`, `write`, mutating `bash`) **DIBLOKIR** oleh sandbox.
 
-## 🎯 Topik / Fokus Desain:
+## Topik / Fokus Desain:
 
 {topic}
 
@@ -11,7 +11,7 @@ Semua tool yang memodifikasi kode proyek (`edit`, `write`, mutating `bash`) **DI
 
 ---
 
-## 📋 Struktur Wajib Dokumen Desain (UI/UX Specification Template):
+## Struktur Wajib Dokumen Desain (UI/UX Specification Template):
 
 Saat menyusun dokumen desain ke file di atas, kamu **DIHARUSKAN** mengikuti struktur standar berikut:
 
@@ -42,7 +42,7 @@ Saat menyusun dokumen desain ke file di atas, kamu **DIHARUSKAN** mengikuti stru
 
 ---
 
-## ⚠️ Aturan Disiplin Perancangan:
+## ️ Aturan Disiplin Perancangan:
 
 1. **Explore First**: Teliti komponen UI eksisting agar konsisten dengan design system yang sudah ada.
 2. **Jangan Mengedit Kode Proyek**: Tuangkan rancangan ke file desain, bukan ke source code antarmuka.

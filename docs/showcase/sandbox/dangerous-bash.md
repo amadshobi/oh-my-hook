@@ -4,7 +4,7 @@ The `dangerousBash` and `devServerGuard` protections prevent agents from damagin
 
 ---
 
-## 🚫 Destructive Command Barrier
+## Destructive Command Barrier
 
 When the agent invokes the `bash` tool, `sandbox/security.js` tests the command against strict regular expression signatures before subprocess execution.
 
@@ -18,14 +18,14 @@ When the agent invokes the `bash` tool, `sandbox/security.js` tests the command 
 
 ### Terminal Output:
 ```
-#### 🚫 GUARDRAIL BLOCK: Dangerous Command Blocked
+#### GUARDRAIL BLOCK: Dangerous Command Blocked
 > *Command "rm -rf /" matches destructive system patterns.*
 > *Action requires explicit user confirmation.*
 ```
 
 ---
 
-## 🖥️ Dev Server Guard (`devServerGuard`)
+## ️ Dev Server Guard (`devServerGuard`)
 
 Coding agents frequently attempt to run live development servers (e.g. `npm run dev`, `vite`, `next dev`, `python manage.py runserver`) directly in foreground subshells. This hangs the agent loop and creates orphaned background processes.
 
@@ -34,14 +34,14 @@ Dev servers are **only permitted** when running inside a terminal multiplexer (`
 
 ### Terminal Output:
 ```
-#### 🚫 GUARDRAIL BLOCK: Dev Server Blocked
+#### GUARDRAIL BLOCK: Dev Server Blocked
 > *Command "npm run dev" cannot run as orphan foreground process.*
 > *Run dev servers inside a tmux or screen session.*
 ```
 
 ---
 
-## ⚠️ Force Push Protection
+## ️ Force Push Protection
 
 To protect Git collaboration integrity, `oh-my-hook` intercepts `git push` commands:
 - **Force Push to Main/Master**: Hard-blocked immediately (`git push --force origin main`).

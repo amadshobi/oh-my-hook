@@ -4,7 +4,7 @@ When an agent enters Plan Mode, `oh-my-hook` erects a strict mutation barrier th
 
 ---
 
-## 🔒 The Plan Mode Barrier
+## The Plan Mode Barrier
 
 When a session enters Plan Mode (via `/plan` or `/design`):
 
@@ -14,14 +14,14 @@ When a session enters Plan Mode (via `/plan` or `/design`):
 
 ### Terminal Output:
 ```
-#### 🚫 GUARDRAIL BLOCK: Plan Mode Active
+#### GUARDRAIL BLOCK: Plan Mode Active
 > *Cannot modify project code while session is in Plan Mode.*
 > *Run '/approve' or wait for execution trigger to modify files.*
 ```
 
 ---
 
-## 📂 Versioned Plan Archiving
+## Versioned Plan Archiving
 
 When saving durable plans via `/plan to-file <name>`:
 - The target file is written to `~/.opencode/plans/<name>.md`.

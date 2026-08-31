@@ -4,20 +4,20 @@
 
 ---
 
-## 🖥️ Modal Interface
+## ️ Modal Interface
 
 Triggered via keymap or interactive commands:
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ 🧠 Curated Memory Inspector                                 │
+│ Curated Memory Inspector │
 ├─────────────────────────────────────────────────────────────┤
-│ [Project] Always use bun test for unit test pipelines       │
-│ [Project] Run biome check --apply before git commits        │
-│ [Global]  Preferred user nickname: BOSS                    │
-│ [Global]  Never generate emojis in code or commit messages  │
+│ [Project] Always use bun test for unit test pipelines │
+│ [Project] Run biome check --apply before git commits │
+│ [Global] Preferred user nickname: BOSS │
+│ [Global] Never generate emojis in code or commit messages │
 ├─────────────────────────────────────────────────────────────┤
-│ [Enter] Edit  [Ctrl+A] Add  [Ctrl+D] Delete  [↓/↑] Navigate │
+│ [Enter] Edit [Ctrl+A] Add [Ctrl+D] Delete [↓/↑] Navigate │
 └─────────────────────────────────────────────────────────────┘
 ```
 

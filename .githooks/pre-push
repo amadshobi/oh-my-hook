@@ -1,9 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "🚀 [pre-push] Running pre-push verification..."
+# Determine target remote and branch from git push args or upstream
+TARGET_REMOTE="${1:-origin}"
+TARGET_REF="${2:-HEAD}"
 
-# 1. Run unit tests before pushing to remote
-npm test
+# 1. Inspect unpushed commits diff
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || true)
+if [ -n "$CURRENT_BRANCH" ]; then
+  UNPUSHED_COMMITS=$(git log "$TARGET_REMOTE/$CURRENT_BRANCH..HEAD" --oneline 2>/dev/null || true)
+  if [ -n "$UNPUSHED_COMMITS" ]; then
+    # Check if TUI source was modified in outgoing commits
+    TUI_COMMITTED=$(git diff --name-only "$TARGET_REMOTE/$CURRENT_BRANCH..HEAD" -- tui/src/ 2>/dev/null || true)
+    if [ -n "$TUI_COMMITTED" ]; then
+      npm run build:tui > /dev/null
+      if ! git diff --quiet tui/dist/; then
+        echo "[pre-push] Error: tui/dist/ is out-of-sync with tui/src/ in outgoing commits."
+        exit 1
+      fi
+    fi
+  fi
+fi
 
-echo "✅ [pre-push] Ready to push."
+# 2. Fast Unit Tests
+npm test > /dev/null
+
+echo "[pre-push] Ready to push."

@@ -4,7 +4,7 @@ The `gateway/` module connects OpenCode to local AI routing daemons (`gn gw` on 
 
 ---
 
-## 🔌 Core Capabilities
+## Core Capabilities
 
 ### 1. Zero-Config Interactive Auth
 Automatically bridges OpenCode's authentication layer with local daemons. Run `opencode auth -p local-gateway` to connect instantly.

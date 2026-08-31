@@ -4,7 +4,7 @@ Common runtime questions, guardrail error codes, and operational fixes.
 
 ---
 
-## 🔒 Guardrail Error Codes & Actions
+## Guardrail Error Codes & Actions
 
 ### 1. `Unread File`
 - **Cause**: The agent attempted to modify a file before reading it in the active session.
@@ -28,7 +28,7 @@ Common runtime questions, guardrail error codes, and operational fixes.
 
 ---
 
-## 🗄️ SQLite Database Diagnostics
+## ️ SQLite Database Diagnostics
 
 ### `/usage` Displays "Database not found"
 - **Cause**: The OpenCode SQLite database (`~/.local/share/opencode/opencode.db`) or OMP database (`~/.omp/agent/agent.db`) has not been initialized.
@@ -36,7 +36,7 @@ Common runtime questions, guardrail error codes, and operational fixes.
 
 ---
 
-## 🔄 Resetting State Ledgers
+## Resetting State Ledgers
 
 If you need to completely reset session state or read tracking:
 

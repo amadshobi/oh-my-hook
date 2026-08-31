@@ -4,54 +4,54 @@
 
 ---
 
-## 🖥️ TUI Architecture Overview
+## ️ TUI Architecture Overview
 
 The TUI frontend module (`tui/src/index.tsx`) is compiled to `tui/dist/tui.js` and loaded directly by the OpenCode terminal runtime. It interacts with the core engine without background server processes or heavy IPC polling.
 
 ```text
-                                                            Context
-                                                            191,368 tokens (48% used)
+ Context
+ 191,368 tokens (48% used)
 
-                                                            ▼ Quota
-                                                            [OpenRouter] 22% used
+ ▼ Quota
+ [OpenRouter] 22% used
 
-                                                       ┌──► ▼ oh-my-hook               ● PLAN
-                                                       │    • Mode  : plan (read-only)
-                                                       │    • Shields: 7 active
-                                                       │    • Memory: 3 notes
-                                                       │
-                                                            ▼ MCP
-                                                            • github Connected
- ▣  Assistant · Gemini 3.7 Flash · 9.3s
+ ┌──► ▼ oh-my-hook ● PLAN
+ │ • Mode : plan (read-only)
+ │ • Shields: 7 active
+ │ • Memory: 3 notes
+ │
+ ▼ MCP
+ • github Connected
+ ▣ Assistant · Gemini 3.7 Flash · 9.3s
 ┃
 ┃
 ┃
-┃  Assistant · Gemini 3.7 Flash gateway               PLAN (feature-auth)  /~   ◄── [PROMPT BADGE]
+┃ Assistant · Gemini 3.7 Flash gateway PLAN (feature-auth) /~ ◄── [PROMPT BADGE]
 ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 ```
 
 ---
 
-## 🎛️ Integrated UI Surfaces
+## ️ Integrated UI Surfaces
 
 ### 1. `session_prompt_right` (Live Mode Badge)
 - **Role**: Displays a dynamic status indicator directly on the right side of the prompt input bar.
 - **Behavior**:
-  - When the active session is in **Plan Mode**, renders the highlighted `PLAN` badge alongside the active plan name if set (e.g. `PLAN (feature-auth)`).
-  - When the session transitions to **Execute Mode** via `/approve` or `/exec`, the badge disappears automatically to keep the input bar clean and distraction-free.
+ - When the active session is in **Plan Mode**, renders the highlighted `PLAN` badge alongside the active plan name if set (e.g. `PLAN (feature-auth)`).
+ - When the session transitions to **Execute Mode** via `/approve` or `/exec`, the badge disappears automatically to keep the input bar clean and distraction-free.
 
 ### 2. `sidebar_content` (Collapsible Metrics Widget & Tokens Tree)
 - **Role**: Renders an interactive, collapsible sidebar panel with reactive status badges (`● PLAN` / `● EXEC` / `● ACTIVE`).
 - **Data Displayed**:
-  - **Mode**: Active session mode status (`plan (read-only)` or `execute`).
-  - **Shields**: Number of currently active runtime guardrails.
-  - **Memory**: Count of stored curated memory bullets across global and project scopes.
-  - **Pruned**: Total count and token savings from in-memory context pruning.
-  - **Tokens Tree**: Live hierarchical token consumption breakdown for the primary session, last turn delta, and all active subagents.
+ - **Mode**: Active session mode status (`plan (read-only)` or `execute`).
+ - **Shields**: Number of currently active runtime guardrails.
+ - **Memory**: Count of stored curated memory bullets across global and project scopes.
+ - **Pruned**: Total count and token savings from in-memory context pruning.
+ - **Tokens Tree**: Live hierarchical token consumption breakdown for the primary session, last turn delta, and all active subagents.
 
 ---
 
-## ⚡ Zero-IPC State Watcher
+## Zero-IPC State Watcher
 
 To ensure zero CPU overhead and instant UI reactivity, state synchronization relies on a lightweight file watcher:
 

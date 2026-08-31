@@ -4,40 +4,40 @@ The `plans/` suite provides an intentional boundary between brainstorming archit
 
 ---
 
-## 🗺️ Planning Suite Overview
+## ️ Planning Suite Overview
 
 ```
-                          ┌───────────────────────────┐
-                          │   User Planning Command   │
-                          └─────────────┬─────────────┘
-                                        │
-             ┌──────────────────────────┴──────────────────────────┐
-             ▼                                                     ▼
-     [/plan [topic]]                                    [/plan to-file <name>]
-     (Ephemeral In-Chat)                               (Durable RFC File)
-             │                                                     │
-   • Locks file mutations                                • Locks file mutations
-   • Zero disk footprint                                 • Targets ~/.opencode/plans/<name>.md
-   • Injects plan.md prompt                              • Auto-archives versioned backups
-             │                                                     │
-             └──────────────────────────┬──────────────────────────┘
-                                        │
-                                        ▼
-                                 [🔒 Plan Mode]
-                                        │
-                   ┌────────────────────┴────────────────────┐
-                   ▼                                         ▼
-         [/plan review [name]]                          [/approve]
-         (Interactive Line Modal)                  (Execution Transition)
-                   │                                         │
-         • Keyboard navigation                     • Unlocks file mutations
-         • Line-level feedback                     • Injects approve.md
-         • Approve with Ctrl+A                     • Begins implementation
+ ┌───────────────────────────┐
+ │ User Planning Command │
+ └─────────────┬─────────────┘
+ │
+ ┌──────────────────────────┴──────────────────────────┐
+ ▼ ▼
+ [/plan [topic]] [/plan to-file <name>]
+ (Ephemeral In-Chat) (Durable RFC File)
+ │ │
+ • Locks file mutations • Locks file mutations
+ • Zero disk footprint • Targets ~/.opencode/plans/<name>.md
+ • Injects plan.md prompt • Auto-archives versioned backups
+ │ │
+ └──────────────────────────┬──────────────────────────┘
+ │
+ ▼
+ [ Plan Mode]
+ │
+ ┌────────────────────┴────────────────────┐
+ ▼ ▼
+ [/plan review [name]] [/approve]
+ (Interactive Line Modal) (Execution Transition)
+ │ │
+ • Keyboard navigation • Unlocks file mutations
+ • Line-level feedback • Injects approve.md
+ • Approve with Ctrl+A • Begins implementation
 ```
 
 ---
 
-## 🧭 Planning Sub-Components
+## Planning Sub-Components
 
 - [**Plan Mode & Whitelist Barrier**](./plan-mode.md): Mutation freeze rules and whitelisting mechanics for `~/.opencode/plans/`.
 - [**Interactive Line-by-Line Review**](./interactive-review.md): Terminal-native review modal (`/plan review`) with keyboard shortcuts for disputing or annotating lines.
@@ -45,7 +45,7 @@ The `plans/` suite provides an intentional boundary between brainstorming archit
 
 ---
 
-## ⚡ Slash Command Summary
+## Slash Command Summary
 
 | Command | Mode | Behavior |
 | :--- | :--- | :--- |

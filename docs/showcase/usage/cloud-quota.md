@@ -4,7 +4,7 @@ The `/usage quota` command fetches real-time account balances and rate limits ac
 
 ---
 
-## 🔑 Zero-Config Kredensial via `agent.db`
+## Zero-Config Credentials via `agent.db`
 
 `usage/quota/store.js` queries `~/.omp/agent/agent.db` (read-only SQLite) using native `bun:sqlite` or `node:sqlite`:
 
@@ -14,21 +14,21 @@ The `/usage quota` command fetches real-time account balances and rate limits ac
 
 ---
 
-## 🖥️ Terminal Transcript Output
+## Terminal Transcript Output
 
 ```text
-📊 MULTI-PROVIDER LIVE QUOTA & USAGE
+MULTI-PROVIDER LIVE QUOTA & USAGE
 
-🛡️ Google Antigravity (dev@domain.com)
-  • Weekly Limit : [████████████████████░░░░] 84.2% (Resets in 2d 4h)
-  • 5-Hour Limit : [████████████████████████] 100.0% (Fresh)
+Google Antigravity (dev@domain.com)
+ • Weekly Limit : [████████████████████░░░░] 84.2% (Resets in 2d 4h)
+ • 5-Hour Limit : [████████████████████████] 100.0% (Fresh)
 
-🦙 Ollama Cloud (Multi-key Aggregate: 3 keys)
-  • Weekly Usage : [░░░░░░░░░░░░░░░░░░░░░░░░] 1.2% (14 requests)
+Ollama Cloud (Multi-key Aggregate: 3 keys)
+ • Weekly Usage : [░░░░░░░░░░░░░░░░░░░░░░░░] 1.2% (14 requests)
 
-🌐 OpenRouter ($ Balance & Spending)
-  • Balance Sisa : $18.45 / $25.00
-  • Usage Today  : $0.12
+OpenRouter ($ Balance & Spending)
+ • Balance Remaining : $18.45 / $25.00
+ • Usage Today : $0.12
 ────────────────────────────────────────────────────────
-💡 Data di-fetch secara deterministik via agent.db (0 token LLM cost)
+Data fetched deterministically via agent.db (0 token LLM cost)
 ```

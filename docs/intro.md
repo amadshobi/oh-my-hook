@@ -6,7 +6,7 @@ Autonomous coding agents are powerful, but unbounded agent loops introduce sever
 
 ---
 
-## 💥 The Problem: Anatomy of Agent Failures
+## The Problem: Anatomy of Agent Failures
 
 When coding models operate without runtime supervision, several failure modes emerge:
 
@@ -20,7 +20,7 @@ When coding models operate without runtime supervision, several failure modes em
 
 ---
 
-## 🏛️ Core Engineering Pillars
+## ️ Core Engineering Pillars
 
 `oh-my-hook` addresses these failure modes through six non-negotiable architectural pillars:
 
@@ -44,9 +44,9 @@ Deep integration with OpenCode TUI via `@opentui/solid` renders live status badg
 
 ---
 
-## 🥊 Before vs. After Matrix
+## Before vs. After Matrix
 
-| Scenario | Standard OpenCode Agent | With `oh-my-hook` 🪝 |
+| Scenario | Standard OpenCode Agent | With `oh-my-hook` |
 | :--- | :--- | :--- |
 | **Overwriting Unread Files** | Guesses structure and overwrites blindly. | **Blocked**: Requires `read`/`grep` prior to `edit`/`write`. |
 | **Stale Disk Mutation** | Overwrites changes made by human or external tools. | **Blocked**: Verifies `mtime` and byte size against session ledger. |
@@ -58,7 +58,7 @@ Deep integration with OpenCode TUI via `@opentui/solid` renders live status badg
 
 ---
 
-## 💻 System Requirements
+## System Requirements
 
 - **Runtime**: Node.js $\ge$ 18.0.0 (ESM native) or Bun $\ge$ 1.0
 - **Platform**: Linux, macOS, WSL2

@@ -4,24 +4,24 @@ The Interactive Plan Reviewer provides a keyboard-driven modal inside the OpenCo
 
 ---
 
-## 🖥️ Review Modal Interface
+## ️ Review Modal Interface
 
 Triggered via `/plan review [name]` or automatically after generating a durable RFC file:
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ 🗺️ Plan Review: user-authentication-v2.md                  │
+│ ️ Plan Review: user-authentication-v2.md │
 ├─────────────────────────────────────────────────────────────┤
-│ 1: # Architecture Plan: Multi-Factor Authentication        │
-│ 2:                                                          │
-│ 3: ## 1. Token Storage Strategy                             │
-│ 4: - Store session tokens in local SQLite database          │
-│ 5: - Encrypt tokens using AES-256-GCM before write          │
-│ 6:                                                          │
-│ 7: ## 2. Verification Endpoints                             │
-│ 8: - POST /auth/verify-totp                                 │
+│ 1: # Architecture Plan: Multi-Factor Authentication │
+│ 2: │
+│ 3: ## 1. Token Storage Strategy │
+│ 4: - Store session tokens in local SQLite database │
+│ 5: - Encrypt tokens using AES-256-GCM before write │
+│ 6: │
+│ 7: ## 2. Verification Endpoints │
+│ 8: - POST /auth/verify-totp │
 ├─────────────────────────────────────────────────────────────┤
-│ [↓/↑/j/k] Navigate  [Enter] Annotate Line  [Ctrl+A] Approve │
+│ [↓/↑/j/k] Navigate [Enter] Annotate Line [Ctrl+A] Approve │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -39,6 +39,6 @@ Triggered via `/plan review [name]` or automatically after generating a durable 
 
 ---
 
-## ⚡ Feedback Injection
+## Feedback Injection
 
 When lines are annotated during review, feedback is structured into a clean Markdown block and injected directly into the session transcript. The agent refines the proposal based on your exact line references before building.

@@ -4,19 +4,19 @@ When agents complete major milestones, `oh-my-hook` captures git diffs and autom
 
 ---
 
-## 🚀 Post-Push Idle Workflow
+## Post-Push Idle Workflow
 
 ```
 [Agent runs git push] ──► [Record Milestone Branch & Diffs]
-                                    │
-                                    ▼
-                         [Wait for Agent Idle]
-                                    │
-                        ┌───────────┴───────────┐
-                        ▼                       ▼
-               [Cooldown Exceeded]     [Under Threshold]
-                        │                       │
-              🔄 Run Auto-Compaction         Skip
+ │
+ ▼
+ [Wait for Agent Idle]
+ │
+ ┌───────────┴───────────┐
+ ▼ ▼
+ [Cooldown Exceeded] [Under Threshold]
+ │ │
+ Run Auto-Compaction Skip
 ```
 
 ### 1. Milestone Detection

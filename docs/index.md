@@ -1,10 +1,10 @@
-# 🪝 oh-my-hook Documentation
+# oh-my-hook Documentation
 
 Welcome to the comprehensive documentation suite for **oh-my-hook**, the production-grade runtime safety supervisor, execution harness, and TUI surface for OpenCode agents.
 
 ---
 
-## ⚡ Quickstart (1-Minute Setup)
+## Quickstart (1-Minute Setup)
 
 `oh-my-hook` is designed with **zero-config defaults**. You can register it immediately in your OpenCode configuration files without creating an initial config file.
 
@@ -15,20 +15,20 @@ Add `oh-my-hook` to both your server hooks and TUI surface:
 ```jsonc
 // ~/.config/opencode/opencode.jsonc
 {
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": [
-    "oh-my-hook" // or local absolute path: "/path/to/oh-my-hook"
-  ]
+ "$schema": "https://opencode.ai/config.json",
+ "plugin": [
+ "oh-my-hook" // or local absolute path: "/path/to/oh-my-hook"
+ ]
 }
 ```
 
 ```jsonc
 // ~/.config/opencode/tui.jsonc
 {
-  "$schema": "https://opencode.ai/tui.json",
-  "plugin": [
-    "oh-my-hook" // or local absolute path: "/path/to/oh-my-hook"
-  ]
+ "$schema": "https://opencode.ai/tui.json",
+ "plugin": [
+ "oh-my-hook" // or local absolute path: "/path/to/oh-my-hook"
+ ]
 }
 ```
 
@@ -40,7 +40,7 @@ Launch `opencode` in any project workspace and check:
 
 ---
 
-## 🧭 Documentation Portal
+## Documentation Portal
 
 Explore the documentation by section:
 
@@ -55,6 +55,6 @@ Explore the documentation by section:
 
 ---
 
-## 📦 Zero-Dependency Purity
+## Zero-Dependency Purity
 
 `oh-my-hook` core runtime relies **exclusively** on native Node.js ESM built-ins (`node:fs`, `node:path`, `node:child_process`, `node:crypto`, `node:os`). It introduces zero supply-chain vulnerabilities, executes instantaneously, and ensures predictable execution across Linux and macOS environments.

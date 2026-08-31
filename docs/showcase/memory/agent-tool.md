@@ -4,41 +4,41 @@ The agent tool `memory` provides autonomous memory management directly within th
 
 ---
 
-## 🛠️ Tool Definition & Schema
+## ️ Tool Definition & Schema
 
 ```json
 {
-  "name": "memory",
-  "description": "Manage persistent curated memory across sessions.",
-  "parameters": {
-    "type": "object",
-    "required": ["action", "content", "old_text", "scope"],
-    "properties": {
-      "action": {
-        "type": "string",
-        "enum": ["add", "replace", "remove", "list"]
-      },
-      "content": {
-        "type": "string",
-        "description": "Memory bullet text (required for add and replace)."
-      },
-      "old_text": {
-        "type": "string",
-        "description": "Substring of existing entry to target (required for replace and remove)."
-      },
-      "scope": {
-        "type": "string",
-        "enum": ["project", "global"],
-        "default": "project"
-      }
-    }
-  }
+ "name": "memory",
+ "description": "Manage persistent curated memory across sessions.",
+ "parameters": {
+ "type": "object",
+ "required": ["action", "content", "old_text", "scope"],
+ "properties": {
+ "action": {
+ "type": "string",
+ "enum": ["add", "replace", "remove", "list"]
+ },
+ "content": {
+ "type": "string",
+ "description": "Memory bullet text (required for add and replace)."
+ },
+ "old_text": {
+ "type": "string",
+ "description": "Substring of existing entry to target (required for replace and remove)."
+ },
+ "scope": {
+ "type": "string",
+ "enum": ["project", "global"],
+ "default": "project"
+ }
+ }
+ }
 }
 ```
 
 ---
 
-## ⚡ Supported Actions
+## Supported Actions
 
 ### 1. `add` (Save New Memory)
 Appends a concise rule or architectural decision to the targeted Markdown file.

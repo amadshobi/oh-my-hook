@@ -4,19 +4,19 @@ During prolonged coding sessions, verbose build logs (`npm test`, `cargo build`,
 
 ---
 
-## ⚡ Non-Destructive In-Memory Transformation
+## Non-Destructive In-Memory Transformation
 
 Pruning hooks into `experimental.chat.messages.transform`:
 
 1. **Zero Database Drift**: Modifications occur exclusively in memory per inference turn. The persistent SQLite transcript in `opencode.db` remains 100% intact, preserving undo/redo and audit capabilities.
 2. **Deterministic Output Markers**: Bulky logs are collapsed into clean markers:
-   ```text
-   ── OMH-PRUNE ── 14,280 chars collapsed ──
-   ```
+ ```text
+ ── OMH-PRUNE ── 14,280 chars collapsed ──
+ ```
 
 ---
 
-## 🛡️ Protected Windows & Signals
+## ️ Protected Windows & Signals
 
 To prevent loss of critical debugging context:
 

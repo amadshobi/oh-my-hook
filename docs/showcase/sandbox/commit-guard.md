@@ -4,7 +4,7 @@ The `commitGuard` component enforces high-quality, standardized Git histories ac
 
 ---
 
-## 📝 Conventional Commits Enforcement
+## Conventional Commits Enforcement
 
 When the `bash` tool executes `git commit`, `sandbox/security.js` parses the commit message flag (`-m`) and validates it against strict rules:
 
@@ -18,27 +18,27 @@ When the `bash` tool executes `git commit`, `sandbox/security.js` parses the com
 
 ### Terminal Output:
 ```
-#### 🚫 GUARDRAIL BLOCK: Invalid Commit Format
+#### GUARDRAIL BLOCK: Invalid Commit Format
 > *Commit message issues:*
-> *  - Subject line is 84 chars (max 72)*
-> *  - Description should start with lowercase letter*
+> * - Subject line is 84 chars (max 72)*
+> * - Description should start with lowercase letter*
 > *Use Conventional Commits: type(scope): description*
 ```
 
 ---
 
-## 🤖 Co-Author Attribution
+## Co-Author Attribution
 
 When committing via agentic sessions, append the appropriate co-author trailer to give transparent attribution:
 
 ### In OpenCode Sessions:
 ```bash
 git commit -m "feat(sandbox): add commit format validation" \
-  --trailer "Co-authored-by: opencode-agent[bot] <219766164+opencode-agent[bot]@users.noreply.github.com>"
+ --trailer "Co-authored-by: opencode-agent[bot] <219766164+opencode-agent[bot]@users.noreply.github.com>"
 ```
 
 ### In Command Code Sessions:
 ```bash
 git commit -m "feat(sandbox): add commit format validation" \
-  --trailer "Co-authored-by: Command Code <noreply@commandcode.ai>"
+ --trailer "Co-authored-by: Command Code <noreply@commandcode.ai>"
 ```

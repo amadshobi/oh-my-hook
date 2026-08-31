@@ -4,27 +4,27 @@ The planning suite loads structured Markdown instructions when invoking `/plan`,
 
 ---
 
-## 📐 3-Level Override Hierarchy
+## 3-Level Override Hierarchy
 
 When resolving a prompt template for a command (e.g. `plan.md`), `oh-my-hook` checks directories in the following order:
 
 ```
 1. Project Workspace Override:
-   <workspace>/.opencode/prompts/<command>.md
-   ▲ (Highest priority - project-specific instructions)
-   │
+ <workspace>/.opencode/prompts/<command>.md
+ ▲ (Highest priority - project-specific instructions)
+ │
 2. User Global Override:
-   ~/.config/opencode/prompts/<command>.md
-   ▲ (Medium priority - user-wide preferences)
-   │
+ ~/.config/opencode/prompts/<command>.md
+ ▲ (Medium priority - user-wide preferences)
+ │
 3. Built-in Core Defaults:
-   oh-my-hook/plans/prompts/<command>.md
-   (Fallback default)
+ oh-my-hook/plans/prompts/<command>.md
+ (Fallback default)
 ```
 
 ---
 
-## 🧩 Dynamic Macro Interpolation
+## Dynamic Macro Interpolation
 
 Custom Markdown templates support dynamic placeholders that are replaced at runtime:
 
@@ -39,7 +39,7 @@ Custom Markdown templates support dynamic placeholders that are replaced at runt
 
 ---
 
-## 📝 Example Custom Template
+## Example Custom Template
 
 Create `<workspace>/.opencode/prompts/plan.md`:
 

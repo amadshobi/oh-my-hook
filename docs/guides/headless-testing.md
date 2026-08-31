@@ -4,7 +4,7 @@
 
 ---
 
-## 🧪 Running Test Suites
+## Running Test Suites
 
 ### 1. Unit Tests
 Executes unit tests covering all core modules (`sandbox/`, `plans/`, `memory/`, `compress/`, `gateway/`, `imgsee/`, `usage/`):
@@ -27,7 +27,7 @@ npm run test:all
 
 ---
 
-## 💻 Manual Headless Verification Workflow
+## Manual Headless Verification Workflow
 
 To test slash commands or memory generation headless via OpenCode CLI:
 

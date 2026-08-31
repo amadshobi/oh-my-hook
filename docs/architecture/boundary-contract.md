@@ -4,27 +4,27 @@ To maintain long-term architectural stability and zero-dependency purity, `oh-my
 
 ---
 
-## 🏛️ The Three Architectural Laws
+## ️ The Three Architectural Laws
 
 The codebase is governed by three strict structural rules, continuously verified in CI by `tests/boundary.test.js`:
 
 ```
-                       ┌──────────────────────────────┐
-                       │     Root Adapter Layer       │
-                       │          (index.js)          │
-                       └──────────────┬───────────────┘
-                                      │
-                                      ▼
-                       ┌──────────────────────────────┐
-                       │    Domain Logic Modules      │
-                       │   (sandbox/, plans/, etc.)   │
-                       └──────────────┬───────────────┘
-                                      │
-                                      ▼
-                       ┌──────────────────────────────┐
-                       │     Shared Helper Layer      │
-                       │           (share/)           │
-                       └──────────────────────────────┘
+ ┌──────────────────────────────┐
+ │ Root Adapter Layer │
+ │ (index.js) │
+ └──────────────┬───────────────┘
+ │
+ ▼
+ ┌──────────────────────────────┐
+ │ Domain Logic Modules │
+ │ (sandbox/, plans/, etc.) │
+ └──────────────┬───────────────┘
+ │
+ ▼
+ ┌──────────────────────────────┐
+ │ Shared Helper Layer │
+ │ (share/) │
+ └──────────────────────────────┘
 ```
 
 ### 1. Pure Logic Modules
@@ -46,7 +46,7 @@ The root `index.js` acts as the sole adapter layer connecting OpenCode to the in
 
 ---
 
-## 🧩 Hook Composition with `mergeHooks`
+## Hook Composition with `mergeHooks`
 
 OpenCode plugins export a single hooks object. When multiple modules define the same lifecycle hook (such as `tool.execute.before` or `config`), `mergeHooks` resolves collisions deterministically:
 
@@ -56,23 +56,23 @@ OpenCode plugins export a single hooks object. When multiple modules define the 
 ```javascript
 // share/merge.js composition logic
 export function mergeHooks(...hookObjects) {
-  const result = {};
-  for (const hooks of hookObjects) {
-    if (!hooks) continue;
-    for (const [key, value] of Object.entries(hooks)) {
-      if (typeof value === "function") {
-        const prev = result[key];
-        result[key] = prev
-          ? async (...args) => {
-              await prev(...args);
-              return await value(...args);
-            }
-          : value;
-      } else if (typeof value === "object" && value !== null) {
-        result[key] = { ...(result[key] || {}), ...value };
-      }
-    }
-  }
-  return result;
+ const result = {};
+ for (const hooks of hookObjects) {
+ if (!hooks) continue;
+ for (const [key, value] of Object.entries(hooks)) {
+ if (typeof value === "function") {
+ const prev = result[key];
+ result[key] = prev
+ ? async (...args) => {
+ await prev(...args);
+ return await value(...args);
+ }
+ : value;
+ } else if (typeof value === "object" && value !== null) {
+ result[key] = { ...(result[key] || {}), ...value };
+ }
+ }
+ }
+ return result;
 }
 ```
