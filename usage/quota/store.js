@@ -5,7 +5,7 @@
  * (fields vary per provider: `access`, `email`, `projectId`, `key`, ...).
  * Columns like `email`/`project_id` do NOT exist — everything lives in `data`.
  */
-import { agentDbPath } from "../store-db.js";
+import { queryAll } from "../store-db.js";
 
 /** SQLite row → parsed credential object (never expose raw secrets in output). */
 function parseCredential(row) {
@@ -28,11 +28,11 @@ function parseCredential(row) {
  * @returns {Array<object>} parsed credential rows (id + provider + data fields)
  */
 export function getProviderCredentials(db, provider) {
-	const rows = db
-		.prepare(
-			"SELECT id, provider, data FROM auth_credentials WHERE provider = ?",
-		)
-		.all(provider);
+	const rows = queryAll(
+		db,
+		"SELECT id, provider, data FROM auth_credentials WHERE provider = ?",
+		[provider],
+	);
 	return rows.map(parseCredential);
 }
 

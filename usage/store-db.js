@@ -11,6 +11,7 @@
  */
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { existsSync } from "node:fs";
 
 /** Resolve the omp agent credentials DB (quota source). */
 export function agentDbPath() {
@@ -51,7 +52,6 @@ async function resolveDatabase() {
 export async function openReadonly(dbPath) {
 	// node:sqlite silently CREATES a missing file even with readonly:true —
 	// guard explicitly so a missing DB surfaces a clear, actionable error.
-	const { existsSync } = await import("node:fs");
 	if (!existsSync(dbPath)) {
 		throw new Error(
 			`database file not found: "${dbPath}" (login to a provider first)`,
@@ -62,11 +62,7 @@ export async function openReadonly(dbPath) {
 	const Database = await resolveDatabase();
 	let db;
 	try {
-		if (typeof Bun !== "undefined") {
-			db = new Database(dbPath, { readonly: true });
-		} else {
-			db = new Database(dbPath, { readonly: true });
-		}
+		db = new Database(dbPath, { readonly: true });
 	} catch (err) {
 		throw new Error(`cannot open read-only DB "${dbPath}": ${err.message}`, {
 			cause: err,

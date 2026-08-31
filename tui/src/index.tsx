@@ -31,7 +31,7 @@ import {
 	getGlobalFile,
 	listMemoryEntries,
 } from "../../memory/store.js";
-import { formatTokens, formatUSD } from "../../usage/format.js";
+import { formatTokens, formatUSD, formatDuration } from "../../usage/format.js";
 import { openReadonly, opencodeDbPath } from "../../usage/store-db.js";
 import { getAgentTree } from "../../usage/tokens/tracker.js";
 
@@ -811,16 +811,22 @@ function PlanReviewModal(props: {
  *
  * Data comes from usage/tokens/tracker.js (read-only opencode.db). Each node
  * (main agent + subagents) can be expanded/collapsed independently via click.
- * Refreshes when the mode state changes (proxy for session activity).
+ * Subagent visibility & default state are configurable:
+ *   usage.tokens.showSubagents (false hides subagent section)
+ *   usage.tokens.subagentsCollapsed (true collapses subagent nodes by default)
  */
 function TokensTree(props: {
 	api: any;
 	sessionID: () => string;
 	directory: string;
+	config?: any;
 }) {
 	const [open, setOpen] = createSignal(true);
-	const [mainOpen, setMainOpen] = createSignal(true);
-	const [subOpen, setSubOpen] = createSignal(true);
+	const subConfig = props.config?.tokens || {};
+	const showSubs = subConfig.showSubagents !== false;
+	const [subOpen, setSubOpen] = createSignal(
+		subConfig.subagentsCollapsed ? false : true,
+	);
 	const [tree, setTree] = createSignal<{
 		main: any;
 		subagents: any[];
@@ -833,16 +839,25 @@ function TokensTree(props: {
 			setTree(null);
 			return;
 		}
-		let h: any = null;
-		try {
-			openReadonly(opencodeDbPath()).then((handle) => {
-				h = handle;
-				setTree(getAgentTree(handle.db, sid));
-				handle.close();
-			});
-		} catch {
-			setTree(null);
-		}
+		let cancelled = false;
+		openReadonly(opencodeDbPath())
+			.then((handle) => {
+				if (cancelled) {
+					handle.close();
+					return;
+				}
+				try {
+					setTree(getAgentTree(handle.db, sid));
+				} finally {
+					handle.close();
+				}
+			})
+			// Async rejection must be caught — otherwise TUI crashes on
+			// unhandled promise rejection when the DB is missing.
+			.catch(() => setTree(null));
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	const theme = () => props.api?.theme?.current || {};
@@ -866,55 +881,61 @@ function TokensTree(props: {
 		return m.model.split("/").pop();
 	};
 
-	const renderNode = (
-		node: any,
-		openSignal: () => boolean,
-		toggle: () => void,
-	) => (
-		<>
-			<box flexDirection="row" gap={1} onMouseDown={toggle}>
-				<text fg={mutedColor()}>{openSignal() ? "▼" : "▶"}</text>
-				<text fg={accentColor()}>
-					<b>{node.agent || "agent"}</b>
-				</text>
-				<text fg={mutedColor()}>{modelName(node)}</text>
-			</box>
-			<Show when={openSignal()}>
-				<box flexDirection="column" gap={0} paddingLeft={2}>
-					<text fg={mutedColor()}>
-						In :{" "}
-						<span style={{ fg: textNormal() }}>{formatTokens(node.input)}</span>
+	// Per-node expand state (each subagent toggles independently).
+	const TreeNode = (node: any) => {
+		const [nodeOpen, setNodeOpen] = createSignal(true);
+		return (
+			<>
+				<box
+					flexDirection="row"
+					gap={1}
+					onMouseDown={() => setNodeOpen((x) => !x)}
+				>
+					<text fg={mutedColor()}>{nodeOpen() ? "▼" : "▶"}</text>
+					<text fg={accentColor()}>
+						<b>{node.agent || "agent"}</b>
 					</text>
-					<text fg={mutedColor()}>
-						Out :{" "}
-						<span style={{ fg: textNormal() }}>
-							{formatTokens(node.output)}
-						</span>
-					</text>
-					<Show when={node.reasoning > 0}>
-						<text fg={mutedColor()}>
-							Reasoning:{" "}
-							<span style={{ fg: textNormal() }}>
-								{formatTokens(node.reasoning)}
-							</span>
-						</text>
-					</Show>
-					<Show when={node.cacheRead > 0 || node.cacheWrite > 0}>
-						<text fg={mutedColor()}>
-							Cache R:{" "}
-							<span style={{ fg: textNormal() }}>
-								{formatTokens(node.cacheRead)}
-							</span>
-						</text>
-					</Show>
-					<text fg={mutedColor()}>
-						Cost :{" "}
-						<span style={{ fg: successColor() }}>{formatUSD(node.cost)}</span>
-					</text>
+					<text fg={mutedColor()}>{modelName(node)}</text>
 				</box>
-			</Show>
-		</>
-	);
+				<Show when={nodeOpen()}>
+					<box flexDirection="column" gap={0} paddingLeft={2}>
+						<text fg={mutedColor()}>
+							In :{" "}
+							<span style={{ fg: textNormal() }}>
+								{formatTokens(node.input)}
+							</span>
+						</text>
+						<text fg={mutedColor()}>
+							Out :{" "}
+							<span style={{ fg: textNormal() }}>
+								{formatTokens(node.output)}
+							</span>
+						</text>
+						<Show when={node.reasoning > 0}>
+							<text fg={mutedColor()}>
+								Reasoning:{" "}
+								<span style={{ fg: textNormal() }}>
+									{formatTokens(node.reasoning)}
+								</span>
+							</text>
+						</Show>
+						<Show when={node.cacheRead > 0 || node.cacheWrite > 0}>
+							<text fg={mutedColor()}>
+								Cache R:{" "}
+								<span style={{ fg: textNormal() }}>
+									{formatTokens(node.cacheRead)}
+								</span>
+							</text>
+						</Show>
+						<text fg={mutedColor()}>
+							Cost :{" "}
+							<span style={{ fg: successColor() }}>{formatUSD(node.cost)}</span>
+						</text>
+					</box>
+				</Show>
+			</>
+		);
+	};
 
 	return (
 		<box flexDirection="column" gap={0}>
@@ -930,8 +951,8 @@ function TokensTree(props: {
 
 			<Show when={open() && tree()}>
 				<box flexDirection="column" gap={0} paddingLeft={1}>
-					{renderNode(tree()!.main, mainOpen, () => setMainOpen((x) => !x))}
-					<Show when={tree()!.subagents.length > 0}>
+					{TreeNode(tree()!.main)}
+					<Show when={showSubs && tree()!.subagents.length > 0}>
 						<box
 							flexDirection="row"
 							gap={1}
@@ -947,7 +968,7 @@ function TokensTree(props: {
 								<For each={tree()!.subagents}>
 									{(sub) => (
 										<box flexDirection="column" gap={0} paddingLeft={1}>
-											{renderNode(sub, subOpen, () => setSubOpen((x) => !x))}
+											{TreeNode(sub)}
 										</box>
 									)}
 								</For>
@@ -962,10 +983,12 @@ function TokensTree(props: {
 }
 
 /**
- * LastTurnItem — collapsible "Last Turn" node inside the Tokens tree.
+ * LastTurnItem — collapsible "Last Turn" nodes inside the Tokens tree.
  *
- * Reads reactive TUI state (api.state.session.messages) + 2s tick, shows the
- * last completed assistant turn's token breakdown. Expand/collapse via click.
+ * Shows the last completed assistant turn for the main agent (from reactive
+ * TUI state) plus, optionally, the last turn of each subagent (from the
+ * opencode.db tree). Subagent nodes are collapsed by default and can be
+ * hidden entirely via usage.tokens.showSubagents.
  */
 function LastTurnItem(props: { api: any; sessionID: () => string }) {
 	// Default expanded — mobile users shouldn't need to tap to open it.
@@ -1016,75 +1039,63 @@ function LastTurnItem(props: { api: any; sessionID: () => string }) {
 		};
 	});
 
-	const fmt = (n: number) => {
-		if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}m`;
-		if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-		return `${n}`;
-	};
-
-	const fmtCost = (n: number) => {
-		if (n >= 1) return `$${n.toFixed(2)}`;
-		if (n >= 0.01) return `$${n.toFixed(3)}`;
-		return `$${n.toFixed(4)}`;
-	};
-
-	const fmtDuration = (ms: number) => {
-		if (!ms) return "";
-		const s = ms / 1000;
-		if (s < 60) return `${s.toFixed(1)}s`;
-		return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
-	};
-
-	const turn = lastTurn();
+	// NOTE: call lastTurn() INSIDE JSX (not hoisted const) so the memo stays
+	// reactive to the 2s tick — a static snapshot would never update.
+	const renderTurnDetails = (t: any) => (
+		<box flexDirection="column" gap={0} paddingLeft={1}>
+			<text fg={mutedColor()}>
+				In : <span style={{ fg: textNormal() }}>{formatTokens(t.input)}</span>
+			</text>
+			{t.cacheRead > 0 ? (
+				<text fg={mutedColor()}>
+					Cache :{" "}
+					<span style={{ fg: textNormal() }}>{formatTokens(t.cacheRead)}</span>
+				</text>
+			) : null}
+			<text fg={mutedColor()}>
+				Out : <span style={{ fg: textNormal() }}>{formatTokens(t.output)}</span>
+			</text>
+			{t.reasoning > 0 ? (
+				<text fg={mutedColor()}>
+					Reasoning :{" "}
+					<span style={{ fg: textNormal() }}>{formatTokens(t.reasoning)}</span>
+				</text>
+			) : null}
+			{t.durationMs ? (
+				<text fg={mutedColor()}>
+					Time :{" "}
+					<span style={{ fg: textNormal() }}>
+						{formatDuration(t.durationMs)}
+					</span>
+				</text>
+			) : null}
+			{t.cost > 0 ? (
+				<text fg={mutedColor()}>
+					Cost : <span style={{ fg: accentColor() }}>{formatUSD(t.cost)}</span>
+				</text>
+			) : null}
+		</box>
+	);
 
 	return (
 		<box flexDirection="column" gap={0}>
-			<box flexDirection="row" gap={1} onMouseDown={() => setOpen((x) => !x)}>
-				<text fg={mutedColor()}>{open() ? "▼" : "▶"}</text>
-				<text fg={textNormal()}>
-					<b>Last Turn</b>
-				</text>
-				{turn ? (
-					<text fg={mutedColor()}>
-						({fmt(turn.input)} in · {fmt(turn.output)} out)
-					</text>
-				) : null}
-			</box>
-			<Show when={open() && turn}>
-				<box flexDirection="column" gap={0} paddingLeft={2}>
-					<text fg={mutedColor()}>
-						In : <span style={{ fg: textNormal() }}>{fmt(turn.input)}</span>
-					</text>
-					{turn.cacheRead > 0 ? (
-						<text fg={mutedColor()}>
-							Cache :{" "}
-							<span style={{ fg: textNormal() }}>{fmt(turn.cacheRead)}</span>
-						</text>
-					) : null}
-					<text fg={mutedColor()}>
-						Out : <span style={{ fg: textNormal() }}>{fmt(turn.output)}</span>
-					</text>
-					{turn.reasoning > 0 ? (
-						<text fg={mutedColor()}>
-							Reasoning :{" "}
-							<span style={{ fg: textNormal() }}>{fmt(turn.reasoning)}</span>
-						</text>
-					) : null}
-					{turn.durationMs ? (
-						<text fg={mutedColor()}>
-							Time :{" "}
-							<span style={{ fg: textNormal() }}>
-								{fmtDuration(turn.durationMs)}
-							</span>
-						</text>
-					) : null}
-					{turn.cost > 0 ? (
-						<text fg={mutedColor()}>
-							Cost :{" "}
-							<span style={{ fg: accentColor() }}>{fmtCost(turn.cost)}</span>
-						</text>
-					) : null}
-				</box>
+			<Show when={lastTurn()}>
+				{(turn) => (
+					<>
+						<box
+							flexDirection="row"
+							gap={1}
+							wrapMode="none"
+							onMouseDown={() => setOpen((x) => !x)}
+						>
+							<text fg={mutedColor()}>{open() ? "▼" : "▶"}</text>
+							<text fg={textNormal()} wrapMode="none">
+								<b>Last Turn (main)</b>
+							</text>
+						</box>
+						<Show when={open()}>{renderTurnDetails(turn())}</Show>
+					</>
+				)}
 			</Show>
 		</box>
 	);
@@ -1230,6 +1241,7 @@ export const tui = async function tui(api: any, options: any, meta: any) {
 								<TokensTree
 									api={api}
 									directory={directory}
+									config={config?.usage}
 									sessionID={() =>
 										props?.session_id ||
 										ctx?.session_id ||

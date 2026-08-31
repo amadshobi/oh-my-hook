@@ -57,6 +57,14 @@ export function cacheHitRatio(cacheRead, cacheWrite) {
 	return read / total;
 }
 
+/** "6.6s" / "1m 23s" / "" when falsy. */
+export function formatDuration(ms) {
+	if (!ms) return "";
+	const s = ms / 1000;
+	if (s < 60) return `${s.toFixed(1)}s`;
+	return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
+}
+
 /** Shorten bucket display names: "Weekly Limit Remaining" -> "Weekly". */
 function shortBucketName(name) {
 	const n = (name || "").toLowerCase();

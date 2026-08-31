@@ -17,7 +17,7 @@ import { loadConfig } from "../../share/config.js";
 import { formatReviewFeedback } from "../../plans/parser.js";
 import { loadModeState, currentMode, currentPlan } from "../../share/state.js";
 import { appendMemory, replaceMemory, removeMemory, resolveTargetMemoryFile, getGlobalFile, listMemoryEntries } from "../../memory/store.js";
-import { formatTokens, formatUSD } from "../../usage/format.js";
+import { formatTokens, formatUSD, formatDuration } from "../../usage/format.js";
 import { openReadonly, opencodeDbPath } from "../../usage/store-db.js";
 import { getAgentTree } from "../../usage/tokens/tracker.js";
 function ModeBadge(props) {
@@ -1105,12 +1105,15 @@ function PlanReviewModal(props) {
  *
  * Data comes from usage/tokens/tracker.js (read-only opencode.db). Each node
  * (main agent + subagents) can be expanded/collapsed independently via click.
- * Refreshes when the mode state changes (proxy for session activity).
+ * Subagent visibility & default state are configurable:
+ *   usage.tokens.showSubagents (false hides subagent section)
+ *   usage.tokens.subagentsCollapsed (true collapses subagent nodes by default)
  */
 function TokensTree(props) {
   const [open, setOpen] = createSignal(true);
-  const [mainOpen, setMainOpen] = createSignal(true);
-  const [subOpen, setSubOpen] = createSignal(true);
+  const subConfig = props.config?.tokens || {};
+  const showSubs = subConfig.showSubagents !== false;
+  const [subOpen, setSubOpen] = createSignal(subConfig.subagentsCollapsed ? false : true);
   const [tree, setTree] = createSignal(null);
 
   // Refresh tree when session changes or mode state flips (activity proxy).
@@ -1120,16 +1123,24 @@ function TokensTree(props) {
       setTree(null);
       return;
     }
-    let h = null;
-    try {
-      openReadonly(opencodeDbPath()).then(handle => {
-        h = handle;
-        setTree(getAgentTree(handle.db, sid));
+    let cancelled = false;
+    openReadonly(opencodeDbPath()).then(handle => {
+      if (cancelled) {
         handle.close();
-      });
-    } catch {
-      setTree(null);
-    }
+        return;
+      }
+      try {
+        setTree(getAgentTree(handle.db, sid));
+      } finally {
+        handle.close();
+      }
+    })
+    // Async rejection must be caught — otherwise TUI crashes on
+    // unhandled promise rejection when the DB is missing.
+    .catch(() => setTree(null));
+    return () => {
+      cancelled = true;
+    };
   });
   const theme = () => props.api?.theme?.current || {};
   const mutedColor = () => theme().textMuted || "#6b7280";
@@ -1146,149 +1157,154 @@ function TokensTree(props) {
     if (!m?.model) return "n/a";
     return m.model.split("/").pop();
   };
-  const renderNode = (node, openSignal, toggle) => [(() => {
-    var _el$129 = _$createElement("box"),
-      _el$130 = _$createElement("text"),
-      _el$131 = _$createElement("text"),
-      _el$132 = _$createElement("b"),
-      _el$133 = _$createElement("text");
-    _$insertNode(_el$129, _el$130);
-    _$insertNode(_el$129, _el$131);
-    _$insertNode(_el$129, _el$133);
-    _$setProp(_el$129, "flexDirection", "row");
-    _$setProp(_el$129, "gap", 1);
-    _$setProp(_el$129, "onMouseDown", toggle);
-    _$insert(_el$130, () => openSignal() ? "▼" : "▶");
-    _$insertNode(_el$131, _el$132);
-    _$insert(_el$132, () => node.agent || "agent");
-    _$insert(_el$133, () => modelName(node));
-    _$effect(_p$ => {
-      var _v$31 = mutedColor(),
-        _v$32 = accentColor(),
-        _v$33 = mutedColor();
-      _v$31 !== _p$.e && (_p$.e = _$setProp(_el$130, "fg", _v$31, _p$.e));
-      _v$32 !== _p$.t && (_p$.t = _$setProp(_el$131, "fg", _v$32, _p$.t));
-      _v$33 !== _p$.a && (_p$.a = _$setProp(_el$133, "fg", _v$33, _p$.a));
-      return _p$;
-    }, {
-      e: undefined,
-      t: undefined,
-      a: undefined
-    });
-    return _el$129;
-  })(), _$createComponent(Show, {
-    get when() {
-      return openSignal();
-    },
-    get children() {
-      var _el$134 = _$createElement("box"),
-        _el$135 = _$createElement("text"),
-        _el$136 = _$createTextNode(`In : `),
-        _el$138 = _$createElement("span"),
-        _el$139 = _$createElement("text"),
-        _el$140 = _$createTextNode(`Out : `),
-        _el$142 = _$createElement("span"),
-        _el$151 = _$createElement("text"),
-        _el$152 = _$createTextNode(`Cost : `),
-        _el$154 = _$createElement("span");
-      _$insertNode(_el$134, _el$135);
-      _$insertNode(_el$134, _el$139);
-      _$insertNode(_el$134, _el$151);
-      _$setProp(_el$134, "flexDirection", "column");
-      _$setProp(_el$134, "gap", 0);
-      _$setProp(_el$134, "paddingLeft", 2);
-      _$insertNode(_el$135, _el$136);
-      _$insertNode(_el$135, _el$138);
-      _$insert(_el$138, () => formatTokens(node.input));
-      _$insertNode(_el$139, _el$140);
-      _$insertNode(_el$139, _el$142);
-      _$insert(_el$142, () => formatTokens(node.output));
-      _$insert(_el$134, _$createComponent(Show, {
-        get when() {
-          return node.reasoning > 0;
-        },
-        get children() {
-          var _el$143 = _$createElement("text"),
-            _el$144 = _$createTextNode(`Reasoning: `),
-            _el$146 = _$createElement("span");
-          _$insertNode(_el$143, _el$144);
-          _$insertNode(_el$143, _el$146);
-          _$insert(_el$146, () => formatTokens(node.reasoning));
-          _$effect(_p$ => {
-            var _v$34 = mutedColor(),
-              _v$35 = {
-                fg: textNormal()
-              };
-            _v$34 !== _p$.e && (_p$.e = _$setProp(_el$143, "fg", _v$34, _p$.e));
-            _v$35 !== _p$.t && (_p$.t = _$setProp(_el$146, "style", _v$35, _p$.t));
-            return _p$;
-          }, {
-            e: undefined,
-            t: undefined
-          });
-          return _el$143;
-        }
-      }), _el$151);
-      _$insert(_el$134, _$createComponent(Show, {
-        get when() {
-          return node.cacheRead > 0 || node.cacheWrite > 0;
-        },
-        get children() {
-          var _el$147 = _$createElement("text"),
-            _el$148 = _$createTextNode(`Cache R: `),
-            _el$150 = _$createElement("span");
-          _$insertNode(_el$147, _el$148);
-          _$insertNode(_el$147, _el$150);
-          _$insert(_el$150, () => formatTokens(node.cacheRead));
-          _$effect(_p$ => {
-            var _v$36 = mutedColor(),
-              _v$37 = {
-                fg: textNormal()
-              };
-            _v$36 !== _p$.e && (_p$.e = _$setProp(_el$147, "fg", _v$36, _p$.e));
-            _v$37 !== _p$.t && (_p$.t = _$setProp(_el$150, "style", _v$37, _p$.t));
-            return _p$;
-          }, {
-            e: undefined,
-            t: undefined
-          });
-          return _el$147;
-        }
-      }), _el$151);
-      _$insertNode(_el$151, _el$152);
-      _$insertNode(_el$151, _el$154);
-      _$insert(_el$154, () => formatUSD(node.cost));
+
+  // Per-node expand state (each subagent toggles independently).
+  const TreeNode = node => {
+    const [nodeOpen, setNodeOpen] = createSignal(true);
+    return [(() => {
+      var _el$129 = _$createElement("box"),
+        _el$130 = _$createElement("text"),
+        _el$131 = _$createElement("text"),
+        _el$132 = _$createElement("b"),
+        _el$133 = _$createElement("text");
+      _$insertNode(_el$129, _el$130);
+      _$insertNode(_el$129, _el$131);
+      _$insertNode(_el$129, _el$133);
+      _$setProp(_el$129, "flexDirection", "row");
+      _$setProp(_el$129, "gap", 1);
+      _$setProp(_el$129, "onMouseDown", () => setNodeOpen(x => !x));
+      _$insert(_el$130, () => nodeOpen() ? "▼" : "▶");
+      _$insertNode(_el$131, _el$132);
+      _$insert(_el$132, () => node.agent || "agent");
+      _$insert(_el$133, () => modelName(node));
       _$effect(_p$ => {
-        var _v$38 = mutedColor(),
-          _v$39 = {
-            fg: textNormal()
-          },
-          _v$40 = mutedColor(),
-          _v$41 = {
-            fg: textNormal()
-          },
-          _v$42 = mutedColor(),
-          _v$43 = {
-            fg: successColor()
-          };
-        _v$38 !== _p$.e && (_p$.e = _$setProp(_el$135, "fg", _v$38, _p$.e));
-        _v$39 !== _p$.t && (_p$.t = _$setProp(_el$138, "style", _v$39, _p$.t));
-        _v$40 !== _p$.a && (_p$.a = _$setProp(_el$139, "fg", _v$40, _p$.a));
-        _v$41 !== _p$.o && (_p$.o = _$setProp(_el$142, "style", _v$41, _p$.o));
-        _v$42 !== _p$.i && (_p$.i = _$setProp(_el$151, "fg", _v$42, _p$.i));
-        _v$43 !== _p$.n && (_p$.n = _$setProp(_el$154, "style", _v$43, _p$.n));
+        var _v$31 = mutedColor(),
+          _v$32 = accentColor(),
+          _v$33 = mutedColor();
+        _v$31 !== _p$.e && (_p$.e = _$setProp(_el$130, "fg", _v$31, _p$.e));
+        _v$32 !== _p$.t && (_p$.t = _$setProp(_el$131, "fg", _v$32, _p$.t));
+        _v$33 !== _p$.a && (_p$.a = _$setProp(_el$133, "fg", _v$33, _p$.a));
         return _p$;
       }, {
         e: undefined,
         t: undefined,
-        a: undefined,
-        o: undefined,
-        i: undefined,
-        n: undefined
+        a: undefined
       });
-      return _el$134;
-    }
-  })];
+      return _el$129;
+    })(), _$createComponent(Show, {
+      get when() {
+        return nodeOpen();
+      },
+      get children() {
+        var _el$134 = _$createElement("box"),
+          _el$135 = _$createElement("text"),
+          _el$136 = _$createTextNode(`In : `),
+          _el$138 = _$createElement("span"),
+          _el$139 = _$createElement("text"),
+          _el$140 = _$createTextNode(`Out : `),
+          _el$142 = _$createElement("span"),
+          _el$151 = _$createElement("text"),
+          _el$152 = _$createTextNode(`Cost : `),
+          _el$154 = _$createElement("span");
+        _$insertNode(_el$134, _el$135);
+        _$insertNode(_el$134, _el$139);
+        _$insertNode(_el$134, _el$151);
+        _$setProp(_el$134, "flexDirection", "column");
+        _$setProp(_el$134, "gap", 0);
+        _$setProp(_el$134, "paddingLeft", 2);
+        _$insertNode(_el$135, _el$136);
+        _$insertNode(_el$135, _el$138);
+        _$insert(_el$138, () => formatTokens(node.input));
+        _$insertNode(_el$139, _el$140);
+        _$insertNode(_el$139, _el$142);
+        _$insert(_el$142, () => formatTokens(node.output));
+        _$insert(_el$134, _$createComponent(Show, {
+          get when() {
+            return node.reasoning > 0;
+          },
+          get children() {
+            var _el$143 = _$createElement("text"),
+              _el$144 = _$createTextNode(`Reasoning: `),
+              _el$146 = _$createElement("span");
+            _$insertNode(_el$143, _el$144);
+            _$insertNode(_el$143, _el$146);
+            _$insert(_el$146, () => formatTokens(node.reasoning));
+            _$effect(_p$ => {
+              var _v$34 = mutedColor(),
+                _v$35 = {
+                  fg: textNormal()
+                };
+              _v$34 !== _p$.e && (_p$.e = _$setProp(_el$143, "fg", _v$34, _p$.e));
+              _v$35 !== _p$.t && (_p$.t = _$setProp(_el$146, "style", _v$35, _p$.t));
+              return _p$;
+            }, {
+              e: undefined,
+              t: undefined
+            });
+            return _el$143;
+          }
+        }), _el$151);
+        _$insert(_el$134, _$createComponent(Show, {
+          get when() {
+            return node.cacheRead > 0 || node.cacheWrite > 0;
+          },
+          get children() {
+            var _el$147 = _$createElement("text"),
+              _el$148 = _$createTextNode(`Cache R: `),
+              _el$150 = _$createElement("span");
+            _$insertNode(_el$147, _el$148);
+            _$insertNode(_el$147, _el$150);
+            _$insert(_el$150, () => formatTokens(node.cacheRead));
+            _$effect(_p$ => {
+              var _v$36 = mutedColor(),
+                _v$37 = {
+                  fg: textNormal()
+                };
+              _v$36 !== _p$.e && (_p$.e = _$setProp(_el$147, "fg", _v$36, _p$.e));
+              _v$37 !== _p$.t && (_p$.t = _$setProp(_el$150, "style", _v$37, _p$.t));
+              return _p$;
+            }, {
+              e: undefined,
+              t: undefined
+            });
+            return _el$147;
+          }
+        }), _el$151);
+        _$insertNode(_el$151, _el$152);
+        _$insertNode(_el$151, _el$154);
+        _$insert(_el$154, () => formatUSD(node.cost));
+        _$effect(_p$ => {
+          var _v$38 = mutedColor(),
+            _v$39 = {
+              fg: textNormal()
+            },
+            _v$40 = mutedColor(),
+            _v$41 = {
+              fg: textNormal()
+            },
+            _v$42 = mutedColor(),
+            _v$43 = {
+              fg: successColor()
+            };
+          _v$38 !== _p$.e && (_p$.e = _$setProp(_el$135, "fg", _v$38, _p$.e));
+          _v$39 !== _p$.t && (_p$.t = _$setProp(_el$138, "style", _v$39, _p$.t));
+          _v$40 !== _p$.a && (_p$.a = _$setProp(_el$139, "fg", _v$40, _p$.a));
+          _v$41 !== _p$.o && (_p$.o = _$setProp(_el$142, "style", _v$41, _p$.o));
+          _v$42 !== _p$.i && (_p$.i = _$setProp(_el$151, "fg", _v$42, _p$.i));
+          _v$43 !== _p$.n && (_p$.n = _$setProp(_el$154, "style", _v$43, _p$.n));
+          return _p$;
+        }, {
+          e: undefined,
+          t: undefined,
+          a: undefined,
+          o: undefined,
+          i: undefined,
+          n: undefined
+        });
+        return _el$134;
+      }
+    })];
+  };
   return (() => {
     var _el$155 = _$createElement("box"),
       _el$156 = _$createElement("box"),
@@ -1321,10 +1337,10 @@ function TokensTree(props) {
         _$setProp(_el$162, "flexDirection", "column");
         _$setProp(_el$162, "gap", 0);
         _$setProp(_el$162, "paddingLeft", 1);
-        _$insert(_el$162, () => renderNode(tree().main, mainOpen, () => setMainOpen(x => !x)), null);
+        _$insert(_el$162, () => TreeNode(tree().main), null);
         _$insert(_el$162, _$createComponent(Show, {
           get when() {
-            return tree().subagents.length > 0;
+            return showSubs && tree().subagents.length > 0;
           },
           get children() {
             return [(() => {
@@ -1371,7 +1387,7 @@ function TokensTree(props) {
                     _$setProp(_el$169, "flexDirection", "column");
                     _$setProp(_el$169, "gap", 0);
                     _$setProp(_el$169, "paddingLeft", 1);
-                    _$insert(_el$169, () => renderNode(sub, subOpen, () => setSubOpen(x => !x)));
+                    _$insert(_el$169, () => TreeNode(sub));
                     return _el$169;
                   })()
                 }));
@@ -1409,10 +1425,12 @@ function TokensTree(props) {
 }
 
 /**
- * LastTurnItem — collapsible "Last Turn" node inside the Tokens tree.
+ * LastTurnItem — collapsible "Last Turn" nodes inside the Tokens tree.
  *
- * Reads reactive TUI state (api.state.session.messages) + 2s tick, shows the
- * last completed assistant turn's token breakdown. Expand/collapse via click.
+ * Shows the last completed assistant turn for the main agent (from reactive
+ * TUI state) plus, optionally, the last turn of each subagent (from the
+ * opencode.db tree). Subagent nodes are collapsed by default and can be
+ * hidden entirely via usage.tokens.showSubagents.
  */
 function LastTurnItem(props) {
   // Default expanded — mobile users shouldn't need to tap to open it.
@@ -1450,206 +1468,190 @@ function LastTurnItem(props) {
       durationMs: last.time?.completed && last.time?.created ? last.time.completed - last.time.created : null
     };
   });
-  const fmt = n => {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}m`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-    return `${n}`;
-  };
-  const fmtCost = n => {
-    if (n >= 1) return `$${n.toFixed(2)}`;
-    if (n >= 0.01) return `$${n.toFixed(3)}`;
-    return `$${n.toFixed(4)}`;
-  };
-  const fmtDuration = ms => {
-    if (!ms) return "";
-    const s = ms / 1000;
-    if (s < 60) return `${s.toFixed(1)}s`;
-    return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
-  };
-  const turn = lastTurn();
-  return (() => {
+
+  // NOTE: call lastTurn() INSIDE JSX (not hoisted const) so the memo stays
+  // reactive to the 2s tick — a static snapshot would never update.
+  const renderTurnDetails = t => (() => {
     var _el$170 = _$createElement("box"),
-      _el$171 = _$createElement("box"),
-      _el$172 = _$createElement("text"),
-      _el$173 = _$createElement("text"),
-      _el$174 = _$createElement("b");
+      _el$171 = _$createElement("text"),
+      _el$172 = _$createTextNode(`In : `),
+      _el$173 = _$createElement("span"),
+      _el$174 = _$createElement("text"),
+      _el$175 = _$createTextNode(`Out : `),
+      _el$176 = _$createElement("span");
     _$insertNode(_el$170, _el$171);
+    _$insertNode(_el$170, _el$174);
     _$setProp(_el$170, "flexDirection", "column");
     _$setProp(_el$170, "gap", 0);
+    _$setProp(_el$170, "paddingLeft", 1);
     _$insertNode(_el$171, _el$172);
     _$insertNode(_el$171, _el$173);
-    _$setProp(_el$171, "flexDirection", "row");
-    _$setProp(_el$171, "gap", 1);
-    _$setProp(_el$171, "onMouseDown", () => setOpen(x => !x));
-    _$insert(_el$172, () => open() ? "▼" : "▶");
-    _$insertNode(_el$173, _el$174);
-    _$insertNode(_el$174, _$createTextNode(`Last Turn`));
-    _$insert(_el$171, turn ? (() => {
-      var _el$183 = _$createElement("text"),
-        _el$184 = _$createTextNode(`(`),
-        _el$185 = _$createTextNode(` in · `),
-        _el$186 = _$createTextNode(` out)`);
-      _$insertNode(_el$183, _el$184);
-      _$insertNode(_el$183, _el$185);
-      _$insertNode(_el$183, _el$186);
-      _$insert(_el$183, () => fmt(turn.input), _el$185);
-      _$insert(_el$183, () => fmt(turn.output), _el$186);
-      _$effect(_$p => _$setProp(_el$183, "fg", mutedColor(), _$p));
-      return _el$183;
-    })() : null, null);
-    _$insert(_el$170, _$createComponent(Show, {
-      get when() {
-        return open() && turn;
-      },
-      get children() {
-        var _el$176 = _$createElement("box"),
-          _el$177 = _$createElement("text"),
-          _el$178 = _$createTextNode(`In : `),
-          _el$179 = _$createElement("span"),
-          _el$180 = _$createElement("text"),
-          _el$181 = _$createTextNode(`Out : `),
-          _el$182 = _$createElement("span");
-        _$insertNode(_el$176, _el$177);
-        _$insertNode(_el$176, _el$180);
-        _$setProp(_el$176, "flexDirection", "column");
-        _$setProp(_el$176, "gap", 0);
-        _$setProp(_el$176, "paddingLeft", 2);
+    _$insert(_el$173, () => formatTokens(t.input));
+    _$insert(_el$170, (() => {
+      var _c$3 = _$memo(() => t.cacheRead > 0);
+      return () => _c$3() ? (() => {
+        var _el$177 = _$createElement("text"),
+          _el$178 = _$createTextNode(`Cache : `),
+          _el$180 = _$createElement("span");
         _$insertNode(_el$177, _el$178);
-        _$insertNode(_el$177, _el$179);
-        _$insert(_el$179, () => fmt(turn.input));
-        _$insert(_el$176, (() => {
-          var _c$3 = _$memo(() => turn.cacheRead > 0);
-          return () => _c$3() ? (() => {
-            var _el$187 = _$createElement("text"),
-              _el$188 = _$createTextNode(`Cache : `),
-              _el$190 = _$createElement("span");
-            _$insertNode(_el$187, _el$188);
-            _$insertNode(_el$187, _el$190);
-            _$insert(_el$190, () => fmt(turn.cacheRead));
-            _$effect(_p$ => {
-              var _v$55 = mutedColor(),
-                _v$56 = {
-                  fg: textNormal()
-                };
-              _v$55 !== _p$.e && (_p$.e = _$setProp(_el$187, "fg", _v$55, _p$.e));
-              _v$56 !== _p$.t && (_p$.t = _$setProp(_el$190, "style", _v$56, _p$.t));
-              return _p$;
-            }, {
-              e: undefined,
-              t: undefined
-            });
-            return _el$187;
-          })() : null;
-        })(), _el$180);
-        _$insertNode(_el$180, _el$181);
-        _$insertNode(_el$180, _el$182);
-        _$insert(_el$182, () => fmt(turn.output));
-        _$insert(_el$176, (() => {
-          var _c$4 = _$memo(() => turn.reasoning > 0);
-          return () => _c$4() ? (() => {
-            var _el$191 = _$createElement("text"),
-              _el$192 = _$createTextNode(`Reasoning : `),
-              _el$194 = _$createElement("span");
-            _$insertNode(_el$191, _el$192);
-            _$insertNode(_el$191, _el$194);
-            _$insert(_el$194, () => fmt(turn.reasoning));
-            _$effect(_p$ => {
-              var _v$57 = mutedColor(),
-                _v$58 = {
-                  fg: textNormal()
-                };
-              _v$57 !== _p$.e && (_p$.e = _$setProp(_el$191, "fg", _v$57, _p$.e));
-              _v$58 !== _p$.t && (_p$.t = _$setProp(_el$194, "style", _v$58, _p$.t));
-              return _p$;
-            }, {
-              e: undefined,
-              t: undefined
-            });
-            return _el$191;
-          })() : null;
-        })(), null);
-        _$insert(_el$176, (() => {
-          var _c$5 = _$memo(() => !!turn.durationMs);
-          return () => _c$5() ? (() => {
-            var _el$195 = _$createElement("text"),
-              _el$196 = _$createTextNode(`Time : `),
-              _el$198 = _$createElement("span");
-            _$insertNode(_el$195, _el$196);
-            _$insertNode(_el$195, _el$198);
-            _$insert(_el$198, () => fmtDuration(turn.durationMs));
-            _$effect(_p$ => {
-              var _v$59 = mutedColor(),
-                _v$60 = {
-                  fg: textNormal()
-                };
-              _v$59 !== _p$.e && (_p$.e = _$setProp(_el$195, "fg", _v$59, _p$.e));
-              _v$60 !== _p$.t && (_p$.t = _$setProp(_el$198, "style", _v$60, _p$.t));
-              return _p$;
-            }, {
-              e: undefined,
-              t: undefined
-            });
-            return _el$195;
-          })() : null;
-        })(), null);
-        _$insert(_el$176, (() => {
-          var _c$6 = _$memo(() => turn.cost > 0);
-          return () => _c$6() ? (() => {
-            var _el$199 = _$createElement("text"),
-              _el$200 = _$createTextNode(`Cost : `),
-              _el$202 = _$createElement("span");
-            _$insertNode(_el$199, _el$200);
-            _$insertNode(_el$199, _el$202);
-            _$insert(_el$202, () => fmtCost(turn.cost));
-            _$effect(_p$ => {
-              var _v$61 = mutedColor(),
-                _v$62 = {
-                  fg: accentColor()
-                };
-              _v$61 !== _p$.e && (_p$.e = _$setProp(_el$199, "fg", _v$61, _p$.e));
-              _v$62 !== _p$.t && (_p$.t = _$setProp(_el$202, "style", _v$62, _p$.t));
-              return _p$;
-            }, {
-              e: undefined,
-              t: undefined
-            });
-            return _el$199;
-          })() : null;
-        })(), null);
+        _$insertNode(_el$177, _el$180);
+        _$insert(_el$180, () => formatTokens(t.cacheRead));
         _$effect(_p$ => {
-          var _v$49 = mutedColor(),
-            _v$50 = {
-              fg: textNormal()
-            },
-            _v$51 = mutedColor(),
-            _v$52 = {
+          var _v$53 = mutedColor(),
+            _v$54 = {
               fg: textNormal()
             };
-          _v$49 !== _p$.e && (_p$.e = _$setProp(_el$177, "fg", _v$49, _p$.e));
-          _v$50 !== _p$.t && (_p$.t = _$setProp(_el$179, "style", _v$50, _p$.t));
-          _v$51 !== _p$.a && (_p$.a = _$setProp(_el$180, "fg", _v$51, _p$.a));
-          _v$52 !== _p$.o && (_p$.o = _$setProp(_el$182, "style", _v$52, _p$.o));
+          _v$53 !== _p$.e && (_p$.e = _$setProp(_el$177, "fg", _v$53, _p$.e));
+          _v$54 !== _p$.t && (_p$.t = _$setProp(_el$180, "style", _v$54, _p$.t));
           return _p$;
         }, {
           e: undefined,
-          t: undefined,
-          a: undefined,
-          o: undefined
+          t: undefined
         });
-        return _el$176;
-      }
-    }), null);
+        return _el$177;
+      })() : null;
+    })(), _el$174);
+    _$insertNode(_el$174, _el$175);
+    _$insertNode(_el$174, _el$176);
+    _$insert(_el$176, () => formatTokens(t.output));
+    _$insert(_el$170, (() => {
+      var _c$4 = _$memo(() => t.reasoning > 0);
+      return () => _c$4() ? (() => {
+        var _el$181 = _$createElement("text"),
+          _el$182 = _$createTextNode(`Reasoning : `),
+          _el$184 = _$createElement("span");
+        _$insertNode(_el$181, _el$182);
+        _$insertNode(_el$181, _el$184);
+        _$insert(_el$184, () => formatTokens(t.reasoning));
+        _$effect(_p$ => {
+          var _v$55 = mutedColor(),
+            _v$56 = {
+              fg: textNormal()
+            };
+          _v$55 !== _p$.e && (_p$.e = _$setProp(_el$181, "fg", _v$55, _p$.e));
+          _v$56 !== _p$.t && (_p$.t = _$setProp(_el$184, "style", _v$56, _p$.t));
+          return _p$;
+        }, {
+          e: undefined,
+          t: undefined
+        });
+        return _el$181;
+      })() : null;
+    })(), null);
+    _$insert(_el$170, (() => {
+      var _c$5 = _$memo(() => !!t.durationMs);
+      return () => _c$5() ? (() => {
+        var _el$185 = _$createElement("text"),
+          _el$186 = _$createTextNode(`Time : `),
+          _el$188 = _$createElement("span");
+        _$insertNode(_el$185, _el$186);
+        _$insertNode(_el$185, _el$188);
+        _$insert(_el$188, () => formatDuration(t.durationMs));
+        _$effect(_p$ => {
+          var _v$57 = mutedColor(),
+            _v$58 = {
+              fg: textNormal()
+            };
+          _v$57 !== _p$.e && (_p$.e = _$setProp(_el$185, "fg", _v$57, _p$.e));
+          _v$58 !== _p$.t && (_p$.t = _$setProp(_el$188, "style", _v$58, _p$.t));
+          return _p$;
+        }, {
+          e: undefined,
+          t: undefined
+        });
+        return _el$185;
+      })() : null;
+    })(), null);
+    _$insert(_el$170, (() => {
+      var _c$6 = _$memo(() => t.cost > 0);
+      return () => _c$6() ? (() => {
+        var _el$189 = _$createElement("text"),
+          _el$190 = _$createTextNode(`Cost : `),
+          _el$191 = _$createElement("span");
+        _$insertNode(_el$189, _el$190);
+        _$insertNode(_el$189, _el$191);
+        _$insert(_el$191, () => formatUSD(t.cost));
+        _$effect(_p$ => {
+          var _v$59 = mutedColor(),
+            _v$60 = {
+              fg: accentColor()
+            };
+          _v$59 !== _p$.e && (_p$.e = _$setProp(_el$189, "fg", _v$59, _p$.e));
+          _v$60 !== _p$.t && (_p$.t = _$setProp(_el$191, "style", _v$60, _p$.t));
+          return _p$;
+        }, {
+          e: undefined,
+          t: undefined
+        });
+        return _el$189;
+      })() : null;
+    })(), null);
     _$effect(_p$ => {
-      var _v$53 = mutedColor(),
-        _v$54 = textNormal();
-      _v$53 !== _p$.e && (_p$.e = _$setProp(_el$172, "fg", _v$53, _p$.e));
-      _v$54 !== _p$.t && (_p$.t = _$setProp(_el$173, "fg", _v$54, _p$.t));
+      var _v$49 = mutedColor(),
+        _v$50 = {
+          fg: textNormal()
+        },
+        _v$51 = mutedColor(),
+        _v$52 = {
+          fg: textNormal()
+        };
+      _v$49 !== _p$.e && (_p$.e = _$setProp(_el$171, "fg", _v$49, _p$.e));
+      _v$50 !== _p$.t && (_p$.t = _$setProp(_el$173, "style", _v$50, _p$.t));
+      _v$51 !== _p$.a && (_p$.a = _$setProp(_el$174, "fg", _v$51, _p$.a));
+      _v$52 !== _p$.o && (_p$.o = _$setProp(_el$176, "style", _v$52, _p$.o));
       return _p$;
     }, {
       e: undefined,
-      t: undefined
+      t: undefined,
+      a: undefined,
+      o: undefined
     });
     return _el$170;
+  })();
+  return (() => {
+    var _el$192 = _$createElement("box");
+    _$setProp(_el$192, "flexDirection", "column");
+    _$setProp(_el$192, "gap", 0);
+    _$insert(_el$192, _$createComponent(Show, {
+      get when() {
+        return lastTurn();
+      },
+      children: turn => [(() => {
+        var _el$193 = _$createElement("box"),
+          _el$194 = _$createElement("text"),
+          _el$195 = _$createElement("text"),
+          _el$196 = _$createElement("b");
+        _$insertNode(_el$193, _el$194);
+        _$insertNode(_el$193, _el$195);
+        _$setProp(_el$193, "flexDirection", "row");
+        _$setProp(_el$193, "gap", 1);
+        _$setProp(_el$193, "wrapMode", "none");
+        _$setProp(_el$193, "onMouseDown", () => setOpen(x => !x));
+        _$insert(_el$194, () => open() ? "▼" : "▶");
+        _$insertNode(_el$195, _el$196);
+        _$setProp(_el$195, "wrapMode", "none");
+        _$insertNode(_el$196, _$createTextNode(`Last Turn (main)`));
+        _$effect(_p$ => {
+          var _v$61 = mutedColor(),
+            _v$62 = textNormal();
+          _v$61 !== _p$.e && (_p$.e = _$setProp(_el$194, "fg", _v$61, _p$.e));
+          _v$62 !== _p$.t && (_p$.t = _$setProp(_el$195, "fg", _v$62, _p$.t));
+          return _p$;
+        }, {
+          e: undefined,
+          t: undefined
+        });
+        return _el$193;
+      })(), _$createComponent(Show, {
+        get when() {
+          return open();
+        },
+        get children() {
+          return renderTurnDetails(turn());
+        }
+      })]
+    }));
+    return _el$192;
   })();
 }
 
@@ -1772,15 +1774,15 @@ export const tui = async function tui(api, options, meta) {
         },
         sidebar_content(ctx, props) {
           return (() => {
-            var _el$203 = _$createElement("box");
-            _$setProp(_el$203, "flexDirection", "column");
-            _$setProp(_el$203, "gap", 1);
-            _$insert(_el$203, _$createComponent(SidebarWidget, {
+            var _el$198 = _$createElement("box");
+            _$setProp(_el$198, "flexDirection", "column");
+            _$setProp(_el$198, "gap", 1);
+            _$insert(_el$198, _$createComponent(SidebarWidget, {
               api: api,
               directory: directory,
               sessionID: () => props?.session_id || ctx?.session_id || activeSessionID() || resolveActiveSessionID(api) || ""
             }), null);
-            _$insert(_el$203, _$createComponent(Show, {
+            _$insert(_el$198, _$createComponent(Show, {
               get when() {
                 return config?.usage?.enabled !== false;
               },
@@ -1788,11 +1790,14 @@ export const tui = async function tui(api, options, meta) {
                 return _$createComponent(TokensTree, {
                   api: api,
                   directory: directory,
+                  get config() {
+                    return config?.usage;
+                  },
                   sessionID: () => props?.session_id || ctx?.session_id || activeSessionID() || resolveActiveSessionID(api) || ""
                 });
               }
             }), null);
-            return _el$203;
+            return _el$198;
           })();
         }
       }

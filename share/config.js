@@ -141,11 +141,10 @@ export const DEFAULTS = {
 	usage: {
 		enabled: true,
 		tokens: {
-			toast: {
-				enabled: true,
-				visibleMs: 4000,
-				fadeMs: 600,
-			},
+			// Show subagent section (tree + last turn). false hides it entirely.
+			showSubagents: true,
+			// Subagent nodes default to collapsed (mobile-friendly).
+			subagentsCollapsed: true,
 		},
 		quota: {
 			ollama: {

@@ -3,13 +3,31 @@
  *
  * Uses in-memory SQLite fixtures that mirror the real agent.db / opencode.db
  * schemas, so tests never touch live credential files.
+ *
+ * `node:sqlite` (DatabaseSync) is only available on Node >= 22. CI runs
+ * Node 18/20 too, so DB-backed tests are skipped on older runtimes while
+ * pure-logic tests (formatting, parsing) still run everywhere.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createRequire } from "node:module";
 import { openReadonly } from "../usage/store-db.js";
+
+// node:sqlite is unavailable before Node 22 — skip DB-backed tests there.
+const require = createRequire(import.meta.url);
+const hasSqlite = (() => {
+	try {
+		require("node:sqlite");
+		return true;
+	} catch {
+		return false;
+	}
+})();
+
+const sqliteTest = hasSqlite ? test : test.skip;
 import {
 	getProviderCredentials,
 	getAntigravityCreds,
@@ -173,7 +191,7 @@ async function makeTokensDb() {
 	return handle;
 }
 
-test("quota/store: reads credentials and parses JSON data", async () => {
+sqliteTest("quota/store: reads credentials and parses JSON data", async () => {
 	const h = await makeAgentDb();
 	try {
 		const ollama = getOllamaCreds(h.db);
@@ -221,7 +239,7 @@ test("quota/store: filters credentials by label", () => {
 	assert.equal(filtered[0].id, 5);
 });
 
-test("quota/ollama: aggregates all keys (max weekly, sum requests)", async () => {
+sqliteTest("quota/ollama: aggregates all keys (max weekly, sum requests)", async () => {
 	const h = await makeAgentDb();
 	try {
 		const result = await fetchOllamaQuota(h.db, {
@@ -346,7 +364,7 @@ test("format: no credentials → clear guidance, not fake 0.0%", () => {
 	assert.ok(filtered.includes("No credentials found in agent.db"));
 });
 
-test("store-db: missing database file throws actionable error", async () => {
+sqliteTest("store-db: missing database file throws actionable error", async () => {
 	const { mkdtempSync, rmSync, existsSync } = await import("node:fs");
 	const { tmpdir } = await import("node:os");
 	const { join } = await import("node:path");
@@ -363,7 +381,7 @@ test("store-db: missing database file throws actionable error", async () => {
 	}
 });
 
-test("tokens: session tokens, agent tree, turn delta", async () => {
+sqliteTest("tokens: session tokens, agent tree, turn delta", async () => {
 	const h = await makeTokensDb();
 	try {
 		const main = getSessionTokens(h.db, "ses_main");

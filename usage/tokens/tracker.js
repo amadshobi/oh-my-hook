@@ -66,15 +66,13 @@ export function getAgentTree(db, sessionID) {
 }
 
 /**
- * Token delta since a given message (for the floating toast).
- * Falls back to the full session row when no lastMessageId is available.
+ * Token delta from the most recent message in a session.
  *
  * @param {object} db open opencode.db handle
  * @param {string} sessionID
- * @param {string} [lastMessageId]
  * @returns {object|null} { input, output, reasoning, cacheRead, cacheWrite, cost, durationMs } | null
  */
-export function getTurnDelta(db, sessionID, lastMessageId) {
+export function getTurnDelta(db, sessionID) {
 	const last = getLastMessage(db, sessionID);
 	if (!last) return null;
 

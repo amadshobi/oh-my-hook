@@ -4,7 +4,7 @@
  * Session rows carry aggregated token columns; per-message details live in
  * `message.data` JSON. Subagents are sessions with `parent_id` set.
  */
-import { opencodeDbPath } from "../store-db.js";
+import { queryAll } from "../store-db.js";
 
 /**
  * Get a session row by id (undefined when missing).
@@ -14,11 +14,11 @@ import { opencodeDbPath } from "../store-db.js";
  * @returns {object|undefined}
  */
 export function getSessionRow(db, sessionID) {
-	const rows = db
-		.prepare(
-			"SELECT id, parent_id, agent, model, title, cost, tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write, time_created, time_updated FROM session WHERE id = ?",
-		)
-		.all(sessionID);
+	const rows = queryAll(
+		db,
+		"SELECT id, parent_id, agent, model, title, cost, tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write, time_created, time_updated FROM session WHERE id = ?",
+		[sessionID],
+	);
 	return rows.length > 0 ? rows[0] : undefined;
 }
 
@@ -30,11 +30,11 @@ export function getSessionRow(db, sessionID) {
  * @returns {Array<object>}
  */
 export function getSubagentRows(db, sessionID) {
-	return db
-		.prepare(
-			"SELECT id, parent_id, agent, model, title, cost, tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write FROM session WHERE parent_id = ? ORDER BY time_updated DESC",
-		)
-		.all(sessionID);
+	return queryAll(
+		db,
+		"SELECT id, parent_id, agent, model, title, cost, tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write FROM session WHERE parent_id = ? ORDER BY time_updated DESC",
+		[sessionID],
+	);
 }
 
 /**
@@ -45,11 +45,11 @@ export function getSubagentRows(db, sessionID) {
  * @returns {object|undefined} parsed message data
  */
 export function getLastMessage(db, sessionID) {
-	const rows = db
-		.prepare(
-			"SELECT data FROM message WHERE session_id = ? ORDER BY time_created DESC LIMIT 1",
-		)
-		.all(sessionID);
+	const rows = queryAll(
+		db,
+		"SELECT data FROM message WHERE session_id = ? ORDER BY time_created DESC LIMIT 1",
+		[sessionID],
+	);
 	if (rows.length === 0) return undefined;
 	try {
 		return JSON.parse(rows[0].data);
