@@ -14,6 +14,7 @@ _Stop AI agents from hallucinating file writes, leaking credentials, executing d
 
 ---
 
+[Documentation Portal](docs/index.md) •
 [Key Pillars](#-key-pillars) •
 [Why oh-my-hook?](#-why-oh-my-hook) •
 [Architecture](#-architecture-flow) •
@@ -27,6 +28,27 @@ _Stop AI agents from hallucinating file writes, leaking credentials, executing d
 [Testing](#-testing--development)
 
 </div>
+
+---
+
+## 📚 Complete Documentation Suite
+
+Comprehensive architectural deep dives, developer manuals, and per-module configuration references are available in the **[`docs/`](docs/index.md)** directory:
+
+- 📖 [**Introduction & Philosophy**](docs/intro.md) — The problem space of AI agents, core engineering pillars, and before/after comparisons.
+- 📐 [**System Architecture & Internals**](docs/architecture/index.md) — Hook lifecycle flow, [Boundary Contracts](docs/architecture/boundary-contract.md), and [TUI Reactive Runtime](docs/architecture/tui-runtime.md).
+- 🌟 [**Showcase & Products**](docs/showcase/sandbox/index.md):
+  - 🔒 **[Sandbox Safety Suite](docs/showcase/sandbox/index.md)** — [Read/Stale Guard](docs/showcase/sandbox/read-stale-guard.md), [Secret Scanner](docs/showcase/sandbox/secret-scanner.md), [Dangerous Bash Guard](docs/showcase/sandbox/dangerous-bash.md), [Commit Guard](docs/showcase/sandbox/commit-guard.md).
+  - 🗺️ **[Planning Suite](docs/showcase/plans/index.md)** — [Plan Mode Barrier](docs/showcase/plans/plan-mode.md), [Interactive Plan Reviewer](docs/showcase/plans/interactive-review.md), [Prompt Templates](docs/showcase/plans/templates.md).
+  - 🧠 **[Curated Memory](docs/showcase/memory/index.md)** — [Agent Tool](docs/showcase/memory/agent-tool.md), [AI Distillation](docs/showcase/memory/distillation.md), [TUI Inspector](docs/showcase/memory/tui-inspector.md).
+  - 🗜️ **[Context Compression](docs/showcase/compress/index.md)** — [Dynamic Pruning](docs/showcase/compress/dynamic-pruning.md), [Milestones Compaction](docs/showcase/compress/milestones.md).
+  - 📊 **[Live Quota & Tokens](docs/showcase/usage/index.md)** — [Cloud Quota Tracker](docs/showcase/usage/cloud-quota.md), [Session Token Tree](docs/showcase/usage/session-tokens.md).
+  - 👁️ **[Multimodal Vision](docs/showcase/imgsee/index.md)** — Out-of-band image analysis & OCR.
+  - 🧭 **[System Prompt Router](docs/showcase/prompts/index.md)** — Dynamic model family prompt routing.
+  - 🔌 **[Gateway Bridge](docs/showcase/gateway/index.md)** — Local daemon integration & Antigravity CCA armor.
+- ⚙️ [**Configuration Reference**](docs/config/overview.md) — Multi-file precedence and per-module settings ([Sandbox](docs/config/sandbox.md), [Plans](docs/config/plans.md), [Memory](docs/config/memory.md), [Compress](docs/config/compress.md), [Usage](docs/config/usage.md), [Imgsee](docs/config/imgsee.md), [Prompts](docs/config/prompts.md), [Gateway](docs/config/gateway.md)).
+- 🛠️ [**Developer Guides**](docs/guides/custom-hooks.md) — [Authoring Custom Hooks](docs/guides/custom-hooks.md) and [Headless Testing](docs/guides/headless-testing.md).
+- 🚑 [**Troubleshooting & Runbook**](docs/troubleshooting.md) — Common error messages, resolution workflows, and state ledger reset procedures.
 
 ---
 
@@ -99,10 +121,10 @@ _Stop AI agents from hallucinating file writes, leaking credentials, executing d
                                                             ▼ Quota
                                                             [OpenRouter] 22% used
 
-                                                       ┌──► ▼ oh-my-hook (COLLAPSIBLE SIDEBAR)
-                                                       │    • Mode  : 🔒 Plan (Read-Only)
-                                                       │    • Guards: 7 Active
-                                                       │    • Memory: 3 Notes
+                                                       ┌──► ▼ oh-my-hook               ● PLAN
+                                                       │    • Mode  : plan (read-only)
+                                                       │    • Shields: 7 active
+                                                       │    • Memory: 3 notes
                                                        │
                                                             ▼ MCP
                                                             • github Connected
@@ -110,12 +132,12 @@ _Stop AI agents from hallucinating file writes, leaking credentials, executing d
 ┃
 ┃
 ┃
-┃  Assistant · Gemini 3.7 Flash omp gateway   🔒 [plan mode]   /~   ◄── [PROMPT BADGE]
+┃  Assistant · Gemini 3.7 Flash gateway               PLAN (feature-auth)  /~   ◄── [PROMPT BADGE]
 ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 ```
 
-1. **`session_prompt_right` Slot**: Renders a dynamic warning badge `🔒 [plan mode]` when the active session is in plan mode. Hides automatically during execute mode to keep your input bar clean.
-2. **`sidebar_content` Slot**: A compact collapsible widget showing active mode, active guardrails count, and curated memory notes.
+1. **`session_prompt_right` Slot**: Renders a dynamic warning badge `PLAN` (alongside plan name) when the active session is in plan mode. Hides automatically during execute mode to keep your input bar clean.
+2. **`sidebar_content` Slot**: A compact collapsible widget showing active mode status (`● ACTIVE` / `● PLAN` / `● EXEC`), active shields count, and curated memory notes.
 3. **Resilient Reactive Watcher**: Debounced (50ms) directory watcher tracks session state without IPC or polling overhead.
 
 ---
