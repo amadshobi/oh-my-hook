@@ -10,7 +10,7 @@ const distJsPath = path.join(distDir, "tui.js");
 
 await fs.mkdir(distDir, { recursive: true });
 
-// Copy lib directory into dist
+// Copy lib directory into dist (runtime helper modules)
 await fs.cp(path.join(rootDir, "src", "lib"), path.join(distDir, "lib"), { recursive: true });
 
 const babelPath = pathToFileURL("/home/shobixlinuxdev/.npm-global/lib/node_modules/@slkiser/opencode-quota/node_modules/@babel/core/lib/index.js").href;

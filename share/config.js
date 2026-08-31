@@ -138,6 +138,22 @@ export const DEFAULTS = {
 		maxBytes: 5242880, // 5 MiB
 		timeoutMs: 60000,
 	},
+	usage: {
+		enabled: true,
+		tokens: {
+			toast: {
+				enabled: true,
+				visibleMs: 4000,
+				fadeMs: 600,
+			},
+		},
+		quota: {
+			ollama: {
+				// key-prefix → display name for multi-key accounts
+				accounts: {},
+			},
+		},
+	},
 	messages: {},
 };
 

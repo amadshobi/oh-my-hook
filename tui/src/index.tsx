@@ -8,6 +8,7 @@ import {
 	onMount,
 	onCleanup,
 	createMemo,
+	createEffect,
 } from "solid-js";
 import { watchModeState } from "./lib/mode-watch.js";
 import {
@@ -30,6 +31,9 @@ import {
 	getGlobalFile,
 	listMemoryEntries,
 } from "../../memory/store.js";
+import { formatTokens, formatUSD } from "../../usage/format.js";
+import { openReadonly, opencodeDbPath } from "../../usage/store-db.js";
+import { getAgentTree } from "../../usage/tokens/tracker.js";
 
 function ModeBadge(props: { api: any; sessionID: () => string }) {
 	const [modeState, setModeState] = createSignal(loadModeState() || {});
@@ -803,6 +807,290 @@ function PlanReviewModal(props: {
 }
 
 /**
+ * TokensTree — collapsible accordion tree for session & subagent token usage.
+ *
+ * Data comes from usage/tokens/tracker.js (read-only opencode.db). Each node
+ * (main agent + subagents) can be expanded/collapsed independently via click.
+ * Refreshes when the mode state changes (proxy for session activity).
+ */
+function TokensTree(props: {
+	api: any;
+	sessionID: () => string;
+	directory: string;
+}) {
+	const [open, setOpen] = createSignal(true);
+	const [mainOpen, setMainOpen] = createSignal(true);
+	const [subOpen, setSubOpen] = createSignal(true);
+	const [tree, setTree] = createSignal<{
+		main: any;
+		subagents: any[];
+	} | null>(null);
+
+	// Refresh tree when session changes or mode state flips (activity proxy).
+	createEffect(() => {
+		const sid = props.sessionID();
+		if (!sid) {
+			setTree(null);
+			return;
+		}
+		let h: any = null;
+		try {
+			openReadonly(opencodeDbPath()).then((handle) => {
+				h = handle;
+				setTree(getAgentTree(handle.db, sid));
+				handle.close();
+			});
+		} catch {
+			setTree(null);
+		}
+	});
+
+	const theme = () => props.api?.theme?.current || {};
+	const mutedColor = () => theme().textMuted || "#6b7280";
+	const textNormal = () => theme().text || "#f3f4f6";
+	const accentColor = () => theme().accent || "#8b5cf6";
+	const successColor = () => theme().success || "#10b981";
+
+	const totalTokens = () => {
+		const t = tree();
+		if (!t) return 0;
+		const subs = t.subagents.reduce(
+			(s, x) => s + (x.input || 0) + (x.output || 0),
+			0,
+		);
+		return (t.main?.input || 0) + (t.main?.output || 0) + subs;
+	};
+
+	const modelName = (m: any) => {
+		if (!m?.model) return "n/a";
+		return m.model.split("/").pop();
+	};
+
+	const renderNode = (
+		node: any,
+		openSignal: () => boolean,
+		toggle: () => void,
+	) => (
+		<>
+			<box flexDirection="row" gap={1} onMouseDown={toggle}>
+				<text fg={mutedColor()}>{openSignal() ? "▼" : "▶"}</text>
+				<text fg={accentColor()}>
+					<b>{node.agent || "agent"}</b>
+				</text>
+				<text fg={mutedColor()}>{modelName(node)}</text>
+			</box>
+			<Show when={openSignal()}>
+				<box flexDirection="column" gap={0} paddingLeft={2}>
+					<text fg={mutedColor()}>
+						In :{" "}
+						<span style={{ fg: textNormal() }}>{formatTokens(node.input)}</span>
+					</text>
+					<text fg={mutedColor()}>
+						Out :{" "}
+						<span style={{ fg: textNormal() }}>
+							{formatTokens(node.output)}
+						</span>
+					</text>
+					<Show when={node.reasoning > 0}>
+						<text fg={mutedColor()}>
+							Reasoning:{" "}
+							<span style={{ fg: textNormal() }}>
+								{formatTokens(node.reasoning)}
+							</span>
+						</text>
+					</Show>
+					<Show when={node.cacheRead > 0 || node.cacheWrite > 0}>
+						<text fg={mutedColor()}>
+							Cache R:{" "}
+							<span style={{ fg: textNormal() }}>
+								{formatTokens(node.cacheRead)}
+							</span>
+						</text>
+					</Show>
+					<text fg={mutedColor()}>
+						Cost :{" "}
+						<span style={{ fg: successColor() }}>{formatUSD(node.cost)}</span>
+					</text>
+				</box>
+			</Show>
+		</>
+	);
+
+	return (
+		<box flexDirection="column" gap={0}>
+			<box flexDirection="row" gap={1} onMouseDown={() => setOpen((x) => !x)}>
+				<text fg={mutedColor()}>{open() ? "▼" : "▶"}</text>
+				<text fg={textNormal()}>
+					<b>Tokens</b>
+				</text>
+				<text fg={mutedColor()}>
+					{totalTokens() > 0 ? `(${formatTokens(totalTokens())})` : ""}
+				</text>
+			</box>
+
+			<Show when={open() && tree()}>
+				<box flexDirection="column" gap={0} paddingLeft={1}>
+					{renderNode(tree()!.main, mainOpen, () => setMainOpen((x) => !x))}
+					<Show when={tree()!.subagents.length > 0}>
+						<box
+							flexDirection="row"
+							gap={1}
+							onMouseDown={() => setSubOpen((x) => !x)}
+						>
+							<text fg={mutedColor()}>{subOpen() ? "▼" : "▶"}</text>
+							<text fg={textNormal()}>
+								Subagents ({tree()!.subagents.length})
+							</text>
+						</box>
+						<Show when={subOpen()}>
+							<box flexDirection="column" gap={0} paddingLeft={2}>
+								<For each={tree()!.subagents}>
+									{(sub) => (
+										<box flexDirection="column" gap={0} paddingLeft={1}>
+											{renderNode(sub, subOpen, () => setSubOpen((x) => !x))}
+										</box>
+									)}
+								</For>
+							</box>
+						</Show>
+					</Show>
+					<LastTurnItem api={props.api} sessionID={props.sessionID} />
+				</box>
+			</Show>
+		</box>
+	);
+}
+
+/**
+ * LastTurnItem — collapsible "Last Turn" node inside the Tokens tree.
+ *
+ * Reads reactive TUI state (api.state.session.messages) + 2s tick, shows the
+ * last completed assistant turn's token breakdown. Expand/collapse via click.
+ */
+function LastTurnItem(props: { api: any; sessionID: () => string }) {
+	// Default expanded — mobile users shouldn't need to tap to open it.
+	const [open, setOpen] = createSignal(true);
+	const theme = () => props.api?.theme?.current || {};
+	const mutedColor = () => theme().textMuted || "#6b7280";
+	const textNormal = () => theme().text || "#f3f4f6";
+	const accentColor = () => theme().accent || "#8b5cf6";
+
+	const [tick, setTick] = createSignal(0);
+	const timer = setInterval(() => setTick((t) => t + 1), 2000);
+	onCleanup(() => clearInterval(timer));
+
+	const lastTurn = createMemo(() => {
+		tick();
+		const sid = props.sessionID();
+		if (!sid) return null;
+		const state = props.api?.state?.session;
+		if (!state) return null;
+
+		let msgs: any[] = [];
+		try {
+			msgs = state.messages(sid) ?? [];
+		} catch {
+			return null;
+		}
+
+		// Last completed assistant turn with real token data.
+		const last = [...msgs]
+			.reverse()
+			.find(
+				(m: any) =>
+					m.role === "assistant" && m.tokens && (m.tokens.input || 0) > 0,
+			);
+		if (!last) return null;
+
+		const t = last.tokens || {};
+		return {
+			input: t.input || 0,
+			output: t.output || 0,
+			reasoning: t.reasoning || 0,
+			cacheRead: t.cache?.read || 0,
+			cost: last.cost || 0,
+			durationMs:
+				last.time?.completed && last.time?.created
+					? last.time.completed - last.time.created
+					: null,
+		};
+	});
+
+	const fmt = (n: number) => {
+		if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}m`;
+		if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+		return `${n}`;
+	};
+
+	const fmtCost = (n: number) => {
+		if (n >= 1) return `$${n.toFixed(2)}`;
+		if (n >= 0.01) return `$${n.toFixed(3)}`;
+		return `$${n.toFixed(4)}`;
+	};
+
+	const fmtDuration = (ms: number) => {
+		if (!ms) return "";
+		const s = ms / 1000;
+		if (s < 60) return `${s.toFixed(1)}s`;
+		return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
+	};
+
+	const turn = lastTurn();
+
+	return (
+		<box flexDirection="column" gap={0}>
+			<box flexDirection="row" gap={1} onMouseDown={() => setOpen((x) => !x)}>
+				<text fg={mutedColor()}>{open() ? "▼" : "▶"}</text>
+				<text fg={textNormal()}>
+					<b>Last Turn</b>
+				</text>
+				{turn ? (
+					<text fg={mutedColor()}>
+						({fmt(turn.input)} in · {fmt(turn.output)} out)
+					</text>
+				) : null}
+			</box>
+			<Show when={open() && turn}>
+				<box flexDirection="column" gap={0} paddingLeft={2}>
+					<text fg={mutedColor()}>
+						In : <span style={{ fg: textNormal() }}>{fmt(turn.input)}</span>
+					</text>
+					{turn.cacheRead > 0 ? (
+						<text fg={mutedColor()}>
+							Cache :{" "}
+							<span style={{ fg: textNormal() }}>{fmt(turn.cacheRead)}</span>
+						</text>
+					) : null}
+					<text fg={mutedColor()}>
+						Out : <span style={{ fg: textNormal() }}>{fmt(turn.output)}</span>
+					</text>
+					{turn.reasoning > 0 ? (
+						<text fg={mutedColor()}>
+							Reasoning :{" "}
+							<span style={{ fg: textNormal() }}>{fmt(turn.reasoning)}</span>
+						</text>
+					) : null}
+					{turn.durationMs ? (
+						<text fg={mutedColor()}>
+							Time :{" "}
+							<span style={{ fg: textNormal() }}>
+								{fmtDuration(turn.durationMs)}
+							</span>
+						</text>
+					) : null}
+					{turn.cost > 0 ? (
+						<text fg={mutedColor()}>
+							Cost :{" "}
+							<span style={{ fg: accentColor() }}>{fmtCost(turn.cost)}</span>
+						</text>
+					) : null}
+				</box>
+			</Show>
+		</box>
+	);
+}
+
+/**
  * OpenCode TUI surface plugin entrypoint.
  */
 export const tui = async function tui(api: any, options: any, meta: any) {
@@ -910,11 +1198,11 @@ export const tui = async function tui(api: any, options: any, meta: any) {
 		}
 	}
 
-	// 2. Register UI slots (Sidebar & Prompt Badge)
+	// 2. Register UI slots (Sidebar, Prompt Badge, Sidebar Footer)
 	if (api.slots?.register) {
 		api.slots.register({
 			id: "oh-my-hook-sidebar",
-			order: 160,
+			order: 99,
 			slots: {
 				session_prompt_right(ctx: any, props: { session_id?: string }) {
 					return (
@@ -926,17 +1214,32 @@ export const tui = async function tui(api: any, options: any, meta: any) {
 				},
 				sidebar_content(ctx: any, props: { session_id?: string }) {
 					return (
-						<SidebarWidget
-							api={api}
-							directory={directory}
-							sessionID={() =>
-								props?.session_id ||
-								ctx?.session_id ||
-								activeSessionID() ||
-								resolveActiveSessionID(api) ||
-								""
-							}
-						/>
+						<box flexDirection="column" gap={1}>
+							<SidebarWidget
+								api={api}
+								directory={directory}
+								sessionID={() =>
+									props?.session_id ||
+									ctx?.session_id ||
+									activeSessionID() ||
+									resolveActiveSessionID(api) ||
+									""
+								}
+							/>
+							<Show when={config?.usage?.enabled !== false}>
+								<TokensTree
+									api={api}
+									directory={directory}
+									sessionID={() =>
+										props?.session_id ||
+										ctx?.session_id ||
+										activeSessionID() ||
+										resolveActiveSessionID(api) ||
+										""
+									}
+								/>
+							</Show>
+						</box>
 					);
 				},
 			},

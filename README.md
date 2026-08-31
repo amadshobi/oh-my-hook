@@ -39,6 +39,7 @@ _Stop AI agents from hallucinating file writes, leaking credentials, executing d
 - 🧠 **Curated Distilled Memory (`/capture`)**: Zero-noise memory engine. Only loads curated bullets into the primary agent, keeping subagent contexts clean and compaction snapshots lossless.
 - 🔔 **Autonomous Verification Loop**: Runs typechecking, linter auto-fixes, and tests immediately after edits while automatically refreshing ledger state.
 - 🪶 **Zero Dependencies Core**: 100% pure Node.js ESM built-ins (`node:fs`, `node:path`, `node:child_process`). Lightweight, instant startup, zero supply-chain risk.
+- 📊 **Live Quota & Token Monitor (`usage/`)**: Deterministic `/usage` slash command (0-token LLM) showing multi-provider quota — Google Antigravity, Ollama Cloud (multi-key aggregate), OpenRouter balance — straight from `agent.db`, plus session/subagent token breakdown from `opencode.db`.
 
 ---
 
@@ -406,9 +407,35 @@ When coding agents need to inspect UI layouts, error screenshots, diagrams, or w
 
 ---
 
+## 📊 Live Quota & Token Monitor (`usage/`)
+
+Deterministic `/usage` slash command (0-token LLM — output is `ignored` transcript, never read by the model):
+
+```text
+/usage              → all providers
+/usage quota        → all providers (alias)
+/usage ollama       → Ollama Cloud only
+/usage agy          → Google Antigravity only
+/usage openrouter   → OpenRouter only
+/usage tokens       → session token breakdown
+/usage help         → list subcommands
+```
+
+- **Cloud Quota**: reads credentials read-only from `~/.omp/agent/agent.db` and fetches live limits (Antigravity weekly/5-hour, Ollama Cloud weekly with multi-key aggregation, OpenRouter balance).
+- **Ollama multi-key**: all keys fetched in parallel; weekly = `max(usage)`, requests summed. Labels from config `usage.quota.ollama.accounts` (key-prefix → name), fallback `key#<id>`.
+- **Session Tokens**: main + subagent token consumption from `~/.local/share/opencode/opencode.db` (input/output/reasoning/cache/cost).
+- **Zero-dependency**: dual-runtime SQLite adapter (`bun:sqlite` on Bun, `node:sqlite` on Node) — read-only, never touches live data.
+
+### TUI Sidebar Surfaces
+
+- **`Tokens` tree** (`sidebar_content`): collapsible accordion showing main agent + subagent token usage (input/output/reasoning/cache/cost), refreshed per session.
+- **`Last Turn` node** (inside `Tokens` tree): last completed assistant turn breakdown (input, cache, output, reasoning, duration, cost) — expanded by default for quick glance.
+
+---
+
 ## 🧪 Testing & Development
 
-`oh-my-hook` includes **131 unit tests** and **5 deterministic E2E hook pipeline test suites**.
+`oh-my-hook` includes **142 unit tests** and **5 deterministic E2E hook pipeline test suites**.
 
 ```bash
 # Run unit tests

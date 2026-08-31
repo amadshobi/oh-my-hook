@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-08-31
+
+### Added
+
+- **📊 Live Quota & Token Monitor (`usage/` — Issue #20, Phase 1+2)**:
+  - **`/usage` slash command (0-token LLM)**: deterministic `command.execute.before` handler delivering `ignored` transcript output (`noReply: true`) so the model never reads it.
+  - **Subcommands**: `/usage` (all), `/usage ollama`, `/usage agy` (+aliases `antigravity`/`google`), `/usage openrouter` (+`or`/`router`), `/usage tokens`, `/usage help`.
+  - **Multi-provider quota fetchers**: Google Antigravity (weekly/5-hour buckets via `retrieveUserQuotaSummary`), Ollama Cloud (multi-key parallel fetch, `max(weekly)` + summed requests, labels from `usage.quota.ollama.accounts` config with `key#<id>` fallback), OpenRouter (balance + key limits).
+  - **Dual-runtime SQLite adapter** (`usage/store-db.js`): auto-detects `bun:sqlite` (Bun) vs `node:sqlite` (Node) — zero external dependencies, read-only access to `agent.db` / `opencode.db`.
+  - **Token tracking** (`usage/tokens/`): main + subagent token breakdown (input/output/reasoning/cache/cost) from `opencode.db`, per-turn delta for future toast surface.
+  - **Renderer** (`usage/format.js`): transcript-safe plain bars (no ANSI), compact relative time, group-aware AGY buckets, token/USD formatters.
+  - **11 unit tests** (`tests/usage.test.js`) with in-memory fixtures mirroring both DB schemas.
+  - **TUI Sidebar Surfaces (Phase 3-4)**:
+    - **`Tokens` accordion tree** (`sidebar_content`): collapsible main + subagent token breakdown (input/output/reasoning/cache/cost), auto-refreshes per session.
+    - **`Last Turn` node**: last completed assistant turn (input, cache, output, reasoning, duration, cost) inside the Tokens tree — expanded by default for quick glance.
+  - **Graceful no-credentials handling**: clear actionable message ("No provider credentials found in agent.db. Login to a provider first...") instead of misleading `0.0%` bars; per-provider "No credentials" when filtered; missing-DB guard (`existsSync`) with friendly error.
+  - **Cleanup**: removed dead TUI entry (`tui/src/index.js`, `tui/src/components/`) superseded by `index.tsx`; `tui/package.json` now points to `dist/tui.js`; removed unused `usage/tokens/pricing.js` re-export.
+
+### Fixed
+
+- **Transcript-safe quota output**: `/usage` no longer emits ANSI escape codes — TUI transcript was mangling them (eating `[`, `]`, `)` after color sequences). Bars are now plain `[██████] 84.2%`.
+- **`node:sqlite` read-only option**: `readOnly: true` → `readonly: true` (lowercase) — `DatabaseSync` rejects camelCase with "Misspelled option".
+- **TUI `TextNodeRenderable` crash**: nested `<text>` inside `<text>` in the tokens sidebar tree crashed OpenTUI (`TextNodeRenderable only accepts strings`). Replaced with `<span style>` (supported `StyledText`).
+- **TUI plugin stale cache**: file-path plugin specs in `tui.jsonc` / `opencode.jsonc` never refreshed because `fileTarget()` returned `undefined` for non-`file://` specs (fingerprint frozen). Switched to `file:///` specs.
+
 ## [0.4.8] - 2026-08-28
 
 ### Fixed
