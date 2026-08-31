@@ -138,6 +138,21 @@ export const DEFAULTS = {
 		maxBytes: 5242880, // 5 MiB
 		timeoutMs: 60000,
 	},
+	usage: {
+		enabled: true,
+		tokens: {
+			// Show subagent section (tree + last turn). false hides it entirely.
+			showSubagents: true,
+			// Subagent nodes default to collapsed (mobile-friendly).
+			subagentsCollapsed: true,
+		},
+		quota: {
+			ollama: {
+				// key-prefix → display name for multi-key accounts
+				accounts: {},
+			},
+		},
+	},
 	messages: {},
 };
 

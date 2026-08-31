@@ -9,7 +9,7 @@ import { createElement as _$createElement } from "@opentui/solid";
 /**
  * tui/src/index.tsx — OpenCode TUI Plugin for oh-my-hook.
  */
-import { createSignal, Show, For, onMount, onCleanup, createMemo } from "solid-js";
+import { createSignal, Show, For, onMount, onCleanup, createMemo, createEffect } from "solid-js";
 import { watchModeState } from "./lib/mode-watch.js";
 import { getMetrics, getPlanReviewData } from "./lib/metrics.js";
 import { resolveActiveSessionID, createSessionSubscriber } from "./lib/session.js";
@@ -17,6 +17,9 @@ import { loadConfig } from "../../share/config.js";
 import { formatReviewFeedback } from "../../plans/parser.js";
 import { loadModeState, currentMode, currentPlan } from "../../share/state.js";
 import { appendMemory, replaceMemory, removeMemory, resolveTargetMemoryFile, getGlobalFile, listMemoryEntries } from "../../memory/store.js";
+import { formatTokens, formatUSD, formatDuration } from "../../usage/format.js";
+import { openReadonly, opencodeDbPath } from "../../usage/store-db.js";
+import { getAgentTree } from "../../usage/tokens/tracker.js";
 function ModeBadge(props) {
   const [modeState, setModeState] = createSignal(loadModeState() || {});
   const unwatch = watchModeState(nextState => {
@@ -1098,6 +1101,561 @@ function PlanReviewModal(props) {
 }
 
 /**
+ * TokensTree — collapsible accordion tree for session & subagent token usage.
+ *
+ * Data comes from usage/tokens/tracker.js (read-only opencode.db). Each node
+ * (main agent + subagents) can be expanded/collapsed independently via click.
+ * Subagent visibility & default state are configurable:
+ *   usage.tokens.showSubagents (false hides subagent section)
+ *   usage.tokens.subagentsCollapsed (true collapses subagent nodes by default)
+ */
+function TokensTree(props) {
+  const [open, setOpen] = createSignal(true);
+  const subConfig = props.config?.tokens || {};
+  const showSubs = subConfig.showSubagents !== false;
+  const [subOpen, setSubOpen] = createSignal(subConfig.subagentsCollapsed ? false : true);
+  const [tree, setTree] = createSignal(null);
+
+  // Refresh tree when session changes or mode state flips (activity proxy).
+  createEffect(() => {
+    const sid = props.sessionID();
+    if (!sid) {
+      setTree(null);
+      return;
+    }
+    let cancelled = false;
+    openReadonly(opencodeDbPath()).then(handle => {
+      if (cancelled) {
+        handle.close();
+        return;
+      }
+      try {
+        setTree(getAgentTree(handle.db, sid));
+      } finally {
+        handle.close();
+      }
+    })
+    // Async rejection must be caught — otherwise TUI crashes on
+    // unhandled promise rejection when the DB is missing.
+    .catch(() => setTree(null));
+    return () => {
+      cancelled = true;
+    };
+  });
+  const theme = () => props.api?.theme?.current || {};
+  const mutedColor = () => theme().textMuted || "#6b7280";
+  const textNormal = () => theme().text || "#f3f4f6";
+  const accentColor = () => theme().accent || "#8b5cf6";
+  const successColor = () => theme().success || "#10b981";
+  const totalTokens = () => {
+    const t = tree();
+    if (!t) return 0;
+    const subs = t.subagents.reduce((s, x) => s + (x.input || 0) + (x.output || 0), 0);
+    return (t.main?.input || 0) + (t.main?.output || 0) + subs;
+  };
+  const modelName = m => {
+    if (!m?.model) return "n/a";
+    return m.model.split("/").pop();
+  };
+
+  // Per-node expand state (each subagent toggles independently).
+  const TreeNode = node => {
+    const [nodeOpen, setNodeOpen] = createSignal(true);
+    return [(() => {
+      var _el$129 = _$createElement("box"),
+        _el$130 = _$createElement("text"),
+        _el$131 = _$createElement("text"),
+        _el$132 = _$createElement("b"),
+        _el$133 = _$createElement("text");
+      _$insertNode(_el$129, _el$130);
+      _$insertNode(_el$129, _el$131);
+      _$insertNode(_el$129, _el$133);
+      _$setProp(_el$129, "flexDirection", "row");
+      _$setProp(_el$129, "gap", 1);
+      _$setProp(_el$129, "onMouseDown", () => setNodeOpen(x => !x));
+      _$insert(_el$130, () => nodeOpen() ? "▼" : "▶");
+      _$insertNode(_el$131, _el$132);
+      _$insert(_el$132, () => node.agent || "agent");
+      _$insert(_el$133, () => modelName(node));
+      _$effect(_p$ => {
+        var _v$31 = mutedColor(),
+          _v$32 = accentColor(),
+          _v$33 = mutedColor();
+        _v$31 !== _p$.e && (_p$.e = _$setProp(_el$130, "fg", _v$31, _p$.e));
+        _v$32 !== _p$.t && (_p$.t = _$setProp(_el$131, "fg", _v$32, _p$.t));
+        _v$33 !== _p$.a && (_p$.a = _$setProp(_el$133, "fg", _v$33, _p$.a));
+        return _p$;
+      }, {
+        e: undefined,
+        t: undefined,
+        a: undefined
+      });
+      return _el$129;
+    })(), _$createComponent(Show, {
+      get when() {
+        return nodeOpen();
+      },
+      get children() {
+        var _el$134 = _$createElement("box"),
+          _el$135 = _$createElement("text"),
+          _el$136 = _$createTextNode(`In : `),
+          _el$138 = _$createElement("span"),
+          _el$139 = _$createElement("text"),
+          _el$140 = _$createTextNode(`Out : `),
+          _el$142 = _$createElement("span"),
+          _el$151 = _$createElement("text"),
+          _el$152 = _$createTextNode(`Cost : `),
+          _el$154 = _$createElement("span");
+        _$insertNode(_el$134, _el$135);
+        _$insertNode(_el$134, _el$139);
+        _$insertNode(_el$134, _el$151);
+        _$setProp(_el$134, "flexDirection", "column");
+        _$setProp(_el$134, "gap", 0);
+        _$setProp(_el$134, "paddingLeft", 2);
+        _$insertNode(_el$135, _el$136);
+        _$insertNode(_el$135, _el$138);
+        _$insert(_el$138, () => formatTokens(node.input));
+        _$insertNode(_el$139, _el$140);
+        _$insertNode(_el$139, _el$142);
+        _$insert(_el$142, () => formatTokens(node.output));
+        _$insert(_el$134, _$createComponent(Show, {
+          get when() {
+            return node.reasoning > 0;
+          },
+          get children() {
+            var _el$143 = _$createElement("text"),
+              _el$144 = _$createTextNode(`Reasoning: `),
+              _el$146 = _$createElement("span");
+            _$insertNode(_el$143, _el$144);
+            _$insertNode(_el$143, _el$146);
+            _$insert(_el$146, () => formatTokens(node.reasoning));
+            _$effect(_p$ => {
+              var _v$34 = mutedColor(),
+                _v$35 = {
+                  fg: textNormal()
+                };
+              _v$34 !== _p$.e && (_p$.e = _$setProp(_el$143, "fg", _v$34, _p$.e));
+              _v$35 !== _p$.t && (_p$.t = _$setProp(_el$146, "style", _v$35, _p$.t));
+              return _p$;
+            }, {
+              e: undefined,
+              t: undefined
+            });
+            return _el$143;
+          }
+        }), _el$151);
+        _$insert(_el$134, _$createComponent(Show, {
+          get when() {
+            return node.cacheRead > 0 || node.cacheWrite > 0;
+          },
+          get children() {
+            var _el$147 = _$createElement("text"),
+              _el$148 = _$createTextNode(`Cache R: `),
+              _el$150 = _$createElement("span");
+            _$insertNode(_el$147, _el$148);
+            _$insertNode(_el$147, _el$150);
+            _$insert(_el$150, () => formatTokens(node.cacheRead));
+            _$effect(_p$ => {
+              var _v$36 = mutedColor(),
+                _v$37 = {
+                  fg: textNormal()
+                };
+              _v$36 !== _p$.e && (_p$.e = _$setProp(_el$147, "fg", _v$36, _p$.e));
+              _v$37 !== _p$.t && (_p$.t = _$setProp(_el$150, "style", _v$37, _p$.t));
+              return _p$;
+            }, {
+              e: undefined,
+              t: undefined
+            });
+            return _el$147;
+          }
+        }), _el$151);
+        _$insertNode(_el$151, _el$152);
+        _$insertNode(_el$151, _el$154);
+        _$insert(_el$154, () => formatUSD(node.cost));
+        _$effect(_p$ => {
+          var _v$38 = mutedColor(),
+            _v$39 = {
+              fg: textNormal()
+            },
+            _v$40 = mutedColor(),
+            _v$41 = {
+              fg: textNormal()
+            },
+            _v$42 = mutedColor(),
+            _v$43 = {
+              fg: successColor()
+            };
+          _v$38 !== _p$.e && (_p$.e = _$setProp(_el$135, "fg", _v$38, _p$.e));
+          _v$39 !== _p$.t && (_p$.t = _$setProp(_el$138, "style", _v$39, _p$.t));
+          _v$40 !== _p$.a && (_p$.a = _$setProp(_el$139, "fg", _v$40, _p$.a));
+          _v$41 !== _p$.o && (_p$.o = _$setProp(_el$142, "style", _v$41, _p$.o));
+          _v$42 !== _p$.i && (_p$.i = _$setProp(_el$151, "fg", _v$42, _p$.i));
+          _v$43 !== _p$.n && (_p$.n = _$setProp(_el$154, "style", _v$43, _p$.n));
+          return _p$;
+        }, {
+          e: undefined,
+          t: undefined,
+          a: undefined,
+          o: undefined,
+          i: undefined,
+          n: undefined
+        });
+        return _el$134;
+      }
+    })];
+  };
+  return (() => {
+    var _el$155 = _$createElement("box"),
+      _el$156 = _$createElement("box"),
+      _el$157 = _$createElement("text"),
+      _el$158 = _$createElement("text"),
+      _el$159 = _$createElement("b"),
+      _el$161 = _$createElement("text");
+    _$insertNode(_el$155, _el$156);
+    _$setProp(_el$155, "flexDirection", "column");
+    _$setProp(_el$155, "gap", 0);
+    _$insertNode(_el$156, _el$157);
+    _$insertNode(_el$156, _el$158);
+    _$insertNode(_el$156, _el$161);
+    _$setProp(_el$156, "flexDirection", "row");
+    _$setProp(_el$156, "gap", 1);
+    _$setProp(_el$156, "onMouseDown", () => setOpen(x => !x));
+    _$insert(_el$157, () => open() ? "▼" : "▶");
+    _$insertNode(_el$158, _el$159);
+    _$insertNode(_el$159, _$createTextNode(`Tokens`));
+    _$insert(_el$161, (() => {
+      var _c$2 = _$memo(() => totalTokens() > 0);
+      return () => _c$2() ? `(${formatTokens(totalTokens())})` : "";
+    })());
+    _$insert(_el$155, _$createComponent(Show, {
+      get when() {
+        return _$memo(() => !!open())() && tree();
+      },
+      get children() {
+        var _el$162 = _$createElement("box");
+        _$setProp(_el$162, "flexDirection", "column");
+        _$setProp(_el$162, "gap", 0);
+        _$setProp(_el$162, "paddingLeft", 1);
+        _$insert(_el$162, () => TreeNode(tree().main), null);
+        _$insert(_el$162, _$createComponent(Show, {
+          get when() {
+            return showSubs && tree().subagents.length > 0;
+          },
+          get children() {
+            return [(() => {
+              var _el$163 = _$createElement("box"),
+                _el$164 = _$createElement("text"),
+                _el$165 = _$createElement("text"),
+                _el$166 = _$createTextNode(`Subagents (`),
+                _el$167 = _$createTextNode(`)`);
+              _$insertNode(_el$163, _el$164);
+              _$insertNode(_el$163, _el$165);
+              _$setProp(_el$163, "flexDirection", "row");
+              _$setProp(_el$163, "gap", 1);
+              _$setProp(_el$163, "onMouseDown", () => setSubOpen(x => !x));
+              _$insert(_el$164, () => subOpen() ? "▼" : "▶");
+              _$insertNode(_el$165, _el$166);
+              _$insertNode(_el$165, _el$167);
+              _$insert(_el$165, () => tree().subagents.length, _el$167);
+              _$effect(_p$ => {
+                var _v$44 = mutedColor(),
+                  _v$45 = textNormal();
+                _v$44 !== _p$.e && (_p$.e = _$setProp(_el$164, "fg", _v$44, _p$.e));
+                _v$45 !== _p$.t && (_p$.t = _$setProp(_el$165, "fg", _v$45, _p$.t));
+                return _p$;
+              }, {
+                e: undefined,
+                t: undefined
+              });
+              return _el$163;
+            })(), _$createComponent(Show, {
+              get when() {
+                return subOpen();
+              },
+              get children() {
+                var _el$168 = _$createElement("box");
+                _$setProp(_el$168, "flexDirection", "column");
+                _$setProp(_el$168, "gap", 0);
+                _$setProp(_el$168, "paddingLeft", 2);
+                _$insert(_el$168, _$createComponent(For, {
+                  get each() {
+                    return tree().subagents;
+                  },
+                  children: sub => (() => {
+                    var _el$169 = _$createElement("box");
+                    _$setProp(_el$169, "flexDirection", "column");
+                    _$setProp(_el$169, "gap", 0);
+                    _$setProp(_el$169, "paddingLeft", 1);
+                    _$insert(_el$169, () => TreeNode(sub));
+                    return _el$169;
+                  })()
+                }));
+                return _el$168;
+              }
+            })];
+          }
+        }), null);
+        _$insert(_el$162, _$createComponent(LastTurnItem, {
+          get api() {
+            return props.api;
+          },
+          get sessionID() {
+            return props.sessionID;
+          }
+        }), null);
+        return _el$162;
+      }
+    }), null);
+    _$effect(_p$ => {
+      var _v$46 = mutedColor(),
+        _v$47 = textNormal(),
+        _v$48 = mutedColor();
+      _v$46 !== _p$.e && (_p$.e = _$setProp(_el$157, "fg", _v$46, _p$.e));
+      _v$47 !== _p$.t && (_p$.t = _$setProp(_el$158, "fg", _v$47, _p$.t));
+      _v$48 !== _p$.a && (_p$.a = _$setProp(_el$161, "fg", _v$48, _p$.a));
+      return _p$;
+    }, {
+      e: undefined,
+      t: undefined,
+      a: undefined
+    });
+    return _el$155;
+  })();
+}
+
+/**
+ * LastTurnItem — collapsible "Last Turn" nodes inside the Tokens tree.
+ *
+ * Shows the last completed assistant turn for the main agent (from reactive
+ * TUI state) plus, optionally, the last turn of each subagent (from the
+ * opencode.db tree). Subagent nodes are collapsed by default and can be
+ * hidden entirely via usage.tokens.showSubagents.
+ */
+function LastTurnItem(props) {
+  // Default expanded — mobile users shouldn't need to tap to open it.
+  const [open, setOpen] = createSignal(true);
+  const theme = () => props.api?.theme?.current || {};
+  const mutedColor = () => theme().textMuted || "#6b7280";
+  const textNormal = () => theme().text || "#f3f4f6";
+  const accentColor = () => theme().accent || "#8b5cf6";
+  const [tick, setTick] = createSignal(0);
+  const timer = setInterval(() => setTick(t => t + 1), 2000);
+  onCleanup(() => clearInterval(timer));
+  const lastTurn = createMemo(() => {
+    tick();
+    const sid = props.sessionID();
+    if (!sid) return null;
+    const state = props.api?.state?.session;
+    if (!state) return null;
+    let msgs = [];
+    try {
+      msgs = state.messages(sid) ?? [];
+    } catch {
+      return null;
+    }
+
+    // Last completed assistant turn with real token data.
+    const last = [...msgs].reverse().find(m => m.role === "assistant" && m.tokens && (m.tokens.input || 0) > 0);
+    if (!last) return null;
+    const t = last.tokens || {};
+    return {
+      input: t.input || 0,
+      output: t.output || 0,
+      reasoning: t.reasoning || 0,
+      cacheRead: t.cache?.read || 0,
+      cost: last.cost || 0,
+      durationMs: last.time?.completed && last.time?.created ? last.time.completed - last.time.created : null
+    };
+  });
+
+  // NOTE: call lastTurn() INSIDE JSX (not hoisted const) so the memo stays
+  // reactive to the 2s tick — a static snapshot would never update.
+  const renderTurnDetails = t => (() => {
+    var _el$170 = _$createElement("box"),
+      _el$171 = _$createElement("text"),
+      _el$172 = _$createTextNode(`In : `),
+      _el$173 = _$createElement("span"),
+      _el$174 = _$createElement("text"),
+      _el$175 = _$createTextNode(`Out : `),
+      _el$176 = _$createElement("span");
+    _$insertNode(_el$170, _el$171);
+    _$insertNode(_el$170, _el$174);
+    _$setProp(_el$170, "flexDirection", "column");
+    _$setProp(_el$170, "gap", 0);
+    _$setProp(_el$170, "paddingLeft", 1);
+    _$insertNode(_el$171, _el$172);
+    _$insertNode(_el$171, _el$173);
+    _$insert(_el$173, () => formatTokens(t.input));
+    _$insert(_el$170, (() => {
+      var _c$3 = _$memo(() => t.cacheRead > 0);
+      return () => _c$3() ? (() => {
+        var _el$177 = _$createElement("text"),
+          _el$178 = _$createTextNode(`Cache : `),
+          _el$180 = _$createElement("span");
+        _$insertNode(_el$177, _el$178);
+        _$insertNode(_el$177, _el$180);
+        _$insert(_el$180, () => formatTokens(t.cacheRead));
+        _$effect(_p$ => {
+          var _v$53 = mutedColor(),
+            _v$54 = {
+              fg: textNormal()
+            };
+          _v$53 !== _p$.e && (_p$.e = _$setProp(_el$177, "fg", _v$53, _p$.e));
+          _v$54 !== _p$.t && (_p$.t = _$setProp(_el$180, "style", _v$54, _p$.t));
+          return _p$;
+        }, {
+          e: undefined,
+          t: undefined
+        });
+        return _el$177;
+      })() : null;
+    })(), _el$174);
+    _$insertNode(_el$174, _el$175);
+    _$insertNode(_el$174, _el$176);
+    _$insert(_el$176, () => formatTokens(t.output));
+    _$insert(_el$170, (() => {
+      var _c$4 = _$memo(() => t.reasoning > 0);
+      return () => _c$4() ? (() => {
+        var _el$181 = _$createElement("text"),
+          _el$182 = _$createTextNode(`Reasoning : `),
+          _el$184 = _$createElement("span");
+        _$insertNode(_el$181, _el$182);
+        _$insertNode(_el$181, _el$184);
+        _$insert(_el$184, () => formatTokens(t.reasoning));
+        _$effect(_p$ => {
+          var _v$55 = mutedColor(),
+            _v$56 = {
+              fg: textNormal()
+            };
+          _v$55 !== _p$.e && (_p$.e = _$setProp(_el$181, "fg", _v$55, _p$.e));
+          _v$56 !== _p$.t && (_p$.t = _$setProp(_el$184, "style", _v$56, _p$.t));
+          return _p$;
+        }, {
+          e: undefined,
+          t: undefined
+        });
+        return _el$181;
+      })() : null;
+    })(), null);
+    _$insert(_el$170, (() => {
+      var _c$5 = _$memo(() => !!t.durationMs);
+      return () => _c$5() ? (() => {
+        var _el$185 = _$createElement("text"),
+          _el$186 = _$createTextNode(`Time : `),
+          _el$188 = _$createElement("span");
+        _$insertNode(_el$185, _el$186);
+        _$insertNode(_el$185, _el$188);
+        _$insert(_el$188, () => formatDuration(t.durationMs));
+        _$effect(_p$ => {
+          var _v$57 = mutedColor(),
+            _v$58 = {
+              fg: textNormal()
+            };
+          _v$57 !== _p$.e && (_p$.e = _$setProp(_el$185, "fg", _v$57, _p$.e));
+          _v$58 !== _p$.t && (_p$.t = _$setProp(_el$188, "style", _v$58, _p$.t));
+          return _p$;
+        }, {
+          e: undefined,
+          t: undefined
+        });
+        return _el$185;
+      })() : null;
+    })(), null);
+    _$insert(_el$170, (() => {
+      var _c$6 = _$memo(() => t.cost > 0);
+      return () => _c$6() ? (() => {
+        var _el$189 = _$createElement("text"),
+          _el$190 = _$createTextNode(`Cost : `),
+          _el$191 = _$createElement("span");
+        _$insertNode(_el$189, _el$190);
+        _$insertNode(_el$189, _el$191);
+        _$insert(_el$191, () => formatUSD(t.cost));
+        _$effect(_p$ => {
+          var _v$59 = mutedColor(),
+            _v$60 = {
+              fg: accentColor()
+            };
+          _v$59 !== _p$.e && (_p$.e = _$setProp(_el$189, "fg", _v$59, _p$.e));
+          _v$60 !== _p$.t && (_p$.t = _$setProp(_el$191, "style", _v$60, _p$.t));
+          return _p$;
+        }, {
+          e: undefined,
+          t: undefined
+        });
+        return _el$189;
+      })() : null;
+    })(), null);
+    _$effect(_p$ => {
+      var _v$49 = mutedColor(),
+        _v$50 = {
+          fg: textNormal()
+        },
+        _v$51 = mutedColor(),
+        _v$52 = {
+          fg: textNormal()
+        };
+      _v$49 !== _p$.e && (_p$.e = _$setProp(_el$171, "fg", _v$49, _p$.e));
+      _v$50 !== _p$.t && (_p$.t = _$setProp(_el$173, "style", _v$50, _p$.t));
+      _v$51 !== _p$.a && (_p$.a = _$setProp(_el$174, "fg", _v$51, _p$.a));
+      _v$52 !== _p$.o && (_p$.o = _$setProp(_el$176, "style", _v$52, _p$.o));
+      return _p$;
+    }, {
+      e: undefined,
+      t: undefined,
+      a: undefined,
+      o: undefined
+    });
+    return _el$170;
+  })();
+  return (() => {
+    var _el$192 = _$createElement("box");
+    _$setProp(_el$192, "flexDirection", "column");
+    _$setProp(_el$192, "gap", 0);
+    _$insert(_el$192, _$createComponent(Show, {
+      get when() {
+        return lastTurn();
+      },
+      children: turn => [(() => {
+        var _el$193 = _$createElement("box"),
+          _el$194 = _$createElement("text"),
+          _el$195 = _$createElement("text"),
+          _el$196 = _$createElement("b");
+        _$insertNode(_el$193, _el$194);
+        _$insertNode(_el$193, _el$195);
+        _$setProp(_el$193, "flexDirection", "row");
+        _$setProp(_el$193, "gap", 1);
+        _$setProp(_el$193, "wrapMode", "none");
+        _$setProp(_el$193, "onMouseDown", () => setOpen(x => !x));
+        _$insert(_el$194, () => open() ? "▼" : "▶");
+        _$insertNode(_el$195, _el$196);
+        _$setProp(_el$195, "wrapMode", "none");
+        _$insertNode(_el$196, _$createTextNode(`Last Turn (main)`));
+        _$effect(_p$ => {
+          var _v$61 = mutedColor(),
+            _v$62 = textNormal();
+          _v$61 !== _p$.e && (_p$.e = _$setProp(_el$194, "fg", _v$61, _p$.e));
+          _v$62 !== _p$.t && (_p$.t = _$setProp(_el$195, "fg", _v$62, _p$.t));
+          return _p$;
+        }, {
+          e: undefined,
+          t: undefined
+        });
+        return _el$193;
+      })(), _$createComponent(Show, {
+        get when() {
+          return open();
+        },
+        get children() {
+          return renderTurnDetails(turn());
+        }
+      })]
+    }));
+    return _el$192;
+  })();
+}
+
+/**
  * OpenCode TUI surface plugin entrypoint.
  */
 export const tui = async function tui(api, options, meta) {
@@ -1202,11 +1760,11 @@ export const tui = async function tui(api, options, meta) {
     }
   }
 
-  // 2. Register UI slots (Sidebar & Prompt Badge)
+  // 2. Register UI slots (Sidebar, Prompt Badge, Sidebar Footer)
   if (api.slots?.register) {
     api.slots.register({
       id: "oh-my-hook-sidebar",
-      order: 160,
+      order: 99,
       slots: {
         session_prompt_right(ctx, props) {
           return _$createComponent(ModeBadge, {
@@ -1215,11 +1773,32 @@ export const tui = async function tui(api, options, meta) {
           });
         },
         sidebar_content(ctx, props) {
-          return _$createComponent(SidebarWidget, {
-            api: api,
-            directory: directory,
-            sessionID: () => props?.session_id || ctx?.session_id || activeSessionID() || resolveActiveSessionID(api) || ""
-          });
+          return (() => {
+            var _el$198 = _$createElement("box");
+            _$setProp(_el$198, "flexDirection", "column");
+            _$setProp(_el$198, "gap", 1);
+            _$insert(_el$198, _$createComponent(SidebarWidget, {
+              api: api,
+              directory: directory,
+              sessionID: () => props?.session_id || ctx?.session_id || activeSessionID() || resolveActiveSessionID(api) || ""
+            }), null);
+            _$insert(_el$198, _$createComponent(Show, {
+              get when() {
+                return config?.usage?.enabled !== false;
+              },
+              get children() {
+                return _$createComponent(TokensTree, {
+                  api: api,
+                  directory: directory,
+                  get config() {
+                    return config?.usage;
+                  },
+                  sessionID: () => props?.session_id || ctx?.session_id || activeSessionID() || resolveActiveSessionID(api) || ""
+                });
+              }
+            }), null);
+            return _el$198;
+          })();
         }
       }
     });

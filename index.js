@@ -18,20 +18,31 @@ import { planHooks } from "./plans/index.js";
 import { promptHooks } from "./prompts/index.js";
 import { gatewayHooks } from "./gateway/index.js";
 import { imgseeModule } from "./imgsee/index.js";
+import { usageModule } from "./usage/index.js";
 
 export default async function ohMyHook(input) {
 	const { config } = loadConfig();
-	const [sandbox, compress, reminder, memory, plans, prompts, gateway, imgsee] =
-		await Promise.all([
-			sandboxHooks(input, { config }),
-			compressModule(input, { config: config.compress }),
-			reminderModule(input, { config }),
-			memoryHooks(input, { config }),
-			planHooks(input, { config }),
-			promptHooks(input, { config: config.prompts }),
-			gatewayHooks(input, { config }),
-			imgseeModule(input, { config }),
-		]);
+	const [
+		sandbox,
+		compress,
+		reminder,
+		memory,
+		plans,
+		prompts,
+		gateway,
+		imgsee,
+		usage,
+	] = await Promise.all([
+		sandboxHooks(input, { config }),
+		compressModule(input, { config: config.compress }),
+		reminderModule(input, { config }),
+		memoryHooks(input, { config }),
+		planHooks(input, { config }),
+		promptHooks(input, { config: config.prompts }),
+		gatewayHooks(input, { config }),
+		imgseeModule(input, { config }),
+		usageModule(input, { config: config.usage }),
+	]);
 	return mergeHooks(
 		sandbox,
 		compress,
@@ -41,5 +52,6 @@ export default async function ohMyHook(input) {
 		prompts,
 		gateway,
 		imgsee,
+		usage,
 	);
 }
