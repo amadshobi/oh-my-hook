@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Generic Size-Based Pruning & Live TUI Toast (Issue #26)**:
+  - **Generic Pruning**: Any eligible tool output (`bash`, etc.) above `minOutputChars` (default lowered 8000 → 2000) is now collapsed — the rigid command whitelist (`npm test`/`go build`/`git log`) is gone. Outputs from `curl`, `gh`, `node`, `python`, and mid-size diffs are now pruned too.
+  - **Selective Command Protection (`commandPatterns`)**: Dual-mode `alwaysPrune` (force-collapse noisy commands like `npm install`, `git commit`) and `neverPrune` (protect critical outputs like `git diff`, `cat config`) — `neverPrune` wins over size threshold.
+  - **Important Line Preservation**: Error/pass/summary lines from the middle of output survive collapse in an `── IMPORTANT ──` block (`keepImportantLines`, default true).
+  - **Live TUI Toast**: Pruning events now surface as toast notifications in OpenCode TUI (`pruned <target>: ~X tok`) via a new `tui/src/lib/compress-watch.js` file-watch bridge, with anti-spam cooldown (`compress.pruning.toast.cooldownMs`, default 30s).
+  - **Enhanced Telemetry**: `/compress stats` now includes tool breakdown (`bash: 12 · gh: 3`), last prune event detail, and average tokens saved per prune.
+  - **Per-Session Debug Snapshot**: New `compress/debug.js` lazily writes a markdown audit trail per session (`~/.local/share/opencode/compress/<session-id>/snapshot.md`) — only when compress activity (prune/skip/compact) occurs, so idle sessions cost zero I/O. Records what was pruned/skipped and why (neverPrune, failureSignal, belowThreshold, ...). Bounded to `compress.debug.maxSessions` (default 20) with oldest-first cleanup. Access via `/compress debug`. Configurable via `compress.debug.enabled`.
+  - **State Relocation**: `session-context.json` and `learnings/` moved from `~/.opencode/` to the XDG data dir (`~/.local/share/opencode/`) so `~/.opencode` stays clean and consistent with other oh-my-hook state files.
+  - **DCP-Style Persistent Context Management**: Adopted architecture from `opencode-dynamic-context-pruning` (balanced, not over-aggressive):
+    - **Persistent Prune State**: pruning/compression results now persist per session (`~/.local/share/opencode/compress-state/<session>.json`) and re-apply on every transform — context cache actually shrinks across turns (was in-memory only).
+    - **Auto Range Compression**: deterministic compression of old message spans into technical summaries, stopping at `targetSaveRatio` (default 0.5 = 50% saved, NOT DCP's ~15% — LLM keeps context).
+    - **Model-Driven Compress Tool** (`compress` tool in hybrid mode): the model can trigger compression of old messages; auto still kicks in at the hard threshold.
+    - **Automatic Strategies**: deduplication (repeated tool calls keep latest output only) + purgeErrors (errored tool inputs pruned after N turns, errors preserved).
+    - **Context Limit From Model**: `experimental.chat.system.transform` now caches the real model context limit (replaces heuristics).
+    - **TUI Compress Panel**: `/compress panel` + palette command opens a modal with a `█░` context usage bar, pruning stats, and tool breakdown.
+    - **Manual `/compress` Now Actually Compresses**: `/compress` (no args) now runs the oh-my-hook pipeline first (fetch messages → prune tool outputs → auto range compress to ~50% → persist), then triggers OpenCode's native compaction. Previously it only called `client.session.compact()` which often did nothing.
+
 ## [0.5.1] - 2026-09-01
 
 ### Fixed

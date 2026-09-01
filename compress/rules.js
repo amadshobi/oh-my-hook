@@ -37,20 +37,96 @@ export function isEligibleTool(toolName, cfg = {}) {
 }
 
 /**
+ * Check if a command matches any regex in a pattern list (array or single string).
+ */
+function matchesAnyPattern(command, list) {
+	if (!command || !list) return false;
+	const items = Array.isArray(list) ? list : [list];
+	for (const item of items) {
+		if (!item || typeof item !== "string") continue;
+		try {
+			const re = new RegExp(item, "i");
+			if (re.test(command)) return true;
+		} catch {}
+	}
+	return false;
+}
+
+/**
+ * Check if a command is explicitly excluded from pruning (neverPrune list).
+ */
+export function isNeverPruned(command, cfg = {}) {
+	if (!command || typeof command !== "string") return false;
+	const neverList = cfg.commandPatterns?.neverPrune;
+	return matchesAnyPattern(command, neverList);
+}
+
+/**
+ * Check if a command is explicitly marked to always prune.
+ */
+export function isAlwaysPruned(command, cfg = {}) {
+	if (!command || typeof command !== "string") return false;
+	const alwaysList = cfg.commandPatterns?.alwaysPrune;
+	return matchesAnyPattern(command, alwaysList);
+}
+
+/**
+ * Check if a command is eligible for pruning under generic size-based rules.
+ * Under generic rules, all tool commands are eligible UNLESS they match neverPrune.
+ */
+export function isEligibleCommand(command, cfg = {}) {
+	if (!command || typeof command !== "string") return true;
+
+	// Explicit neverPrune exclusion takes precedence over everything
+	if (isNeverPruned(command, cfg)) {
+		return false;
+	}
+
+	const patterns = cfg.commandPatterns;
+	// Support legacy flat object where all values were patterns that MUST match
+	if (
+		patterns &&
+		!patterns.alwaysPrune &&
+		!patterns.neverPrune &&
+		typeof patterns === "object"
+	) {
+		return matchesLegacyCommandPattern(command, patterns);
+	}
+
+	// In generic mode, any command not in neverPrune is eligible
+	return true;
+}
+
+/**
+ * Legacy command pattern matcher for backwards compatibility with flat pattern maps.
+ */
+function matchesLegacyCommandPattern(command, patterns) {
+	for (const val of Object.values(patterns)) {
+		if (matchesAnyPattern(command, val)) return true;
+	}
+	return false;
+}
+
+/**
  * Check if a command matches eligible noise patterns (npm test, go build, etc.).
+ * Backwards compatible with legacy string pattern maps and modern { alwaysPrune, neverPrune }.
  */
 export function matchesCommandPattern(command, cfg = {}) {
 	if (!command || typeof command !== "string") return false;
 	const patterns = cfg.commandPatterns || {};
 
-	for (const pattern of Object.values(patterns)) {
-		if (!pattern) continue;
-		try {
-			const re = new RegExp(pattern, "i");
-			if (re.test(command)) return true;
-		} catch {}
+	// If legacy flat map (e.g. { test: "npm test" })
+	if (!patterns.alwaysPrune && !patterns.neverPrune) {
+		return matchesLegacyCommandPattern(command, patterns);
 	}
-	return false;
+
+	// Modern map: neverPrune is never eligible
+	if (isNeverPruned(command, cfg)) return false;
+	// alwaysPrune is definitely eligible
+	if (isAlwaysPruned(command, cfg)) return true;
+
+	// In modern mode, generic commands are eligible
+	return true;
 }
 
 /**
@@ -79,12 +155,13 @@ export function hasFailureSignal(output, cfg = {}) {
 /**
  * Build deterministic, clean collapse marker.
  */
-export function buildCollapseMarker(collapsedChars) {
+export function buildCollapseMarker(collapsedChars, extra = "") {
 	const countStr =
 		typeof collapsedChars === "number"
 			? collapsedChars.toLocaleString("en-US")
 			: "content";
-	return `\n\n── OMH-PRUNE ── ${countStr} chars collapsed ── head/tail preserved ──\n\n`;
+	const suffix = extra ? `${extra}\n` : "";
+	return `\n\n── OMH-PRUNE ── ${countStr} chars collapsed ── head/tail preserved ──\n${suffix}\n`;
 }
 
 /**

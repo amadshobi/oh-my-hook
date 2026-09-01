@@ -1,14 +1,27 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+	existsSync,
+	mkdirSync,
+	writeFileSync,
+	rmSync,
+	readdirSync,
+} from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import {
 	isProtectedTool,
 	isEligibleTool,
+	isNeverPruned,
+	isAlwaysPruned,
+	isEligibleCommand,
 	matchesCommandPattern,
 	hasFailureSignal,
 	buildCollapseMarker,
 	isAlreadyPruned,
 } from "../compress/rules.js";
 import { calculateCutoffIndex, pruneMessages } from "../compress/pruner.js";
+import { cleanOldDebugSessions } from "../compress/debug.js";
 
 const DEFAULT_CONFIG = {
 	enabled: true,
@@ -266,4 +279,123 @@ test("pruner: pruneMessages is idempotent and deterministic", () => {
 	const secondPass = pruneMessages(messages, DEFAULT_CONFIG, "test-ses-3");
 	assert.equal(secondPass.prunedCount, 0);
 	assert.equal(messages[1].parts[0].state.output, transformedAfterFirst);
+});
+
+test("rules: modern config distinguishes alwaysPrune, neverPrune, and generic commands", () => {
+	const modernConfig = {
+		commandPatterns: {
+			alwaysPrune: ["npm (install|test)", "git (commit|push|status)"],
+			neverPrune: ["git (diff|show|log -p|blame)", "cat .*"],
+		},
+	};
+
+	// neverPrune commands
+	assert.equal(isNeverPruned("git diff HEAD~1", modernConfig), true);
+	assert.equal(isNeverPruned("git show abc1234", modernConfig), true);
+	assert.equal(isNeverPruned("cat package.json", modernConfig), true);
+	assert.equal(isNeverPruned("npm test", modernConfig), false);
+	assert.equal(isEligibleCommand("git diff HEAD~1", modernConfig), false);
+
+	// alwaysPrune commands
+	assert.equal(isAlwaysPruned("npm test", modernConfig), true);
+	assert.equal(isAlwaysPruned("git commit -m foo", modernConfig), true);
+	assert.equal(isAlwaysPruned("python run.py", modernConfig), false);
+
+	// Generic commands: any command not in neverPrune is eligible
+	assert.equal(isEligibleCommand("python run.py", modernConfig), true);
+	assert.equal(
+		isEligibleCommand("curl https://example.com/api", modernConfig),
+		true,
+	);
+	assert.equal(isEligibleCommand("node index.js", modernConfig), true);
+});
+
+test("pruner: generic size-based pruning prunes arbitrary commands and honors neverPrune", () => {
+	const modernConfig = {
+		enabled: true,
+		recentTurns: 2,
+		minOutputChars: 200,
+		keepHeadChars: 50,
+		keepTailChars: 50,
+		keepImportantLines: true,
+		eligibleTools: { bash: true },
+		protectedTools: { read: true },
+		commandPatterns: {
+			alwaysPrune: ["npm test"],
+			neverPrune: ["git diff"],
+		},
+		failureSignals: {
+			fail: "FAILED",
+		},
+	};
+
+	const largePythonOutput = `PYTHON START\n${"Y".repeat(200)}\nMiddle summary: 20 passed, 0 errors\n${"Y".repeat(200)}\nPYTHON END`;
+	const largeGitDiffOutput = `diff --git a/foo.js b/foo.js\n${"+".repeat(600)}\nEND DIFF`;
+
+	const messages = [
+		{
+			info: { role: "user", id: "u1" },
+			parts: [{ type: "text", text: "step 1" }],
+		},
+		{
+			info: { role: "assistant", id: "a1" },
+			parts: [
+				{
+					type: "tool",
+					tool: "bash",
+					state: {
+						status: "completed",
+						input: { command: "python run.py" },
+						output: largePythonOutput,
+					},
+				},
+				{
+					type: "tool",
+					tool: "bash",
+					state: {
+						status: "completed",
+						input: { command: "git diff HEAD" },
+						output: largeGitDiffOutput,
+					},
+				},
+			],
+		},
+		{ info: { role: "user", id: "u2" } },
+		{ info: { role: "assistant", id: "a2" } },
+		{ info: { role: "user", id: "u3" } },
+		{ info: { role: "assistant", id: "a3" } },
+	];
+
+	const result = pruneMessages(messages, modernConfig, "test-ses-generic");
+
+	// python output should be pruned (generic size-based)
+	// git diff output should NOT be pruned (in neverPrune)
+	assert.equal(result.prunedCount, 1);
+	assert.match(messages[1].parts[0].state.output, /── OMH-PRUNE ──/);
+	assert.match(messages[1].parts[0].state.output, /── Highlights:/);
+	assert.equal(messages[1].parts[1].state.output, largeGitDiffOutput);
+});
+
+test("debug: cleanOldDebugSessions preserves maxSessions and removes oldest", () => {
+	const tmpDir = path.join(os.tmpdir(), `omh-debug-test-${Date.now()}`);
+	mkdirSync(tmpDir, { recursive: true });
+
+	try {
+		// Create 5 session dirs with distinct mtimes
+		for (let i = 1; i <= 5; i++) {
+			const sDir = path.join(tmpDir, `session-${i}`);
+			mkdirSync(sDir, { recursive: true });
+			writeFileSync(path.join(sDir, "snapshot.md"), `Session ${i} audit`);
+		}
+
+		// Retain only 3 sessions
+		cleanOldDebugSessions(tmpDir, 3);
+
+		const remaining = readdirSync(tmpDir);
+		assert.equal(remaining.length, 3);
+	} finally {
+		try {
+			rmSync(tmpDir, { recursive: true, force: true });
+		} catch {}
+	}
 });

@@ -8,13 +8,15 @@ import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import { readJson, writeJson } from "../share/state.js";
+import { readJson, writeJson, statePath } from "../share/state.js";
 import { createNotifier } from "../share/notify.js";
 
-const CONTEXT_FILE = path.join(os.homedir(), ".opencode", "session-context.json");
-const COMPACTION_LOG = path.join(os.homedir(), ".opencode", "compaction-history.md");
-const LEARNINGS_DIR = path.join(os.homedir(), ".opencode", "learnings");
-const NOTIFICATION_LOG = path.join(os.homedir(), ".opencode", "notification-log.json");
+// State files live in the XDG data dir (~/.local/share/opencode) so
+// ~/.opencode stays clean — same convention as other oh-my-hook state.
+const CONTEXT_FILE = statePath("session-context.json");
+const COMPACTION_LOG = statePath("compaction-history.md");
+const LEARNINGS_DIR = statePath("learnings");
+const NOTIFICATION_LOG = statePath("notification-log.json");
 const DEFAULT_COMPACT_THRESHOLD = 50;
 
 function loadContext() {

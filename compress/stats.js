@@ -29,6 +29,8 @@ export function loadCompressStats() {
 		totalCompactions: raw?.totalCompactions ?? 0,
 		lastPrunedAt: raw?.lastPrunedAt ?? null,
 		lastCompactedAt: raw?.lastCompactedAt ?? null,
+		lastPruneEvent: raw?.lastPruneEvent ?? null,
+		avgTokensPerPrune: raw?.avgTokensPerPrune ?? 0,
 		sessions: raw?.sessions ?? {},
 	};
 }
@@ -66,11 +68,23 @@ export function recordPruning(
 	currentSession.lastUpdated = now;
 	currentSession.tools[tool] = (currentSession.tools[tool] || 0) + 1;
 
-	// Update global aggregates
+	// Global aggregates
 	stats.totalPrunedCount += 1;
 	stats.totalBytesSaved += charsPruned;
 	stats.totalTokensSaved += tokensSaved;
 	stats.lastPrunedAt = now;
+	stats.lastPruneEvent = {
+		count: currentSession.prunedCount,
+		tokens: tokensSaved,
+		tool,
+		command: commandClass,
+		at: now,
+	};
+
+	// Rolling prune rate: tokens saved per pruning event (global average)
+	const totalEvents = stats.totalPrunedCount;
+	stats.avgTokensPerPrune =
+		totalEvents > 0 ? Math.round(stats.totalTokensSaved / totalEvents) : 0;
 
 	// Bounding session map
 	stats.sessions[sid] = currentSession;
@@ -125,6 +139,7 @@ export function getCompressMetrics(sessionID) {
 			bytesSaved: 0,
 			tokensSaved: 0,
 			compactions: 0,
+			tools: {},
 		},
 		global: {
 			totalPrunedCount: stats.totalPrunedCount,
@@ -133,6 +148,8 @@ export function getCompressMetrics(sessionID) {
 			totalCompactions: stats.totalCompactions,
 			lastPrunedAt: stats.lastPrunedAt,
 			lastCompactedAt: stats.lastCompactedAt,
+			lastPruneEvent: stats.lastPruneEvent,
+			avgTokensPerPrune: stats.avgTokensPerPrune,
 		},
 	};
 }

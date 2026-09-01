@@ -46,7 +46,7 @@ export function formatCompressHelp() {
 	return [
 		"## Context Compression Commands",
 		"",
-		"- `/compress`: Trigger immediate session context compaction.",
+		"- `/compress`: Trigger immediate session context compaction via OpenCode native summarizer.",
 		"- `/compress stats`: View token savings and pruned output statistics.",
 		"- `/compress help`: Display this help guide.",
 	].join("\n");
@@ -70,7 +70,7 @@ export async function commandHooks({ client }, opts = {}) {
 			};
 		},
 
-		"command.execute.before": async (input, output) => {
+		"command.execute.before": async (input) => {
 			if (!enabled) return;
 			const cmd = input?.command || input?.name;
 			if (cmd !== "compress") return;
@@ -85,7 +85,7 @@ export async function commandHooks({ client }, opts = {}) {
 			} else if (args === "help" || args === "--help" || args === "-h") {
 				text = formatCompressHelp();
 			} else {
-				// Default /compress: trigger compaction
+				// Default /compress: trigger native OpenCode compaction
 				if (client?.session?.compact && sessionID) {
 					try {
 						await client.session.compact({ path: { sessionID } });
@@ -94,7 +94,7 @@ export async function commandHooks({ client }, opts = {}) {
 				text = [
 					"## Context Compaction Triggered",
 					"",
-					"Session context compaction requested. Historical messages will be summarized to free context space.",
+					"Session context compaction requested. Historical messages will be summarized by OpenCode to free context space.",
 				].join("\n");
 			}
 

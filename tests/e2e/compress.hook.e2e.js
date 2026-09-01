@@ -46,9 +46,13 @@ const customConfig = {
 		minOutputChars: 500,
 		keepHeadChars: 50,
 		keepTailChars: 50,
+		keepImportantLines: true,
 		protectedTools: { read: true, write: true, edit: true },
 		eligibleTools: { bash: true },
-		commandPatterns: { test: "npm test" },
+		commandPatterns: {
+			alwaysPrune: ["npm test"],
+			neverPrune: [],
+		},
 		failureSignals: { fail: "FAILED|Error:" },
 	},
 	milestones: {

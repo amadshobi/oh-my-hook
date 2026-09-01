@@ -60,7 +60,7 @@ This document details the internal lifecycle flows, runtime hook events, and exe
 - **When It Runs**: Prior to sending message histories to the inference provider.
 - **Role**: Modifies the in-memory array of messages to reduce context footprint.
 - **Participating Modules**:
- - `compress/pruner.js`: Dynamically collapses large historical tool outputs (`npm test`, `git log`, `go build`) outside the protected recent turn window while strictly preserving failure stack traces (`panic:`, `FAILED`, `npm ERR!`).
+ - `compress/pruner.js`: Dynamically collapses ANY eligible historical tool output above `minOutputChars` (default 2000) outside the protected recent turn window, honoring `neverPrune`/`alwaysPrune` command patterns, preserving important error/pass lines, and strictly protecting failure stack traces (`panic:`, `FAILED`, `npm ERR!`).
 
 ### 4. `tool.execute.before`
 - **When It Runs**: Immediately prior to the execution of any agent tool call (`write`, `edit`, `bash`, etc.).

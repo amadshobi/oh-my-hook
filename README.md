@@ -247,7 +247,16 @@ Dedicated configuration file located at `~/.config/opencode/omh.jsonc`:
  "pruning": {
  "enabled": true,
  "recentTurns": 2, // Keep last 2 conversational turns 100% intact
- "minOutputChars": 8000, // Threshold before historical bash outputs are pruned
+ "minOutputChars": 2000, // Threshold before ANY eligible tool output is pruned
+ "keepImportantLines": true, // Preserve error/pass/summary lines from the middle
+ "toast": {
+ "enabled": true, // Live TUI toast on pruning events
+ "cooldownMs": 30000 // Anti-spam cooldown
+ },
+ "commandPatterns": {
+ "alwaysPrune": ["npm install", "git commit"], // Force-prune noisy commands
+ "neverPrune": ["git diff", "cat .*"] // Protect critical outputs
+ }
  },
  "milestones": {
  "pushAutoCompress": true, // Auto-compact & snapshot when git push finishes and agent goes idle
@@ -381,18 +390,21 @@ When using multi-provider models or local gateway proxies (like **Oh-My-Pi / OMP
 
 ## ️ Context Compression & Dynamic Pruning Suite
 
-Long coding sessions inevitably fill the LLM context window with bloated historical logs (`npm test`, `go build`, `cargo test`, `git log`). `compress/` intelligently optimizes context usage:
+Long coding sessions inevitably fill the LLM context window with bloated historical logs (`npm test`, `git commit`, `curl`, `gh`, `node`). `compress/` intelligently optimizes context usage:
 
-- **Dynamic In-Memory Pruning (`experimental.chat.messages.transform`)**:
- - Automatically collapses historical, bulky tool outputs into clean, deterministic markers (`── OMH-PRUNE ── X chars collapsed ──`).
+- **Generic Size-Based Dynamic Pruning (`experimental.chat.messages.transform`)**:
+ - Automatically collapses **ANY eligible tool output** above `minOutputChars` (default 2000) into clean, deterministic markers (`── OMH-PRUNE ── X chars collapsed ──`) — no command whitelist needed.
+ - **Selective Command Protection**: `commandPatterns.neverPrune` keeps critical outputs (`git diff`, `cat config`) fully intact; `commandPatterns.alwaysPrune` force-prunes noisy commands (`npm install`, `git commit`).
+ - **Important Line Preservation**: Error/pass/summary lines from the middle of output are kept (`── IMPORTANT ──` block), so context survives collapse.
  - **Zero Database Modification**: Pruning operates in-memory per request turn, preserving full transcript integrity for OpenCode's undo/revert functionality.
  - **Failure Signal Protection**: Test failures and stack traces (`FAILED`, `panic:`, `Traceback`, `npm ERR!`) are **never pruned** so debugging context is never lost.
  - **Protected Window & Tools**: Last 2 conversational turns and critical tools (`read`, `write`, `edit`, `todowrite`, `grep`, `glob`) are strictly protected.
+ - **Live TUI Toast**: When pruning fires, a toast notification appears in the TUI (`pruned <target>: ~X tok`) — anti-spam cooldown included.
 - **Post-Push Idle Auto-Compaction**:
  - Automatically captures git diffs and branch milestones when a successful `git push` is detected and triggers background compaction when the agent enters an idle state.
 - **Interactive Slash Commands**:
  - `/compress`: Trigger immediate session compaction with zero token overhead.
- - `/compress stats`: View live token savings and pruning metrics.
+ - `/compress stats`: View live token savings, tool breakdown, and pruning metrics.
 
 ---
 
