@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-09-01
+
+### Fixed
+
+- **Plan Mode False-Positive Activation (Issue #25)**:
+  - **Pruned Conversational Intent Regex**: Removed overly aggressive conversational patterns (`mikir dulu`, `bahas dulu`, `jangan edit`, `cuma mau bahas`, `analisis dulu`, `rancang dulu`) that accidentally locked sessions into Plan Mode mid-chat — e.g. "coba kita bahas dulu arsitekturnya" no longer triggers Plan Mode.
+  - **Explicit Trigger Contract**: Plan Mode now activates only via explicit slash commands (`/plan`, `/design`, `/mode plan`) or unambiguous verbal instructions (`enter plan mode`, `masuk mode plan`, `switch to plan mode`, `pindah ke plan mode`).
+  - **Tightened Execute Detection**: `approved`/`approve` now only match as part of command phrases (`plan approved`, `approve plan`, `sudah approve`), and `gass+` no longer matches conversational questions like "gimana kalau gass?".
+  - **User Opt-in Toggle**: New `plans.autoDetectIntent` config flag (default `true`, backward compatible) — set to `false` in `omh.jsonc` for 100% slash-command-driven mode switching with no chat scanning at all.
+  - **Test Coverage**: Added `tests/plans-intent.test.js` (6 unit tests) covering explicit triggers, conversational false positives, and invalid input handling. Updated `tests/e2e/mode-intent.hook.e2e.js` to use the explicit trigger phrase `masuk mode plan` instead of the removed conversational pattern.
+
 ## [0.5.0] - 2026-08-31
 
 ### Added

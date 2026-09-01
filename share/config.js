@@ -43,6 +43,9 @@ export const DEFAULTS = {
 	plans: {
 		enabled: true,
 		planMode: true,
+		// Auto-detect explicit plan/execute intent from user text. When false,
+		// mode switching is 100% via slash commands (/plan, /design, /approve).
+		autoDetectIntent: true,
 		directory: "~/.opencode/plans",
 		versionLimit: 20,
 	},

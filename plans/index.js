@@ -35,18 +35,21 @@ import {
 import { formatBlockMessage } from "../share/messages.js";
 import { createNotifier } from "../share/notify.js";
 
+// Explicit, unambiguous intent triggers ONLY. Conversational phrases
+// ("mikir dulu", "bahas dulu", "jangan edit", ...) are intentionally
+// excluded — they caused false positives that locked sessions into Plan
+// Mode mid-chat. Activation is opt-in via /plan, /design, /mode plan,
+// or an explicit "enter/switch to plan mode" instruction.
 const PLAN_INTENT_PATTERNS = [
 	/\b(masuk|switch|ke)\s+(ke\s+)?mode\s+(plan|planning|desain|design)\b/i,
-	/\b(mikir\s+dulu|bahas\s+dulu|analisis\s+dulu|arsiteki\s+dulu|rancang\s+dulu)\b/i,
-	/\b(jangan\s+(langsung\s+)?(edit|tulis|ubah|coding|sentuh|bikin))\b/i,
-	/\b(cuma\s+mau\s+(bahas|diskusi|mikir|rancang))\b/i,
-	/\b(enter|start)\s+(plan|planning|design)\s+mode\b/i,
+	/\b(enter|start|switch)\s+(to\s+)?(plan|planning|design)\s+mode\b/i,
+	/\b(pindah|ganti|masuk)\s+(ke\s+)?(plan|planning|design)\s+mode\b/i,
 ];
 
 const EXECUTE_INTENT_PATTERNS = [
 	/\b(masuk|switch|ke)\s+(ke\s+)?mode\s+(execute|eksekusi|exec)\b/i,
-	/\b(plan\s+approved|approved|approve)\b/i,
-	/\b(gasken|gas\s+blin|gas\s+lah|langsung\s+gas|gass+)\b/i,
+	/\b(plan\s+approved|sudah\s+approve|approved,\s*gasken|approve\s+plan)\b/i,
+	/\b(gasken|gas\s+blin|gas\s+lah|langsung\s+gas|gas\s+eksekusi)\b/i,
 	/\b(eksekusi\s+(sekarang|kodenya)|implementasikan\s+sekarang|mulai\s+coding)\b/i,
 	/\b(proceed|go\s+ahead|execute\s+plan)\b/i,
 ];
@@ -91,12 +94,24 @@ const MUTATING_BASH_PATTERNS = [
 	/\b(echo|printf|cat)\s+.*>\s+/,
 ];
 
+/** Detect explicit plan-mode intent from user text. Exported for tests. */
+export function detectPlanIntent(text) {
+	if (!text || typeof text !== "string") return false;
+	return PLAN_INTENT_PATTERNS.some((re) => re.test(text.trim()));
+}
+
+/** Detect explicit execute-mode intent from user text. Exported for tests. */
+export function detectExecuteIntent(text) {
+	if (!text || typeof text !== "string") return false;
+	return EXECUTE_INTENT_PATTERNS.some((re) => re.test(text.trim()));
+}
+
 function detectIntent(text) {
 	if (!text || typeof text !== "string") return null;
 	const trimmed = text.trim();
 	// Check execute intent first (e.g. "plan approved", "gasken")
-	if (EXECUTE_INTENT_PATTERNS.some((re) => re.test(trimmed))) return "execute";
-	if (PLAN_INTENT_PATTERNS.some((re) => re.test(trimmed))) return "plan";
+	if (detectExecuteIntent(trimmed)) return "execute";
+	if (detectPlanIntent(trimmed)) return "plan";
 	return null;
 }
 
@@ -126,6 +141,10 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 		config?.guard?.planMode ??
 		config?.sandbox?.planMode ??
 		true;
+	// Explicit intent detection toggle: when disabled, mode switching is
+	// 100% slash-command driven (no chat/message-part scanning at all).
+	const autoDetectIntent = config?.plans?.autoDetectIntent ?? true;
+	const intentDetectionEnabled = planModeEnabled && autoDetectIntent;
 	const messagesConfig = opts?.messages ?? opts?.config?.messages ?? {};
 	const plansDir = resolvePlansDir(config, directory || process.cwd());
 	const notify = createNotifier(client, "plans", "info");
@@ -415,7 +434,7 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 
 		// 4. Detect intent from message streams and chat turns
 		event: async ({ event }) => {
-			if (!planModeEnabled) return;
+			if (!intentDetectionEnabled) return;
 			if (event?.type !== "message.part.updated") return;
 			const part = event.properties?.part;
 			if (part?.type !== "text" || !part.text) return;
@@ -425,7 +444,7 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 		},
 
 		"chat.message": async (input, output) => {
-			if (!planModeEnabled) return;
+			if (!intentDetectionEnabled) return;
 			const sessionID = input?.sessionID;
 			const userText = extractUserText(input, output);
 			if (userText) {

@@ -55,7 +55,7 @@ Comprehensive architectural deep dives, developer manuals, and per-module config
 ## Key Pillars
 
 - **Sandbox Enforcement (`sandbox/`)**: Strict pre-execution gates that reject destructive bash commands, unread file overrides, stale concurrent mutations, and credential leaks. Native `permission.ask` and `shell.env` integration.
-- ️ **Dual-Mode Planning Suite (`plans/`)**: In-chat brainstorming or durable RFC file creation (`~/.opencode/plans/`) with auto-versioning, plan mode write boundaries, and 3-level prompt templates.
+- ️ **Dual-Mode Planning Suite (`plans/`)**: In-chat brainstorming or durable RFC file creation (`~/.opencode/plans/`) with auto-versioning, plan mode write boundaries, 3-level prompt templates, and explicit intent detection (no conversational false-positive mode locking).
 - ️ **Multimodal Vision Engine (`imgsee/`)**: Native visual inspection tool delegating one-shot image analysis (OCR, UI layout, diagrams, and debugging) to local vision gateways (`:4010` / `:4000`) without context poisoning or session errors.
 - ️ **Native TUI Integration**: Real-time ` [plan mode]` prompt badges and collapsible sidebar metrics rendered natively in OpenCode TUI via `@opentui/solid`.
 - **Curated Distilled Memory (`/capture`)**: Zero-noise memory engine. Only loads curated bullets into the primary agent, keeping subagent contexts clean and compaction snapshots lossless.
@@ -161,6 +161,7 @@ Seamlessly switch between quick conversational brainstorming, durable RFC file g
 ### ‍️ Goblin Plan Protocol & Interactive Review
 
 - **Autonomous Agent Gate**: When assigned a complex, multi-file task (≥3 files), the agent prompts for user permission (`[Yes, blin] | [Nope, proceed directly!]`) before entering Plan Mode.
+- **Explicit Intent Detection**: Plan Mode activates only via explicit triggers — slash commands (`/plan`, `/design`, `/mode plan`) or unambiguous verbal instructions (`enter plan mode`, `masuk mode plan`, `switch to plan mode`). Conversational phrases like "bahas dulu" or "mikir dulu" no longer accidentally lock the session. Disable text detection entirely with `plans.autoDetectIntent: false` for 100% slash-command-driven switching.
 - **Line-Level Reviewer**: Keyboard-navigable (`[↓]/[↑]`, `[Enter]` to correct, `[Ctrl+A]` to approve) modal directly in the OpenCode TUI interface.
 
 ### 3-Level Prompt Template Precedence
@@ -235,6 +236,7 @@ Dedicated configuration file located at `~/.config/opencode/omh.jsonc`:
  "plans": {
  "enabled": true,
  "planMode": true, // Freeze file mutation during planning phase
+ "autoDetectIntent": true, // Auto-detect explicit plan/execute intent from text; false = slash commands only
  "directory": "~/.opencode/plans",
  "versionLimit": 20,
  },
