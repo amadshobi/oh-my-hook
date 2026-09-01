@@ -1,6 +1,6 @@
 {
 	"name": "oh-my-hook",
-	"version": "0.5.1",
+	"version": "0.6.0",
 	"type": "module",
 	"description": "The ultimate power-tools, guardrails, and runtime enhancement suite for OpenCode coding agents.",
 	"main": "index.js",
