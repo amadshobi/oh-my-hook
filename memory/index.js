@@ -14,12 +14,10 @@
  */
 import {
 	readMemory,
-	readAllMemory,
 	formatSystemMemory,
 	appendMemory,
 	replaceMemory,
 	removeMemory,
-	GLOBAL_FILE,
 	getGlobalFile,
 	getUserFile,
 	projectSlug,
@@ -146,7 +144,11 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 						await notify("💾 Self-improvement review: Memory updated", "info");
 					}
 				}
-			} catch {}
+			} catch (e) {
+				try {
+					client?.app?.log?.(`[memory] background review error: ${e.message}`);
+				} catch {}
+			}
 		}, delay);
 	};
 

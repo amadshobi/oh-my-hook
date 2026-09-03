@@ -373,6 +373,11 @@ function SidebarWidget(props) {
     return _el$9;
   })();
 }
+const MEMORY_CATEGORY_LABELS = {
+  user: "USER PROFILE",
+  global: "GLOBAL MEMORY",
+  project: "PROJECT MEMORY"
+};
 
 /**
  * Native OpenCode DialogSelect & DialogPrompt based Memory Inspector.
@@ -559,7 +564,7 @@ function MemoryModal(props) {
         title: isDeleting ? "Yakin mau hapus? Tekan Ctrl+D lagi untuk konfirmasi" : e.content,
         value: e,
         bg: isDeleting ? theme.error || "#ef4444" : undefined,
-        category: currentScope() === "all" ? (e.target || e.scope) === "user" ? "USER PROFILE" : (e.target || e.scope) === "global" ? "GLOBAL MEMORY" : "PROJECT MEMORY" : undefined,
+        category: currentScope() === "all" ? MEMORY_CATEGORY_LABELS[e.target || e.scope] || "PROJECT MEMORY" : undefined,
         footer: isDeleting ? "Tekan Ctrl+D lagi" : undefined
       };
     });

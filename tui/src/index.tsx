@@ -263,6 +263,12 @@ function SidebarWidget(props: {
 	);
 }
 
+const MEMORY_CATEGORY_LABELS: Record<string, string> = {
+	user: "USER PROFILE",
+	global: "GLOBAL MEMORY",
+	project: "PROJECT MEMORY",
+};
+
 /**
  * Native OpenCode DialogSelect & DialogPrompt based Memory Inspector.
  * Supports 3 scoped views:
@@ -453,11 +459,7 @@ function SidebarWidget(props: {
 				bg: isDeleting ? theme.error || "#ef4444" : undefined,
 				category:
 					currentScope() === "all"
-						? (e.target || e.scope) === "user"
-							? "USER PROFILE"
-							: (e.target || e.scope) === "global"
-								? "GLOBAL MEMORY"
-								: "PROJECT MEMORY"
+						? MEMORY_CATEGORY_LABELS[e.target || e.scope] || "PROJECT MEMORY"
 						: undefined,
 				footer: isDeleting ? "Tekan Ctrl+D lagi" : undefined,
 			};
