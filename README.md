@@ -1,85 +1,91 @@
 <div align="center">
 
-# oh-my-hook
+# 🪝 oh-my-hook
 
 **Production-grade guardrails, execution discipline, curated memory, and native TUI widgets for OpenCode agents.**
 
-[![CI](https://github.com/amadshobi/oh-my-hook/actions/workflows/ci.yml/badge.svg)](https://github.com/amadshobi/oh-my-hook/actions/workflows/ci.yml)
-[![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg?style=flat-square)](https://nodejs.org)
-[![Zero Dependencies](https://img.shields.io/badge/dependencies-0-blue.svg?style=flat-square)](package.json)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![OpenCode Plugin](https://img.shields.io/badge/ecosystem-opencode-purple.svg?style=flat-square)](https://opencode.ai)
+<br />
+
+<a href="https://github.com/amadshobi/oh-my-hook/actions/workflows/ci.yml">
+  <img src="https://img.shields.io/github/actions/workflow/status/amadshobi/oh-my-hook/ci.yml?branch=main&style=for-the-badge&logo=github&label=CI&color=10B981&labelColor=1F2937&logoColor=white" alt="CI Status" />
+</a>
+<img src="https://img.shields.io/badge/Node-%E2%89%A5%2018.0.0-22C55E?style=for-the-badge&logo=nodedotjs&logoColor=white&labelColor=1F2937" alt="Node Version" />
+<img src="https://img.shields.io/badge/Dependencies-Zero-3B82F6?style=for-the-badge&logo=buffer&logoColor=white&labelColor=1F2937" alt="Zero Dependencies" />
+<img src="https://img.shields.io/badge/License-MIT-00E5FF?style=for-the-badge&logo=open-source-initiative&logoColor=black&labelColor=1F2937" alt="License MIT" />
+<img src="https://img.shields.io/badge/Ecosystem-OpenCode-A855F7?style=for-the-badge&logo=target&logoColor=white&labelColor=1F2937" alt="OpenCode Plugin" />
+
+<br /><br />
 
 _Stop AI agents from hallucinating file writes, leaking credentials, executing destructive bash, or losing memory after context compaction._
 
 ---
 
-[Documentation Portal](docs/index.md) •
-[Key Pillars](#-key-pillars) •
-[Why oh-my-hook?](#-why-oh-my-hook) •
-[Architecture](#-architecture-flow) •
-[TUI Experience](#-opencode-tui-experience) •
-[Planning Suite](#-dual-mode-planning-suite) •
-[Multimodal Vision](#-multimodal-vision-engine-imgsee) •
-[Installation](#-installation) •
-[Configuration](#-configuration-omhjsonc) •
-[Guardrail Suite](#-guardrail-suite) •
-[Curated Memory](#-curated-memory-engine) •
-[Testing](#-testing--development)
+[📚 Documentation Portal](docs/index.md) •
+[⚡ Key Pillars](#-key-pillars) •
+[🥊 Why oh-my-hook?](#-why-oh-my-hook) •
+[📐 Architecture Flow](#-architecture-flow) •
+[🖥️ TUI Experience](#-opencode-tui-experience) •
+[🗺️ Planning Suite](#-dual-mode-planning-suite) •
+[👁️ Multimodal Vision](#-multimodal-vision-engine-imgsee) •
+[📦 Installation](#-installation) •
+[⚙️ Configuration](#-configuration-omhjsonc) •
+[🔒 Guardrail Suite](#-guardrail-suite) •
+[🧠 Curated Memory](#-curated-memory-engine) •
+[🧪 Testing](#-testing--development)
 
 </div>
 
 ---
 
-## Complete Documentation Suite
+## 📚 Complete Documentation Suite
 
 Comprehensive architectural deep dives, developer manuals, and per-module configuration references are available in the **[`docs/`](docs/index.md)** directory:
 
 - [**Introduction & Philosophy**](docs/intro.md) — The problem space of AI agents, core engineering pillars, and before/after comparisons.
 - [**System Architecture & Internals**](docs/architecture/index.md) — Hook lifecycle flow, [Boundary Contracts](docs/architecture/boundary-contract.md), and [TUI Reactive Runtime](docs/architecture/tui-runtime.md).
 - [**Showcase & Products**](docs/showcase/sandbox/index.md):
- - **[Sandbox Safety Suite](docs/showcase/sandbox/index.md)** — [Read/Stale Guard](docs/showcase/sandbox/read-stale-guard.md), [Secret Scanner](docs/showcase/sandbox/secret-scanner.md), [Dangerous Bash Guard](docs/showcase/sandbox/dangerous-bash.md), [Commit Guard](docs/showcase/sandbox/commit-guard.md).
- - ️ **[Planning Suite](docs/showcase/plans/index.md)** — [Plan Mode Barrier](docs/showcase/plans/plan-mode.md), [Interactive Plan Reviewer](docs/showcase/plans/interactive-review.md), [Prompt Templates](docs/showcase/plans/templates.md).
- - **[Curated Memory](docs/showcase/memory/index.md)** — [Agent Tool](docs/showcase/memory/agent-tool.md), [AI Distillation](docs/showcase/memory/distillation.md), [TUI Inspector](docs/showcase/memory/tui-inspector.md).
- - ️ **[Context Compression](docs/showcase/compress/index.md)** — [Dynamic Pruning](docs/showcase/compress/dynamic-pruning.md), [Milestones Compaction](docs/showcase/compress/milestones.md).
- - **[Live Quota & Tokens](docs/showcase/usage/index.md)** — [Cloud Quota Tracker](docs/showcase/usage/cloud-quota.md), [Session Token Tree](docs/showcase/usage/session-tokens.md).
- - ️ **[Multimodal Vision](docs/showcase/imgsee/index.md)** — Out-of-band image analysis & OCR.
- - **[System Prompt Router](docs/showcase/prompts/index.md)** — Dynamic model family prompt routing.
- - **[Gateway Bridge](docs/showcase/gateway/index.md)** — Local daemon integration & Antigravity CCA armor.
-- ️ [**Configuration Reference**](docs/config/overview.md) — Multi-file precedence and per-module settings ([Sandbox](docs/config/sandbox.md), [Plans](docs/config/plans.md), [Memory](docs/config/memory.md), [Compress](docs/config/compress.md), [Usage](docs/config/usage.md), [Imgsee](docs/config/imgsee.md), [Prompts](docs/config/prompts.md), [Gateway](docs/config/gateway.md)).
-- ️ [**Developer Guides**](docs/guides/custom-hooks.md) — [Authoring Custom Hooks](docs/guides/custom-hooks.md) and [Headless Testing](docs/guides/headless-testing.md).
-- [**Troubleshooting & Runbook**](docs/troubleshooting.md) — Common error messages, resolution workflows, and state ledger reset procedures.
+  - 🛡️ **[Sandbox Safety Suite](docs/showcase/sandbox/index.md)** — [Read/Stale Guard](docs/showcase/sandbox/read-stale-guard.md), [Secret Scanner](docs/showcase/sandbox/secret-scanner.md), [Dangerous Bash Guard](docs/showcase/sandbox/dangerous-bash.md), [Commit Guard](docs/showcase/sandbox/commit-guard.md).
+  - 🗺️ **[Planning Suite](docs/showcase/plans/index.md)** — [Plan Mode Barrier](docs/showcase/plans/plan-mode.md), [Interactive Plan Reviewer](docs/showcase/plans/interactive-review.md), [Prompt Templates](docs/showcase/plans/templates.md).
+  - 🧠 **[Curated Memory](docs/showcase/memory/index.md)** — [Agent Tool](docs/showcase/memory/agent-tool.md), [AI Distillation](docs/showcase/memory/distillation.md), [TUI Inspector](docs/showcase/memory/tui-inspector.md).
+  - 🗜️ **[Context Compression](docs/showcase/compress/index.md)** — [Dynamic Pruning](docs/showcase/compress/dynamic-pruning.md), [Milestones Compaction](docs/showcase/compress/milestones.md).
+  - 📊 **[Live Quota & Tokens](docs/showcase/usage/index.md)** — [Cloud Quota Tracker](docs/showcase/usage/cloud-quota.md), [Session Token Tree](docs/showcase/usage/session-tokens.md).
+  - 👁️ **[Multimodal Vision](docs/showcase/imgsee/index.md)** — Out-of-band image analysis & OCR.
+  - 🧭 **[System Prompt Router](docs/showcase/prompts/index.md)** — Dynamic model family prompt routing.
+  - 🔌 **[Gateway Bridge](docs/showcase/gateway/index.md)** — Local daemon integration & Antigravity CCA armor.
+- ⚙️ [**Configuration Reference**](docs/config/overview.md) — Multi-file precedence and per-module settings ([Sandbox](docs/config/sandbox.md), [Plans](docs/config/plans.md), [Memory](docs/config/memory.md), [Compress](docs/config/compress.md), [Usage](docs/config/usage.md), [Imgsee](docs/config/imgsee.md), [Prompts](docs/config/prompts.md), [Gateway](docs/config/gateway.md)).
+- 🛠️ [**Developer Guides**](docs/guides/custom-hooks.md) — [Authoring Custom Hooks](docs/guides/custom-hooks.md) and [Headless Testing](docs/guides/headless-testing.md).
+- 🚨 [**Troubleshooting & Runbook**](docs/troubleshooting.md) — Common error messages, resolution workflows, and state ledger reset procedures.
 
 ---
 
-## Key Pillars
+## ⚡ Key Pillars
 
-- **Sandbox Enforcement (`sandbox/`)**: Strict pre-execution gates that reject destructive bash commands, unread file overrides, stale concurrent mutations, and credential leaks. Native `permission.ask` and `shell.env` integration.
-- ️ **Dual-Mode Planning Suite (`plans/`)**: In-chat brainstorming or durable RFC file creation (`~/.opencode/plans/`) with auto-versioning, plan mode write boundaries, 3-level prompt templates, and explicit intent detection (no conversational false-positive mode locking).
-- ️ **Multimodal Vision Engine (`imgsee/`)**: Native visual inspection tool delegating one-shot image analysis (OCR, UI layout, diagrams, and debugging) to local vision gateways (`:4010` / `:4000`) without context poisoning or session errors.
-- ️ **Native TUI Integration**: Real-time ` [plan mode]` prompt badges and collapsible sidebar metrics rendered natively in OpenCode TUI via `@opentui/solid`.
-- **Curated Distilled Memory (`/capture`)**: Zero-noise memory engine. Only loads curated bullets into the primary agent, keeping subagent contexts clean and compaction snapshots lossless.
-- **Autonomous Verification Loop**: Runs typechecking, linter auto-fixes, and tests immediately after edits while automatically refreshing ledger state.
-- **Zero Dependencies Core**: 100% pure Node.js ESM built-ins (`node:fs`, `node:path`, `node:child_process`). Lightweight, instant startup, zero supply-chain risk.
-- **Live Quota & Token Monitor (`usage/`)**: Deterministic `/usage` slash command (0-token LLM) showing multi-provider quota — Google Antigravity, Ollama Cloud (multi-key aggregate), OpenRouter balance — straight from `agent.db`, plus session/subagent token breakdown from `opencode.db`.
+- 🛡️ **Sandbox Enforcement (`sandbox/`)**: Strict pre-execution gates that reject destructive bash commands, unread file overrides, stale concurrent mutations, and credential leaks. Native `permission.ask` and `shell.env` integration.
+- 🗺️ **Dual-Mode Planning Suite (`plans/`)**: In-chat brainstorming or durable RFC file creation (`~/.opencode/plans/`) with auto-versioning, plan mode write boundaries, 3-level prompt templates, and explicit intent detection (no conversational false-positive mode locking).
+- 👁️ **Multimodal Vision Engine (`imgsee/`)**: Native visual inspection tool delegating one-shot image analysis (OCR, UI layout, diagrams, and debugging) to local vision gateways (`:4010` / `:4000`) without context poisoning or session errors.
+- 🖥️ **Native TUI Integration**: Real-time ` [plan mode]` prompt badges and collapsible sidebar metrics rendered natively in OpenCode TUI via `@opentui/solid`.
+- 🧠 **Curated Distilled Memory (`/capture`)**: Zero-noise memory engine. Only loads curated bullets into the primary agent, keeping subagent contexts clean and compaction snapshots lossless.
+- 🔁 **Autonomous Verification Loop**: Runs typechecking, linter auto-fixes, and tests immediately after edits while automatically refreshing ledger state.
+- 📦 **Zero Dependencies Core**: 100% pure Node.js ESM built-ins (`node:fs`, `node:path`, `node:child_process`). Lightweight, instant startup, zero supply-chain risk.
+- 📊 **Live Quota & Token Monitor (`usage/`)**: Deterministic `/usage` slash command (0-token LLM) showing multi-provider quota — Google Antigravity, Ollama Cloud (multi-key aggregate), OpenRouter balance — straight from `agent.db`, plus session/subagent token breakdown from `opencode.db`.
 
 ---
 
-## Why oh-my-hook?
+## 🥊 Why oh-my-hook?
 
 | Risk / Scenario | Raw OpenCode Agent | With `oh-my-hook` |
 | :----------------------------- | :--------------------------------------------------------------- | :---------------------------------------------------------------------------- |
-| **Overwriting Unread Files** | Model guesses structure and rewrites entire files blindly. | ** Blocked**: `readBeforeWrite` forces `read` before `edit`/`write`. |
-| **Concurrent File Mutation** | Overwrites changes made by user or external scripts. | ** Blocked**: `staleWrite` checks `mtime` & byte size before mutation. |
-| **Accidental Secret Leaks** | API keys, JWTs, and AWS tokens written to public code. | ** Blocked**: `secretScanner` scans payloads with regex AST patterns. |
-| **Plan Phase Runaway** | Agent starts editing codebase while asked to brainstorm. | ** Blocked**: `planMode` disables mutating tools until `/approve`. |
-| **Destructive Terminal Ops** | Commands like `rm -rf /`, `curl \| sh`, or detached dev servers. | ** Blocked**: `dangerousBash` & `devServerGuard` stop dangerous ops. |
-| **Context Loss on Compaction** | Agent forgets git state, active tasks, and project rules. | ** Injected**: `compactionSnapshot` injects git state + todos into summary. |
-| **Session Memory Drift** | Auto-memory logs conversational spam and hallucinates. | ** Curated**: Markdown storage + AI session distillation via `/capture`. |
+| **Overwriting Unread Files** | Model guesses structure and rewrites entire files blindly. | 🛡️ **Blocked**: `readBeforeWrite` forces `read` before `edit`/`write`. |
+| **Concurrent File Mutation** | Overwrites changes made by user or external scripts. | 🛡️ **Blocked**: `staleWrite` checks `mtime` & byte size before mutation. |
+| **Accidental Secret Leaks** | API keys, JWTs, and AWS tokens written to public code. | 🛡️ **Blocked**: `secretScanner` scans payloads with regex AST patterns. |
+| **Plan Phase Runaway** | Agent starts editing codebase while asked to brainstorm. | 🛡️ **Blocked**: `planMode` disables mutating tools until `/approve`. |
+| **Destructive Terminal Ops** | Commands like `rm -rf /`, `curl \| sh`, or detached dev servers. | 🛡️ **Blocked**: `dangerousBash` & `devServerGuard` stop dangerous ops. |
+| **Context Loss on Compaction** | Agent forgets git state, active tasks, and project rules. | 🗜️ **Injected**: `compactionSnapshot` injects git state + todos into summary. |
+| **Session Memory Drift** | Auto-memory logs conversational spam and hallucinates. | 🧠 **Curated**: Markdown storage + AI session distillation via `/capture`. |
 
 ---
 
-## Architecture Flow
+## 📐 Architecture Flow
 
 ```
  ┌────────────────────────────────────────────────────────┐
@@ -110,7 +116,7 @@ Comprehensive architectural deep dives, developer manuals, and per-module config
 
 ---
 
-## ️ OpenCode TUI Experience
+## 🖥️ OpenCode TUI Experience
 
 `oh-my-hook` integrates directly into the OpenCode TUI surface using `@opentui/solid`:
 
@@ -142,7 +148,7 @@ Comprehensive architectural deep dives, developer manuals, and per-module config
 
 ---
 
-## ️ Dual-Mode Planning Suite
+## 🗺️ Dual-Mode Planning Suite
 
 Seamlessly switch between quick conversational brainstorming, durable RFC file generation, and interactive terminal review:
 
@@ -174,7 +180,7 @@ Prompt templates support custom overrides and dynamic macros (`{plan_file}`, `{p
 
 ---
 
-## Installation
+## 📦 Installation
 
 Add `oh-my-hook` to your OpenCode configuration files:
 
@@ -202,7 +208,7 @@ Add `oh-my-hook` to your OpenCode configuration files:
 
 ---
 
-## ️ Configuration (`omh.jsonc`)
+## ⚙️ Configuration (`omh.jsonc`)
 
 Dedicated configuration file located at `~/.config/opencode/omh.jsonc`:
 
@@ -293,7 +299,7 @@ Dedicated configuration file located at `~/.config/opencode/omh.jsonc`:
 
 ---
 
-## Sandbox Suite
+## 🔒 Sandbox Suite
 
 ### 1. Read-Before-Write & Stale-Write Protection
 
@@ -334,7 +340,7 @@ Scans tool input arguments (`write`, `edit`, `patch`) against production regex s
 
 ---
 
-## Curated Memory & Agent Tool
+## 🧠 Curated Memory & Agent Tool
 
 `oh-my-hook` features a **pure Markdown-backed, self-curating memory engine** (Hermes-style architecture) with zero JSONL bloat and direct file storage:
 
@@ -373,7 +379,7 @@ Scans tool input arguments (`write`, `edit`, `patch`) against production regex s
 
 ---
 
-## Dynamic System Prompt Router
+## 🧭 Dynamic System Prompt Router
 
 When using multi-provider models or local gateway proxies (like **Oh-My-Pi / OMP**), models outside OpenCode's hardcoded tier-1 list fall back to `PROMPT_DEFAULT`, leading to tool chatter and formatting mismatches.
 
@@ -388,7 +394,7 @@ When using multi-provider models or local gateway proxies (like **Oh-My-Pi / OMP
 
 ---
 
-## ️ Context Compression & Dynamic Pruning Suite
+## 🗜️ Context Compression & Dynamic Pruning Suite
 
 Long coding sessions inevitably fill the LLM context window with bloated historical logs (`npm test`, `git commit`, `curl`, `gh`, `node`). `compress/` intelligently optimizes context usage:
 
@@ -408,7 +414,7 @@ Long coding sessions inevitably fill the LLM context window with bloated histori
 
 ---
 
-## Local Gateway Bridge (`gateway/`)
+## 🔌 Local Gateway Bridge (`gateway/`)
 
 `gateway/` acts as the native OpenCode bridge to your local AI daemon (`gn gw` on `:4010` or `:4000`), eliminating manual JSON configuration and protecting against Google CCA schema rejections.
 
@@ -428,7 +434,7 @@ Long coding sessions inevitably fill the LLM context window with bloated histori
 
 ---
 
-## ️ Multimodal Vision Engine (`imgsee/`)
+## 👁️ Multimodal Vision Engine (`imgsee/`)
 
 When coding agents need to inspect UI layouts, error screenshots, diagrams, or web pages, `imgsee/` provides out-of-band visual inspection by delegating directly to a vision-capable model (like `gemini-2.5-flash` or `gemini-3.7-flash` via local OMP gateway on `:4010` / `:4000`).
 
@@ -443,7 +449,7 @@ When coding agents need to inspect UI layouts, error screenshots, diagrams, or w
 
 ---
 
-## Live Quota & Token Monitor (`usage/`)
+## 📊 Live Quota & Token Monitor (`usage/`)
 
 Deterministic `/usage` slash command (0-token LLM — output is `ignored` transcript, never read by the model):
 
@@ -469,7 +475,7 @@ Deterministic `/usage` slash command (0-token LLM — output is `ignored` transc
 
 ---
 
-## Testing & Development
+## 🧪 Testing & Development
 
 `oh-my-hook` includes **142 unit tests** and **5 deterministic E2E hook pipeline test suites**.
 
@@ -486,7 +492,7 @@ npm run test:all
 
 ---
 
-## License
+## 📄 License
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
