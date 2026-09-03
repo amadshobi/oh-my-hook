@@ -8,12 +8,16 @@ import { join } from "node:path";
 import { normalizeGatewayModels } from "./normalizer.js";
 
 /**
- * Resolve standard cache path for gateway models snapshot.
+ * Resolve standard cache path for gateway models snapshot per provider.
+ *
+ * @param {string} [providerId="local-gateway"]
+ * @returns {string}
  */
-export function getSnapshotCachePath() {
+export function getSnapshotCachePath(providerId = "local-gateway") {
 	const cacheDir =
 		process.env.XDG_CACHE_HOME || join(homedir(), ".cache", "opencode");
-	return join(cacheDir, "gateway-models-cache.json");
+	const safeId = String(providerId).replace(/[^a-zA-Z0-9_-]/g, "-");
+	return join(cacheDir, `gateway-models-cache-${safeId}.json`);
 }
 
 /**
@@ -26,7 +30,7 @@ export async function fetchGatewayModels(
 	timeoutMs = 3000,
 	opts = {},
 ) {
-	const cachePath = opts.cachePath || getSnapshotCachePath();
+	const cachePath = opts.cachePath || getSnapshotCachePath(providerId);
 	const fetchFn = opts.fetch || globalThis.fetch;
 
 	const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");

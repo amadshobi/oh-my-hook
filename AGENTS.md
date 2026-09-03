@@ -93,6 +93,9 @@ Error(blockMessage(...))` so the model sees a clear reason. Reminders use
 - **Slash commands register via the `config` hook** (`cfg.command[name] =
 { template, description }`) and are handled in `command.execute.before`
   — the opencode-quota pattern. Keep template/description short.
+- **Provider Auth Hook Constraints (OpenCode Engine Internals)**:
+  - `auth` hook **must be a single object** (`auth: { provider: string, methods: [...] }`), never an array. OpenCode's binary evaluates `C.auth.provider` directly; passing an array makes `provider` undefined and causes `TypeError: undefined is not an object (evaluating 'r.label.toLowerCase')` during interactive select.
+  - To support multiple providers under one plugin without overwriting credentials in `auth.json`, implement `methods[].authorize(inputs)` returning `{ type: "success", provider: targetProviderId, key, metadata }`. OpenCode evaluates `let J = X.provider ?? u` to determine the destination key in `auth.json`.
 - **Memory capture AI is pluggable** — adapters live in `memory/ai/`,
   exporting `{ id, isAvailable(), run(prompt, opts) }`. The default is
   `commandcode` (`cmd -p`). Don't hardcode a binary in capture logic.

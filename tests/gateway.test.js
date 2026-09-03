@@ -179,15 +179,20 @@ test("gateway/variants: generates thinking variants and supports resetOmpCatalog
 test("gateway/index: resolveGatewayUrl handles ports, URLs and enforces loopback security", () => {
 	assert.equal(resolveGatewayUrl("4010"), "http://127.0.0.1:4010/v1");
 	assert.equal(resolveGatewayUrl("4000"), "http://127.0.0.1:4000/v1");
+	assert.equal(resolveGatewayUrl("20128"), "http://127.0.0.1:20128/v1");
 	assert.equal(
 		resolveGatewayUrl("http://localhost:4010"),
 		"http://localhost:4010/v1",
 	);
 	assert.equal(
-		resolveGatewayUrl("http://127.0.0.1:4010/v1/"),
-		"http://127.0.0.1:4010/v1",
+		resolveGatewayUrl("http://127.0.0.1:20128/v1/"),
+		"http://127.0.0.1:20128/v1",
 	);
 	assert.equal(resolveGatewayUrl(""), "http://127.0.0.1:4010/v1");
+	assert.equal(
+		resolveGatewayUrl("", "http://127.0.0.1:20128/v1"),
+		"http://127.0.0.1:20128/v1",
+	);
 
 	// External hosts blocked and fallback to loopback
 	assert.equal(
@@ -207,6 +212,19 @@ test("gateway/index: gatewayHooks respects disabled flag", () => {
 });
 
 test("gateway/discovery: fetchGatewayModels supports mock fetch and cache fallback", async () => {
+	assert.equal(
+		getSnapshotCachePath("vans-gateway").endsWith(
+			"gateway-models-cache-vans-gateway.json",
+		),
+		true,
+	);
+	assert.equal(
+		getSnapshotCachePath("local-gateway").endsWith(
+			"gateway-models-cache-local-gateway.json",
+		),
+		true,
+	);
+
 	const testCachePath = join(
 		tmpdir(),
 		`test-gw-cache-${Date.now()}-${Math.random().toString(36).slice(2)}.json`,

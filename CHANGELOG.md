@@ -5,7 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.1] - 2026-09-04
+
+### Added
+
+- **Dual Hybrid Gateway Provider Support (`gateway/`)**:
+  - Registered `local-gateway` (OMP / GN Gateway, default `:4010`) and `vans-gateway` (VansRouter, default `:20128`) simultaneously in OpenCode config.
+  - Multi-method interactive login in `opencode auth login -p local-gateway` supporting both gateways with dedicated port/name prompts.
+  - Isolated model snapshot recovery caches (`gateway-models-cache-local-gateway.json` and `gateway-models-cache-vans-gateway.json`) preventing cross-gateway snapshot collisions during offline fallback.
+
+### Fixed
+
+- **OpenCode Auth Provider Slot Overwrite**:
+  - Implemented `methods[].authorize` returning `{ type: "success", provider: VANS_PROVIDER_ID, ... }` to save credentials into their dedicated `auth.json` provider slots instead of overwriting `local-gateway`.
+  - Resolved `TypeError: undefined is not an object (evaluating 'r.label.toLowerCase')` by maintaining a single object root `auth` hook structure per OpenCode engine specification.
 
 ## [0.7.0] - 2026-09-03
 

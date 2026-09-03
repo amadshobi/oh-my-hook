@@ -1,6 +1,6 @@
 {
 	"name": "oh-my-hook",
-	"version": "0.7.0",
+	"version": "0.7.1",
 	"type": "module",
 	"description": "The ultimate power-tools, guardrails, and runtime enhancement suite for OpenCode coding agents.",
 	"main": "index.js",
@@ -48,7 +48,7 @@
 		"test": "node --test tests/*.test.js",
 		"build:tui": "node tui/scripts/build.mjs",
 		"test:e2e": "npm run test:e2e:hooks && npm run test:e2e:read-guard",
-		"test:e2e:hooks": "node tests/e2e/stale-write.hook.e2e.js && node tests/e2e/mode-intent.hook.e2e.js && node tests/e2e/security.hook.e2e.js && node tests/e2e/plans-commands.hook.e2e.js && node tests/e2e/compress.hook.e2e.js && node tests/e2e/memory.hook.e2e.js",
+		"test:e2e:hooks": "node tests/e2e/stale-write.hook.e2e.js && node tests/e2e/read-guard-session.hook.e2e.js && node tests/e2e/mode-intent.hook.e2e.js && node tests/e2e/security.hook.e2e.js && node tests/e2e/plans-commands.hook.e2e.js && node tests/e2e/compress.hook.e2e.js && node tests/e2e/memory.hook.e2e.js",
 		"test:e2e:read-guard": "node tests/e2e/read-guard.e2e.js",
 		"test:e2e:stale-write": "node tests/e2e/stale-write.hook.e2e.js",
 		"test:e2e:mode": "node tests/e2e/mode-intent.hook.e2e.js",
