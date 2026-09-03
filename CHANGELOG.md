@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Hermes-Style Multi-Target Memory & Direct Gateway Engine (Issue #16)**:
+  - **3-Target Architecture**: Segregated storage into `USER.md` (user persona, communication habits, developer identity), `MEMORY.md` (global technical notes, CLI quirks, cross-repo tools), and `projects/<slug>/MEMORY.md` (repository architecture rules, test commands).
+  - **Hermes Atomic Batch Operations (`operations: [...]`)**: Native `memory` tool now supports atomic batch updates across all 3 targets with pre-validation rollback (zero dirty writes on validation failure).
+  - **Tool Definition Schema Override**: Implemented `tool.definition` hook to enforce clean JSON Schema (`required: []`), eliminating parameter enforcement bugs in OpenCode's legacy schema generator and enabling seamless tool invocation across strict models (Gemini, DeepSeek, Qwen, Llama).
+  - **Bounded Character Limits & Visual Headers**: Hermes-style visual header rendering with usage percentage and character count indicators (`[23% — 340/1,500 chars]`) in `experimental.chat.system.transform`. Actionable rejection when target capacity is exceeded.
+  - **Direct OpenAI-Compatible Gateway Client (`memory/client.js`)**: Replaced fragmented CLI capture adapters (`memory/ai/`) with a high-performance native `fetch()` client connecting directly to local gateways (OMP `:4000`, Local Gateway `:4010`) or remote OpenAI-compatible endpoints.
+  - **Hermes Background Self-Improvement Review**: Post-turn silent reflection loop evaluating recent conversations in the background and surfacing `💾 Self-improvement review: Memory updated`.
+  - **Unified Slash Commands**: Expanded `/memory` to support `/memory user`, `/memory global`, `/memory project`, `/memory add [target] <note>`, `/memory replace`, `/memory remove`, and `/memory capture` with zero-token transcript delivery.
+  - **Deterministic E2E Test Pipeline**: Added `tests/e2e/memory.hook.e2e.js` covering the full memory lifecycle.
+
+### Fixed
+
+- **Plan Mode Assistant Self-Trigger Loop**: Filtered assistant message parts from `message.part.updated` event listener in `plans/index.js` to prevent the agent from triggering mode changes from its own generated tokens.
+
 ## [0.6.0] - 2026-09-01
 
 ### Added
