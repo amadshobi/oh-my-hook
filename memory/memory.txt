@@ -1,23 +1,26 @@
 Manage persistent curated memory across sessions. Use this tool to proactively save, update, or remove key project conventions, architecture decisions, user preferences, and lessons learned.
 
+## HOW:
+Make all your changes in ONE call via an `operations` array (each item: `{ action, content?, old_text?, target? }`). The batch applies atomically and the character limit is checked only on the FINAL result — so a single call can remove/replace stale entries to free room AND add new ones together.
+Use the bare action/content/old_text fields only for a single lone change.
+
+## WHEN (BE PROACTIVE):
+Save proactively when the user states a preference, correction, or personal detail, or you learn a stable fact about their environment, conventions, or workflow.
+Priority: user preferences & corrections > environment facts > project rules. The best memory stops the user from repeating themselves.
+
+## TARGETS:
+1. `user`: Who the user is (name, persona, language preference, developer identity, communication style).
+2. `global`: Personal technical notes across repos (environment facts, CLI quirks, tool conventions).
+3. `project`: Active repository rules (architecture decisions, test commands, project conventions).
+
 ## ACTIONS:
 1. `add`: Save a new durable memory entry.
    - Requires: `content`
-   - Use when: User introduces new tech preferences, repo conventions, architectural decisions, or important facts.
-
 2. `replace`: Replace an existing memory entry using substring matching.
-   - Requires: `old_text` (unique substring of existing memory) and `content` (new replacement text)
-   - Use when: User corrects an old rule or updates an existing convention.
+   - Requires: `old_text` (unique substring) and `content` (new replacement text)
+3. `remove`: Delete an existing memory entry using substring matching.
+   - Requires: `old_text` (unique substring)
+4. `list`: Inspect all currently active memories across targets.
 
-3. `remove`: Delete an existing memory entry using substring matching or ID.
-   - Requires: `old_text` (unique substring of existing memory or rule ID)
-   - Use when: A rule is obsolete or explicitly requested to be removed.
-
-4. `list`: Inspect all currently active memories for this project or global scope.
-   - Optional: `scope` ("project" or "global")
-
-## RULES & BEHAVIOR:
-- Be PROACTIVE: If user corrects you (e.g. "don't use X, use Y", "panggil saya BOSS", "always use bun test"), IMMEDIATELY call `memory(action="replace", ...)` or `memory(action="add", ...)`.
-- Keep entries concise, atomic, and dense with facts.
-- Do NOT save temporary conversation context, huge code snippets, or trivial chit-chat.
-- Scope: Use `scope="global"` for general user identity and persona preferences. Use `scope="project"` (default) for codebase, tech stack, and repo-specific rules.
+## IF BUDGET FULL:
+An add is rejected with budget usage shown. Reissue as ONE batch that removes or shortens enough stale entries and adds the new one together.

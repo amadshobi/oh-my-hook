@@ -21,16 +21,20 @@ const EXTENSIONS = ["jsonc", "json", "yaml", "yml"];
 export const DEFAULTS = {
 	memory: {
 		enabled: true,
-		captureAdapter: "commandcode", // commandcode | opencode | omp
-		// Model per adapter (biar gak nyampur ekosistem). Kosong = default adapter.
-		captureModels: {
-			commandcode: "", // kosong → model default cmd (set di config Command Code)
-			opencode: "omp/hy3:free",
-			omp: "gemini-3.6-flash",
-		},
+		baseURL: "http://127.0.0.1:4000/v1", // OpenAI-compatible gateway (OMP :4000, local :4010, etc.)
+		model: "google-antigravity/gemini-2.5-flash",
+		apiKey: "dummy",
 		maxBullets: 10,
 		injectToSubagents: false,
-		captureAuto: false, // auto-capture on session idle (distill via AI)
+		budgets: {
+			user: 1500,
+			global: 2500,
+			project: 3500,
+		},
+		review: {
+			enabled: true, // Hermes-style background self-improvement review
+			idleDelayMs: 3000,
+		},
 	},
 	sandbox: {
 		readBeforeWrite: true,

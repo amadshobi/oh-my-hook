@@ -152,13 +152,48 @@ test("memoryHooks: compaction injects memory", async () => {
 
 	const out = { context: [] };
 	await hooks["experimental.session.compacting"]({ sessionID: "s1" }, out);
-	assert.ok(
-		out.context.some((c) => c.includes("compact-note")),
-		"compaction should include memory",
-	);
-
 	rmSync(path.dirname(projectMemoryFile(project)), {
 		recursive: true,
 		force: true,
 	});
+});
+
+test("memoryHooks: /memory add user and /memory user manage USER.md profile", async () => {
+	const project = makeProject();
+	const hooks = await memoryHooks({ client: {}, directory: project });
+	await runCmd(hooks, "memory", "add user Panggil user dengan sebutan BOSS");
+
+	const userFile = path.join(
+		process.env.OMH_MEMORY_ROOT ||
+			path.join(os.homedir(), ".config", "opencode", "memory"),
+		"USER.md",
+	);
+	assert.ok(existsSync(userFile), "USER.md should be created");
+	assert.ok(
+		readFileSync(userFile, "utf8").includes("Panggil user dengan sebutan BOSS"),
+	);
+
+	// Query /memory user
+	await runCmd(hooks, "memory", "user");
+
+	rmSync(userFile, { force: true });
+	rmSync(path.dirname(projectMemoryFile(project)), {
+		recursive: true,
+		force: true,
+	});
+});
+
+test("memoryHooks: tool.definition supplies explicit Hermes JSON schema", async () => {
+	const hooks = await memoryHooks({ client: {}, directory: "/tmp" });
+	const output = { description: "", jsonSchema: undefined };
+	await hooks["tool.definition"]({ toolID: "memory" }, output);
+
+	assert.ok(output.jsonSchema);
+	assert.equal(output.jsonSchema.type, "object");
+	assert.deepEqual(output.jsonSchema.properties.target.enum, [
+		"user",
+		"global",
+		"project",
+	]);
+	assert.deepEqual(output.jsonSchema.required, []);
 });

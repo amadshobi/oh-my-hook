@@ -272,7 +272,7 @@ function SidebarWidget(props: {
  */ function MemoryModal(props: {
 	api: any;
 	directory: string;
-	scope?: "all" | "global" | "project";
+	scope?: "all" | "user" | "global" | "project";
 }) {
 	const currentScope = () => props.scope || "all";
 	const [refreshKey, setRefreshKey] = createSignal(0);
@@ -282,16 +282,19 @@ function SidebarWidget(props: {
 	const entries = createMemo(() => {
 		refreshKey(); // reactive dependency
 		const all = listMemoryEntries(props.directory);
+		if (currentScope() === "user")
+			return all.filter((e) => (e.target || e.scope) === "user");
 		if (currentScope() === "global")
-			return all.filter((e) => e.scope === "global");
+			return all.filter((e) => (e.target || e.scope) === "global");
 		if (currentScope() === "project")
-			return all.filter((e) => e.scope === "project");
+			return all.filter((e) => (e.target || e.scope) === "project");
 		return all;
 	});
 
 	const projectName = () => props.directory.split("/").pop() || "project";
 
 	const modalTitle = () => {
+		if (currentScope() === "user") return "User Profile";
 		if (currentScope() === "global") return "Global Memory";
 		if (currentScope() === "project") return "Project Memory";
 		return "Memory Inspector";
@@ -450,9 +453,11 @@ function SidebarWidget(props: {
 				bg: isDeleting ? theme.error || "#ef4444" : undefined,
 				category:
 					currentScope() === "all"
-						? e.scope === "global"
-							? "GLOBAL MEMORY"
-							: "PROJECT MEMORY"
+						? (e.target || e.scope) === "user"
+							? "USER PROFILE"
+							: (e.target || e.scope) === "global"
+								? "GLOBAL MEMORY"
+								: "PROJECT MEMORY"
 						: undefined,
 				footer: isDeleting ? "Tekan Ctrl+D lagi" : undefined,
 			};
