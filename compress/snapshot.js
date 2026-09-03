@@ -8,15 +8,14 @@ import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import { readJson, writeJson } from "../share/state.js";
+import { readJson, writeJson, statePath } from "../share/state.js";
 import { createNotifier } from "../share/notify.js";
+import { appendDebugEvent } from "./debug.js";
 
-const CONTEXT_FILE = path.join(
-	os.homedir(),
-	".opencode",
-	"session-context.json",
-);
-const LEARNINGS_DIR = path.join(os.homedir(), ".opencode", "learnings");
+// State files live in the XDG data dir (~/.local/share/opencode) so
+// ~/.opencode stays clean — same convention as other oh-my-hook state.
+const CONTEXT_FILE = statePath("session-context.json");
+const LEARNINGS_DIR = statePath("learnings");
 
 export function loadContext() {
 	return readJson(CONTEXT_FILE, {});
@@ -230,6 +229,19 @@ export const snapshotHooks = async ({ client, directory }, opts = {}) => {
 			output.context = output.context || [];
 			output.context.push(contextBlock.join("\n"));
 			await notify("Injected session snapshot into compaction prompt");
+			appendDebugEvent(
+				input?.sessionID || "global",
+				{
+					kind: "compact",
+					type: "COMPACT (session.compacting)",
+					detail: `Snapshot injected into compaction prompt (${cwd})`,
+				},
+				cfg,
+				{
+					enabled: snapCfg.debug?.enabled !== false,
+					maxSessions: snapCfg.debug?.maxSessions,
+				},
+			);
 		},
 
 		"chat.message": async (input, output) => {

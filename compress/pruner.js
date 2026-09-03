@@ -8,12 +8,14 @@
 import {
 	isProtectedTool,
 	isEligibleTool,
+	isEligibleCommand,
 	matchesCommandPattern,
 	hasFailureSignal,
 	buildCollapseMarker,
 	isAlreadyPruned,
 } from "./rules.js";
 import { recordPruning } from "./stats.js";
+import { appendDebugEvent } from "./debug.js";
 
 /**
  * Calculate the cutoff index in messages array before which messages are eligible for pruning.
@@ -53,24 +55,26 @@ export function pruneMessages(messages, cfg = {}, sessionID = null) {
 		return { prunedCount: 0, totalBytesPruned: 0 };
 	}
 
-	const recentTurns = cfg.recentTurns ?? 2;
-	const minOutputChars = cfg.minOutputChars ?? 8000;
-	const keepHeadChars = cfg.keepHeadChars ?? 1000;
+	const recentTurns = cfg.recentTurns ?? 1;
+	const minOutputChars = cfg.minOutputChars ?? 2000;
+	const massiveOutputChars = cfg.massiveOutputChars ?? 10000;
+	const keepHeadChars = cfg.keepHeadChars ?? 500;
 	const keepTailChars = cfg.keepTailChars ?? 1500;
+	const keepImportantLines = cfg.keepImportantLines ?? true;
 
 	const cutoffIndex = calculateCutoffIndex(messages, recentTurns);
-	if (cutoffIndex <= 0) {
-		return { prunedCount: 0, totalBytesPruned: 0 };
-	}
 
 	let prunedCount = 0;
 	let totalBytesPruned = 0;
 
-	for (let i = 0; i < cutoffIndex; i++) {
+	for (let i = 0; i < messages.length; i++) {
 		const msg = messages[i];
 		if (msg?.info?.role !== "assistant" || !Array.isArray(msg.parts)) {
 			continue;
 		}
+
+		// Messages at or after cutoffIndex are within the protected recent window
+		const isRecent = cutoffIndex <= 0 || i >= cutoffIndex;
 
 		for (const part of msg.parts) {
 			if (part?.type !== "tool" || part?.state?.status !== "completed") {
@@ -88,6 +92,12 @@ export function pruneMessages(messages, cfg = {}, sessionID = null) {
 
 			const rawOutput =
 				typeof part.state.output === "string" ? part.state.output : "";
+
+			// In recent turns, only prune if output is massive
+			if (isRecent && rawOutput.length < massiveOutputChars) {
+				continue;
+			}
+
 			if (rawOutput.length < minOutputChars) {
 				continue;
 			}
@@ -97,7 +107,7 @@ export function pruneMessages(messages, cfg = {}, sessionID = null) {
 			}
 
 			const cmd = part.state?.input?.command || part.args?.command || "";
-			if (!matchesCommandPattern(cmd, cfg)) {
+			if (!isEligibleCommand(cmd, cfg)) {
 				continue;
 			}
 
@@ -114,18 +124,59 @@ export function pruneMessages(messages, cfg = {}, sessionID = null) {
 				continue;
 			}
 
-			const marker = buildCollapseMarker(collapsedChars);
+			let extraSummary = "";
+			if (keepImportantLines && collapsedChars > 0) {
+				const middle = rawOutput.slice(
+					keepHeadChars,
+					rawOutput.length - keepTailChars,
+				);
+				const lines = middle.split("\n");
+				const highlights = lines
+					.map((l) => l.trim())
+					.filter(
+						(l) =>
+							l.length > 5 &&
+							/\b(passed|pass|ok|status|summary|duration|elapsed|total|complete)\b/i.test(
+								l,
+							) &&
+							!/^[─=\-_*]+$/.test(l),
+					)
+					.slice(0, 3);
+				if (highlights.length > 0) {
+					extraSummary = `── Highlights: ${highlights.join(" | ")} ──`;
+				}
+			}
+
+			const marker = buildCollapseMarker(collapsedChars, extraSummary);
 			part.state.output = `${head}${marker}${tail}`;
 
 			prunedCount += 1;
 			totalBytesPruned += collapsedChars;
 
+			const partId =
+				part.id ||
+				part.callID ||
+				`${msg.info?.id || i}:${toolName}:${cmd.slice(0, 30)}:${rawOutput.length}`;
+
 			try {
-				recordPruning(sessionID, {
+				const isNewPrune = recordPruning(sessionID, {
 					charsPruned: collapsedChars,
 					tool: toolName,
 					commandClass: cmd.slice(0, 50),
+					partId,
 				});
+
+				if (isNewPrune) {
+					appendDebugEvent(
+						sessionID,
+						{
+							kind: "prune",
+							type: "PRUNE",
+							detail: `Pruned ${collapsedChars} chars (~${Math.round(collapsedChars / 4)} tok) from ${toolName}${cmd ? ` ("${cmd.slice(0, 30)}")` : ""}`,
+						},
+						cfg,
+					);
+				}
 			} catch {}
 		}
 	}

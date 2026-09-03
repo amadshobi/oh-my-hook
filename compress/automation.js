@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { recordCompaction } from "./stats.js";
+import { appendDebugEvent } from "./debug.js";
 import { createNotifier } from "../share/notify.js";
 
 const pushMilestones = new Map();
@@ -174,6 +175,19 @@ export async function automationHooks({ client, directory }, opts = {}) {
 				}
 
 				recordCompaction(sessionID, { type: "post-push" });
+				appendDebugEvent(
+					sessionID,
+					{
+						kind: "compact",
+						type: "AUTO-COMPACT (post-push)",
+						detail: `Milestone snapshot delivered + compaction triggered (count: ${autoState.count})`,
+					},
+					cfg,
+					{
+						enabled: cfg.debug?.enabled !== false,
+						maxSessions: cfg.debug?.maxSessions,
+					},
+				);
 				await notify(
 					"Post-push milestone reached: session snapshot preserved & compacted",
 				);

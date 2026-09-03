@@ -15,9 +15,11 @@ The plugin assembles multiple hook modules into ONE hooks object via
 - `reminder/` — soft nudges (verify loop, checklist).
 - `prompts/` — dynamic system prompt router hook (`experimental.chat.system.transform`) for gateway/custom models using provider assets (`~/.opencode/assets/provider/`).
 - `memory/` — curated memory: auto-loads into system prompt (main agent only) + compaction; `/remember`, `/memory`, `/capture` slash commands; pluggable AI adapters in `memory/ai/` for capture.
-- `tui/` — OpenCode TUI frontend module (`session_prompt_right` live plan badge & `sidebar_content` collapsible widget).
+- `tui/` — OpenCode TUI frontend module (`session_prompt_right` live `PLAN` badge, `sidebar_content` collapsible widget, `TokensTree` accordion, and `LastTurnItem`).
 - `gateway/` — Local Gateway bridge: dynamic model discovery from `:4010` / `:4000`, OMP catalog metadata enrichment (pricing, thinking variants, context limits), interactive auth registration (`opencode auth -p local-gateway`), and Google Antigravity CCA schema sanitization guard.
 - `imgsee/` — Multimodal vision engine: native agent tool `imgsee` delegating one-shot image analysis (OCR, UI layout, diagrams, debugging) to local vision gateway (:4010/:4000) without context poisoning.
+- `usage/` — Multi-provider live cloud quota tracking (Google Antigravity, Ollama Cloud multi-key aggregate, OpenRouter balance) via read-only `~/.omp/agent/agent.db`, and local session/subagent token breakdown from `~/.local/share/opencode/opencode.db` via `/usage` slash commands and TUI sidebar tree.
+- `docs/` — Comprehensive documentation suite covering architecture, per-module showcase, configuration reference, developer guides, and troubleshooting runbooks.
 
 ## Config
 
@@ -80,7 +82,7 @@ OpenCode mendukung dua model eksekusi perintah deterministik tanpa memicu pemang
 Error(blockMessage(...))` so the model sees a clear reason. Reminders use
   `warnMessage(...)` and never hard-block.
 - **State persists via `share/state.js`** — read-ledger,
-  mode-state, and active plan files live in `~/.config/opencode/` or `~/.opencode/plans/`. Always restore/cleanup
+  mode-state, and active plan files live in `~/.local/share/opencode/` (or `$XDG_DATA_HOME/opencode/`) and `~/.opencode/plans/`. Always restore/cleanup
   state in test `finally` blocks.
 - **Plan Mode Whitelist** — while mode plan is active, writes/edits targeting `~/.opencode/plans/` or the designated active plan file are allowed; project code mutations remain strictly blocked.
 - **Never use `require` in ESM modules** — use `import { existsSync } from

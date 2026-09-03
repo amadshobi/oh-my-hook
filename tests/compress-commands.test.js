@@ -110,8 +110,5 @@ test("commands: /compress triggers compact and throws handled error", async () =
 	assert.equal(compactCalls.length, 1);
 	assert.equal(compactCalls[0].path.sessionID, "ses-cmd-2");
 	assert.equal(promptCalls.length, 1);
-	assert.match(
-		promptCalls[0].body.parts[0].text,
-		/## Context Compaction Triggered/,
-	);
+	assert.match(promptCalls[0].body.parts[0].text, /Context Compaction/);
 });

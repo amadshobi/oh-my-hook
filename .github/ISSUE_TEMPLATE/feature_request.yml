@@ -1,0 +1,53 @@
+name: Feature Proposal
+description: Propose a new guardrail, TUI enhancement, or capability for oh-my-hook
+title: "feat(scope): "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature or improvement for **oh-my-hook**!
+        We prioritize features that enforce agent discipline, improve execution safety, and enhance TUI developer experience.
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Target Module / Domain
+      description: Which module should this feature live in?
+      options:
+        - "sandbox/ (Safety Guardrails, Permissions)"
+        - "plans/ (Planning Suite, RFCs, TUI Review)"
+        - "memory/ (Curated Memory, Distillation)"
+        - "compress/ (Context Compression, Pruning)"
+        - "usage/ (Quota, Analytics, Token Breakdown)"
+        - "gateway/ (Local Gateway, Catalog)"
+        - "imgsee/ (Multimodal Vision Engine)"
+        - "prompts/ (System Prompt Resolution)"
+        - "tui/ (OpenCode TUI Widgets, Badges, Modals)"
+        - "New Module / Core Architecture"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement / Motivation
+      description: Is your feature related to a problem or limitation in autonomous coding agents?
+      placeholder: "e.g., Agents frequently lose track of..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution & Architectural Design
+      description: Describe the technical implementation, hook lifecycle integration, or command structure.
+      placeholder: "Provide concrete design details or proposed APIs..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered other solutions or workarounds?

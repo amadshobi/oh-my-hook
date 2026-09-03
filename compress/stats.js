@@ -29,6 +29,8 @@ export function loadCompressStats() {
 		totalCompactions: raw?.totalCompactions ?? 0,
 		lastPrunedAt: raw?.lastPrunedAt ?? null,
 		lastCompactedAt: raw?.lastCompactedAt ?? null,
+		lastPruneEvent: raw?.lastPruneEvent ?? null,
+		avgTokensPerPrune: raw?.avgTokensPerPrune ?? 0,
 		sessions: raw?.sessions ?? {},
 	};
 }
@@ -39,15 +41,20 @@ export function saveCompressStats(stats) {
 
 /**
  * Record a pruning event for a session.
+ * Returns true if a new pruning event was recorded, false if deduplicated.
  */
 export function recordPruning(
 	sessionID,
-	{ charsPruned = 0, tool = "bash", commandClass = "command" } = {},
+	{
+		charsPruned = 0,
+		tool = "bash",
+		commandClass = "command",
+		partId = null,
+	} = {},
 ) {
-	if (charsPruned <= 0) return;
+	if (charsPruned <= 0) return false;
 
 	const stats = loadCompressStats();
-	const tokensSaved = estimateTokens(charsPruned);
 	const now = new Date().toISOString();
 
 	const sid = sessionID || "global";
@@ -58,19 +65,50 @@ export function recordPruning(
 		compactions: 0,
 		lastUpdated: now,
 		tools: {},
+		prunedPartIds: [],
 	};
 
+	if (!Array.isArray(currentSession.prunedPartIds)) {
+		currentSession.prunedPartIds = [];
+	}
+
+	// De-duplicate: If this part has already been recorded in this session, do not update stats or lastPruneEvent
+	if (partId && currentSession.prunedPartIds.includes(partId)) {
+		return false;
+	}
+
+	if (partId) {
+		currentSession.prunedPartIds.push(partId);
+		if (currentSession.prunedPartIds.length > 200) {
+			currentSession.prunedPartIds.shift();
+		}
+	}
+
+	const tokensSaved = estimateTokens(charsPruned);
 	currentSession.prunedCount += 1;
 	currentSession.bytesSaved += charsPruned;
 	currentSession.tokensSaved += tokensSaved;
 	currentSession.lastUpdated = now;
 	currentSession.tools[tool] = (currentSession.tools[tool] || 0) + 1;
 
-	// Update global aggregates
+	// Global aggregates
 	stats.totalPrunedCount += 1;
 	stats.totalBytesSaved += charsPruned;
 	stats.totalTokensSaved += tokensSaved;
 	stats.lastPrunedAt = now;
+	stats.lastPruneEvent = {
+		id: partId || `${sid}:${currentSession.prunedCount}`,
+		count: currentSession.prunedCount,
+		tokens: tokensSaved,
+		tool,
+		command: commandClass,
+		at: now,
+	};
+
+	// Rolling prune rate: tokens saved per pruning event (global average)
+	const totalEvents = stats.totalPrunedCount;
+	stats.avgTokensPerPrune =
+		totalEvents > 0 ? Math.round(stats.totalTokensSaved / totalEvents) : 0;
 
 	// Bounding session map
 	stats.sessions[sid] = currentSession;
@@ -83,6 +121,7 @@ export function recordPruning(
 	}
 
 	saveCompressStats(stats);
+	return true;
 }
 
 /**
@@ -125,6 +164,7 @@ export function getCompressMetrics(sessionID) {
 			bytesSaved: 0,
 			tokensSaved: 0,
 			compactions: 0,
+			tools: {},
 		},
 		global: {
 			totalPrunedCount: stats.totalPrunedCount,
@@ -133,6 +173,8 @@ export function getCompressMetrics(sessionID) {
 			totalCompactions: stats.totalCompactions,
 			lastPrunedAt: stats.lastPrunedAt,
 			lastCompactedAt: stats.lastCompactedAt,
+			lastPruneEvent: stats.lastPruneEvent,
+			avgTokensPerPrune: stats.avgTokensPerPrune,
 		},
 	};
 }

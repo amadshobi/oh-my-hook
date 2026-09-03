@@ -43,17 +43,54 @@ export const DEFAULTS = {
 	plans: {
 		enabled: true,
 		planMode: true,
+		// Auto-detect explicit plan/execute intent from user text. When false,
+		// mode switching is 100% via slash commands (/plan, /design, /approve).
+		autoDetectIntent: true,
 		directory: "~/.opencode/plans",
 		versionLimit: 20,
 	},
 	compress: {
 		enabled: true,
+		// Compression mode: "auto" (deterministic), "model" (model-driven tool),
+		// or "hybrid" (both — model can trigger, auto kicks in at hard threshold).
+		mode: "hybrid",
 		pruning: {
 			enabled: true,
-			recentTurns: 2,
-			keepHeadChars: 1000,
+			recentTurns: 1,
+			keepHeadChars: 500,
 			keepTailChars: 1500,
-			minOutputChars: 8000,
+			minOutputChars: 2000,
+			massiveOutputChars: 10000,
+			keepImportantLines: true,
+			toast: {
+				enabled: true,
+				cooldownMs: 30000,
+			},
+			debug: {
+				enabled: true,
+				maxSessions: 20,
+			},
+			// Deterministic auto range compression (DCP-style, balanced)
+			compress: {
+				recentTurns: 2,
+				// Stop once ~50% of used tokens freed — LLM keeps context.
+				targetSaveRatio: 0.5,
+				// Only compress when total context exceeds this (avoid tiny sessions)
+				minTokensToCompress: 30000,
+				// Auto-compress triggers when usage % (of model context) exceeds this
+				triggerRatio: 0.8,
+			},
+			// Automatic strategies (DCP-style)
+			strategies: {
+				deduplication: {
+					enabled: true,
+					protectedTools: ["read", "write", "edit", "grep", "glob"],
+				},
+				purgeErrors: {
+					enabled: true,
+					turns: 4,
+				},
+			},
 			idempotent: true,
 			protectedTools: {
 				read: true,
@@ -71,10 +108,19 @@ export const DEFAULTS = {
 				bash: true,
 			},
 			commandPatterns: {
-				test: "npm (test|run test)|pnpm test|yarn test|bun test",
-				build: "go (build|test)|cargo (build|test)|make",
-				gitlog: "git (log|diff|show)",
-				listing: "ls -la|kubectl get|docker ps",
+				alwaysPrune: [
+					"npm (install|ci|run build|test)",
+					"pnpm (install|test|build)",
+					"yarn (install|test|build)",
+					"bun (install|test|build)",
+					"git (commit|push|log|status|add)",
+				],
+				neverPrune: [
+					"git (diff|show|log -p|blame)",
+					"cat .*",
+					"kubectl get -o yaml",
+					"docker inspect",
+				],
 			},
 			failureSignals: {
 				fail: "FAILED|FAILURE|tests? failed",

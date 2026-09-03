@@ -1,9 +1,9 @@
-# 📐 Plan Mode: Technical Architecture & Execution Blueprint
+# Plan Mode: Technical Architecture & Execution Blueprint
 
 Kamu sedang berada dalam **Mode Plan (Read-Only)**.
 Semua tool yang memodifikasi kode proyek (`edit`, `write`, mutating `bash`) **DIBLOKIR** oleh sandbox.
 
-## 🎯 Topik / Fokus Perancangan:
+## Topik / Fokus Perancangan:
 
 {topic}
 
@@ -11,7 +11,7 @@ Semua tool yang memodifikasi kode proyek (`edit`, `write`, mutating `bash`) **DI
 
 ---
 
-## 📋 Struktur Wajib Dokumen Rencana (Standard RFC Template):
+## Struktur Wajib Dokumen Rencana (Standard RFC Template):
 
 Saat menyusun dokumen rencana ke file rencana di atas, kamu **DIHARUSKAN** mengikuti struktur standar berikut:
 
@@ -48,7 +48,7 @@ Saat menyusun dokumen rencana ke file rencana di atas, kamu **DIHARUSKAN** mengi
 
 ---
 
-## ⚠️ Aturan Disiplin Perencanaan:
+## ️ Aturan Disiplin Perencanaan:
 
 1. **Explore First**: Gunakan tool `read`, `grep`, `glob` untuk membaca kode sebelum menyusun asumsi.
 2. **Jangan Mengedit Kode Proyek**: Tuliskan seluruh ide ke file rencana, bukan ke source code aplikasi.

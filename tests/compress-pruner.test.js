@@ -1,14 +1,28 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+	existsSync,
+	mkdirSync,
+	writeFileSync,
+	rmSync,
+	readdirSync,
+} from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import {
 	isProtectedTool,
 	isEligibleTool,
+	isNeverPruned,
+	isAlwaysPruned,
+	isEligibleCommand,
 	matchesCommandPattern,
 	hasFailureSignal,
 	buildCollapseMarker,
 	isAlreadyPruned,
 } from "../compress/rules.js";
 import { calculateCutoffIndex, pruneMessages } from "../compress/pruner.js";
+import { cleanOldDebugSessions } from "../compress/debug.js";
+import { loadCompressStats } from "../compress/stats.js";
 
 const DEFAULT_CONFIG = {
 	enabled: true,
@@ -266,4 +280,239 @@ test("pruner: pruneMessages is idempotent and deterministic", () => {
 	const secondPass = pruneMessages(messages, DEFAULT_CONFIG, "test-ses-3");
 	assert.equal(secondPass.prunedCount, 0);
 	assert.equal(messages[1].parts[0].state.output, transformedAfterFirst);
+});
+
+test("rules: modern config distinguishes alwaysPrune, neverPrune, and generic commands", () => {
+	const modernConfig = {
+		commandPatterns: {
+			alwaysPrune: ["npm (install|test)", "git (commit|push|status)"],
+			neverPrune: ["git (diff|show|log -p|blame)", "cat .*"],
+		},
+	};
+
+	// neverPrune commands
+	assert.equal(isNeverPruned("git diff HEAD~1", modernConfig), true);
+	assert.equal(isNeverPruned("git show abc1234", modernConfig), true);
+	assert.equal(isNeverPruned("cat package.json", modernConfig), true);
+	assert.equal(isNeverPruned("npm test", modernConfig), false);
+	assert.equal(isEligibleCommand("git diff HEAD~1", modernConfig), false);
+
+	// alwaysPrune commands
+	assert.equal(isAlwaysPruned("npm test", modernConfig), true);
+	assert.equal(isAlwaysPruned("git commit -m foo", modernConfig), true);
+	assert.equal(isAlwaysPruned("python run.py", modernConfig), false);
+
+	// Generic commands: any command not in neverPrune is eligible
+	assert.equal(isEligibleCommand("python run.py", modernConfig), true);
+	assert.equal(
+		isEligibleCommand("curl https://example.com/api", modernConfig),
+		true,
+	);
+	assert.equal(isEligibleCommand("node index.js", modernConfig), true);
+});
+
+test("pruner: generic size-based pruning prunes arbitrary commands and honors neverPrune", () => {
+	const modernConfig = {
+		enabled: true,
+		recentTurns: 2,
+		minOutputChars: 200,
+		keepHeadChars: 50,
+		keepTailChars: 50,
+		keepImportantLines: true,
+		eligibleTools: { bash: true },
+		protectedTools: { read: true },
+		commandPatterns: {
+			alwaysPrune: ["npm test"],
+			neverPrune: ["git diff"],
+		},
+		failureSignals: {
+			fail: "FAILED",
+		},
+	};
+
+	const largePythonOutput = `PYTHON START\n${"Y".repeat(200)}\nMiddle summary: 20 passed, 0 errors\n${"Y".repeat(200)}\nPYTHON END`;
+	const largeGitDiffOutput = `diff --git a/foo.js b/foo.js\n${"+".repeat(600)}\nEND DIFF`;
+
+	const messages = [
+		{
+			info: { role: "user", id: "u1" },
+			parts: [{ type: "text", text: "step 1" }],
+		},
+		{
+			info: { role: "assistant", id: "a1" },
+			parts: [
+				{
+					type: "tool",
+					tool: "bash",
+					state: {
+						status: "completed",
+						input: { command: "python run.py" },
+						output: largePythonOutput,
+					},
+				},
+				{
+					type: "tool",
+					tool: "bash",
+					state: {
+						status: "completed",
+						input: { command: "git diff HEAD" },
+						output: largeGitDiffOutput,
+					},
+				},
+			],
+		},
+		{ info: { role: "user", id: "u2" } },
+		{ info: { role: "assistant", id: "a2" } },
+		{ info: { role: "user", id: "u3" } },
+		{ info: { role: "assistant", id: "a3" } },
+	];
+
+	const result = pruneMessages(messages, modernConfig, "test-ses-generic");
+
+	// python output should be pruned (generic size-based)
+	// git diff output should NOT be pruned (in neverPrune)
+	assert.equal(result.prunedCount, 1);
+	assert.match(messages[1].parts[0].state.output, /── OMH-PRUNE ──/);
+	assert.match(messages[1].parts[0].state.output, /── Highlights:/);
+	assert.equal(messages[1].parts[1].state.output, largeGitDiffOutput);
+});
+
+test("debug: cleanOldDebugSessions preserves maxSessions and removes oldest", () => {
+	const tmpDir = path.join(os.tmpdir(), `omh-debug-test-${Date.now()}`);
+	mkdirSync(tmpDir, { recursive: true });
+
+	try {
+		// Create 5 session dirs with distinct mtimes
+		for (let i = 1; i <= 5; i++) {
+			const sDir = path.join(tmpDir, `session-${i}`);
+			mkdirSync(sDir, { recursive: true });
+			writeFileSync(path.join(sDir, "snapshot.md"), `Session ${i} audit`);
+		}
+
+		// Retain only 3 sessions
+		cleanOldDebugSessions(tmpDir, 3);
+
+		const remaining = readdirSync(tmpDir);
+		assert.equal(remaining.length, 3);
+	} finally {
+		try {
+			rmSync(tmpDir, { recursive: true, force: true });
+		} catch {}
+	}
+});
+
+test("pruner: deduplicates pruning records across successive message transforms in the same session", () => {
+	const sid = `test-dedup-session-${Date.now()}`;
+	const outputContent = `TEST_START\n${"Z".repeat(500)}\nTEST_END`;
+
+	// Simulating turn 1: first time message is transformed
+	const makeMessages = () => [
+		{
+			info: { role: "user", id: "u1" },
+			parts: [{ type: "text", text: "step 1" }],
+		},
+		{
+			info: { role: "assistant", id: "a1" },
+			parts: [
+				{
+					id: "call_dedup_123",
+					type: "tool",
+					tool: "bash",
+					state: {
+						status: "completed",
+						input: { command: "npm test" },
+						output: outputContent,
+					},
+				},
+			],
+		},
+		{
+			info: { role: "user", id: "u2" },
+			parts: [{ type: "text", text: "step 2" }],
+		},
+		{
+			info: { role: "assistant", id: "a2" },
+			parts: [{ type: "text", text: "step 2 done" }],
+		},
+		{
+			info: { role: "user", id: "u3" },
+			parts: [{ type: "text", text: "step 3" }],
+		},
+	];
+
+	const statsBefore = loadCompressStats();
+	const globalCountBefore = statsBefore.totalPrunedCount;
+
+	// First transform pass
+	const pass1 = pruneMessages(makeMessages(), DEFAULT_CONFIG, sid);
+	assert.equal(pass1.prunedCount, 1);
+
+	const statsAfterPass1 = loadCompressStats();
+	assert.equal(statsAfterPass1.totalPrunedCount, globalCountBefore + 1);
+	const lastEventAt = statsAfterPass1.lastPruneEvent.at;
+	assert.equal(statsAfterPass1.lastPruneEvent.id, "call_dedup_123");
+
+	// Second transform pass (e.g. next turn re-invokes transform with fresh messages loaded from DB)
+	const pass2 = pruneMessages(makeMessages(), DEFAULT_CONFIG, sid);
+	// In-memory output is still pruned
+	assert.equal(pass2.prunedCount, 1);
+
+	// But stats and lastPruneEvent MUST NOT be refreshed (zero toast spam)
+	const statsAfterPass2 = loadCompressStats();
+	assert.equal(statsAfterPass2.totalPrunedCount, globalCountBefore + 1);
+	assert.equal(statsAfterPass2.lastPruneEvent.at, lastEventAt);
+});
+
+test("pruner: prunes massive outputs in recent turns while protecting normal size outputs", () => {
+	const cfg = {
+		enabled: true,
+		recentTurns: 2,
+		minOutputChars: 200,
+		massiveOutputChars: 1000,
+		keepHeadChars: 50,
+		keepTailChars: 50,
+		eligibleTools: { bash: true },
+		protectedTools: { read: true },
+	};
+
+	// Only 1 user turn (so everything is within the recentTurns window)
+	const normalSizeOutput = `NORMAL START\n${"N".repeat(300)}\nNORMAL END`;
+	const massiveSizeOutput = `MASSIVE START\n${"M".repeat(1500)}\nMASSIVE END`;
+
+	const messages = [
+		{
+			info: { role: "user", id: "u1" },
+			parts: [{ type: "text", text: "do work" }],
+		},
+		{
+			info: { role: "assistant", id: "a1" },
+			parts: [
+				{
+					type: "tool",
+					tool: "bash",
+					state: {
+						status: "completed",
+						input: { command: "npm test" },
+						output: normalSizeOutput,
+					},
+				},
+				{
+					type: "tool",
+					tool: "bash",
+					state: {
+						status: "completed",
+						input: { command: "cargo build" },
+						output: massiveSizeOutput,
+					},
+				},
+			],
+		},
+	];
+
+	const res = pruneMessages(messages, cfg, "test-massive-recent");
+	// Normal size output is protected in recent turns (res.prunedCount = 1)
+	// Massive output (>1000 chars) IS pruned immediately!
+	assert.equal(res.prunedCount, 1);
+	assert.equal(messages[1].parts[0].state.output, normalSizeOutput);
+	assert.match(messages[1].parts[1].state.output, /── OMH-PRUNE ──/);
 });

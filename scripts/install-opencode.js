@@ -303,14 +303,14 @@ function main() {
 	if (jsonMode) {
 		console.log(JSON.stringify(report, null, 2));
 	} else {
-		console.log(`\n🪝 oh-my-hook installer — ${command} (${configDir})`);
+		console.log(`\n[oh-my-hook] installer -- ${command} (${configDir})`);
 		for (const f of report.files)
 			console.log(`  ${f.status.padEnd(15)} ${f.file}`);
-		for (const w of report.warnings) console.log(`  ⚠️  ${w}`);
-		for (const e of report.errors) console.log(`  ❌ ${e}`);
+		for (const w of report.warnings) console.log(`  [WARN] ${w}`);
+		for (const e of report.errors) console.log(`  [ERR]  ${e}`);
 		const ok = report.errors.length === 0;
 		console.log(
-			`\n${ok ? "✅ done" : "❌ failed"} — linked=${report.linked} unchanged=${report.unchanged} removed=${report.removed}\n`,
+			`\n${ok ? "[OK] done" : "[FAIL] failed"} -- linked=${report.linked} unchanged=${report.unchanged} removed=${report.removed}\n`,
 		);
 	}
 	process.exit(report.errors.length === 0 ? 0 : 1);

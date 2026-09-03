@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation & Guides
+    url: https://github.com/amadshobi/oh-my-hook/tree/main/docs
+    about: Read architecture deep dives, guardrail details, and configuration references.
+  - name: OpenCode Community
+    url: https://opencode.ai
+    about: Connect with the broader OpenCode agent developer ecosystem.

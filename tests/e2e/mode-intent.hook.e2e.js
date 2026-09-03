@@ -4,7 +4,7 @@
  * (Plan vs Execute state machine) against the ACTUAL hook pipeline used by OpenCode.
  *
  * Flow:
- *   1. Send message.part.updated event with text "mikir dulu arsitekturnya".
+ *   1. Send message.part.updated event with text "masuk mode plan".
  *   2. Mode state changes to "plan".
  *   3. Attempt mutating tool calls (edit, write, delete, mutating bash) -> all must throw block error.
  *   4. Attempt read-only tool calls (read, glob, git status) -> must pass through.
@@ -35,13 +35,13 @@ try {
 	const before = hooks["tool.execute.before"];
 
 	// 1. Trigger Plan mode intent
-	console.log("  1. Emitting plan intent ('mikir dulu arsitekturnya ya')...");
+	console.log("  1. Emitting plan intent ('masuk mode plan')...");
 	await eventHandler({
 		event: {
 			type: "message.part.updated",
 			properties: {
 				sessionID: TEST_SESSION,
-				part: { type: "text", text: "mikir dulu arsitekturnya ya" },
+				part: { type: "text", text: "masuk mode plan" },
 			},
 		},
 	});

@@ -11,6 +11,7 @@ import {
 	createEffect,
 } from "solid-js";
 import { watchModeState } from "./lib/mode-watch.js";
+import { watchCompressStats } from "./lib/compress-watch.js";
 import {
 	getMetrics,
 	getMemoryRules,
@@ -90,11 +91,14 @@ function SidebarWidget(props: {
 }) {
 	const [open, setOpen] = createSignal(true);
 	const [modeState, setModeState] = createSignal({});
-	const [metrics, setMetrics] = createSignal(getMetrics(props.directory));
+	const [metrics, setMetrics] = createSignal({} as any);
+
+	// Load initial metrics (async: reads opencode.db for context usage)
+	getMetrics(props.directory, undefined, props.sessionID()).then(setMetrics);
 
 	const unwatch = watchModeState((nextState) => {
 		setModeState(nextState);
-		setMetrics(getMetrics(props.directory));
+		getMetrics(props.directory, undefined, props.sessionID()).then(setMetrics);
 	});
 
 	const theme = () => props.api?.theme?.current || {};
@@ -252,24 +256,7 @@ function SidebarWidget(props: {
 						</text>
 					</box>
 
-					{/* 4. Context Pruning & Savings */}
-					<box flexDirection="row" gap={1}>
-						<text fg={mutedColor()}>•</text>
-						<text fg={mutedColor()}>
-							Pruned:{" "}
-							<Show
-								when={metrics().compressEnabled}
-								fallback={<span style={{ fg: redColor() }}>disabled</span>}
-							>
-								<span style={{ fg: textNormal() }}>
-									{metrics().compress?.session?.prunedCount || 0} outputs
-									{metrics().compress?.session?.tokensSaved > 0
-										? ` · ~${metrics().compress.session.tokensSaved.toLocaleString()} tokens`
-										: ""}
-								</span>
-							</Show>
-						</text>
-					</box>
+					{/* 4. Context Pruning & Savings removed from sidebar per user instruction */}
 				</box>
 			</Show>
 		</box>
@@ -282,8 +269,7 @@ function SidebarWidget(props: {
  *   - "all": Inspect All Memory (Edit/Replace on Enter)
  *   - "global": Inspect Global Memory (Add via Ctrl+N, Delete via Ctrl+D 2x, Edit on Enter)
  *   - "project": Inspect Project Rules (Add via Ctrl+N, Delete via Ctrl+D 2x, Edit on Enter)
- */
-function MemoryModal(props: {
+ */ function MemoryModal(props: {
 	api: any;
 	directory: string;
 	scope?: "all" | "global" | "project";
@@ -1115,6 +1101,37 @@ export const tui = async function tui(api: any, options: any, meta: any) {
 	const unsubSession = createSessionSubscriber(api, (nextSessionID) => {
 		if (nextSessionID) setActiveSessionID(nextSessionID);
 	});
+
+	// Pruning toast notifications: bridge server-side pruning events to TUI
+	// Compact single-line format without title or emoji to fit mobile screens
+	if (config?.compress?.pruning?.toast?.enabled !== false) {
+		const unsubCompress = watchCompressStats(
+			({
+				tool,
+				target,
+				tokens,
+			}: {
+				tool: string;
+				target?: string;
+				tokens: number;
+			}) => {
+				if (!api.ui?.toast) return;
+				const cleanTarget = (target || tool || "tool").trim().slice(0, 12);
+				const tokStr = formatTokens(tokens);
+				api.ui.toast({
+					variant: "info",
+					message: `pruned ${cleanTarget}: ~${tokStr} tok`,
+					duration: 3000,
+				});
+			},
+			{
+				cooldownMs: config?.compress?.pruning?.toast?.cooldownMs ?? 30000,
+			},
+		);
+		if (api.lifecycle?.onDispose) {
+			api.lifecycle.onDispose(unsubCompress);
+		}
+	}
 
 	// 1. Register TUI command palette layer based on enabled configs
 	if (api.keymap?.registerLayer) {

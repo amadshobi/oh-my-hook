@@ -109,12 +109,24 @@ export function getPlanReviewData(sessionID, directory) {
 }
 
 /**
+ * Estimate context usage percentage for a session from REAL token data
+ * in opencode.db (input + output + cacheRead). Falls back to 0 when the
+ * DB is unavailable (headless/test mode).
+ *
+ * Budget model: a 200k-token context window is the common ceiling for
+ * flagship models; usage is the fraction of that budget consumed by the
+ * session's cumulative tokens.
+ *
+ * @param {string} sessionID Active session id.
+ * @returns {number} Usage percentage 0-100.
+ */
+/**
  * Get comprehensive workspace metrics for the TUI sidebar.
  * @param {string} [projectDirectory] Target workspace directory.
  * @param {object} [config] Optional config override.
  * @returns {object}
  */
-export function getMetrics(projectDirectory, config, sessionID) {
+export async function getMetrics(projectDirectory, config, sessionID) {
 	const cfg = config || loadConfig().config;
 	const memoryStats = getStructuredMemoryStats(projectDirectory);
 	const memoryEnabled = cfg?.memory?.enabled !== false;
