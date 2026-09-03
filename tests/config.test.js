@@ -29,13 +29,13 @@ test("stripJsoncComments removes // and /* */ but not inside strings", () => {
 test("parseYamlSimple handles nested + scalars", () => {
 	const yaml = `memory:
   enabled: true
-  captureAdapter: commandcode
+  model: google-antigravity/gemini-2.5-flash
 sandbox:
   dangerousBash: false
 `;
 	const parsed = parseYamlSimple(yaml);
 	assert.equal(parsed.memory.enabled, true);
-	assert.equal(parsed.memory.captureAdapter, "commandcode");
+	assert.equal(parsed.memory.model, "google-antigravity/gemini-2.5-flash");
 	assert.equal(parsed.sandbox.dangerousBash, false);
 });
 
@@ -71,7 +71,7 @@ test("loadConfig reads a real omh.jsonc and merges", (t) => {
 		file,
 		`{
       // test config
-      "memory": { "maxBullets": 5, "captureAdapter": "opencode" },
+      "memory": { "maxBullets": 5, "model": "google-antigravity/gemini-2.5-flash" },
       "sandbox": { "dangerousBash": false }
     }`,
 	);
@@ -81,7 +81,7 @@ test("loadConfig reads a real omh.jsonc and merges", (t) => {
 	const parsed = JSON.parse(stripJsoncComments(text));
 	const merged = mergeConfig(DEFAULTS, parsed);
 	assert.equal(merged.memory.maxBullets, 5);
-	assert.equal(merged.memory.captureAdapter, "opencode");
+	assert.equal(merged.memory.model, "google-antigravity/gemini-2.5-flash");
 	assert.equal(merged.sandbox.dangerousBash, false);
 	assert.equal(merged.sandbox.readBeforeWrite, true);
 	rmSync(tmpDir, { recursive: true, force: true });

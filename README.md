@@ -214,19 +214,24 @@ Dedicated configuration file located at `~/.config/opencode/omh.jsonc`:
 
 ```jsonc
 {
- // Curated Memory & Session Distillation
- "memory": {
- "enabled": true,
- "captureAdapter": "commandcode", // "commandcode" | "opencode" | "omp"
- "captureModels": {
- "commandcode": "",
- "opencode": "omp/hy3:free",
- "omp": "gemini-3.6-flash",
- },
- "maxBullets": 10,
- "injectToSubagents": false, // Keep subagents isolated & lightweight
- "captureAuto": false, // Auto-distill on session idle
- },
+	// Curated Memory & Background Review Engine
+	"memory": {
+		"enabled": true,
+		"baseURL": "http://127.0.0.1:4000/v1", // OpenAI-compatible gateway (OMP :4000, Local Gateway :4010)
+		"model": "google-antigravity/gemini-2.5-flash",
+		"apiKey": "dummy",
+		"maxBullets": 10,
+		"injectToSubagents": false, // Keep subagents isolated & lightweight
+		"budgets": {
+			"user": 1500, // Character limit for ~/.config/opencode/memory/USER.md
+			"global": 2500, // Character limit for ~/.config/opencode/memory/MEMORY.md
+			"project": 3500 // Character limit for projects/<slug>/MEMORY.md
+		},
+		"review": {
+			"enabled": true, // Hermes-style background self-improvement review
+			"idleDelayMs": 3000
+		}
+	},
 
  // Sandbox Pre-Execution Safety & Integrity
  "sandbox": {
@@ -342,40 +347,51 @@ Scans tool input arguments (`write`, `edit`, `patch`) against production regex s
 
 ## 🧠 Curated Memory & Agent Tool
 
-`oh-my-hook` features a **pure Markdown-backed, self-curating memory engine** (Hermes-style architecture) with zero JSONL bloat and direct file storage:
+> [!INFO]
+> **Hermes Agent Architecture Adoption**
+> The memory subsystem adopts the battle-tested multi-target layout from **Hermes Agent** (`tools/memory_tool.py`), featuring atomic batch operations, character budget boundaries, clean JSON schema overrides, and post-turn background self-improvement reviews.
+
+`oh-my-hook` features a **pure Markdown-backed, self-curating memory engine** with zero JSONL bloat and direct file storage across three distinct targets:
 
 ```
 ~/.config/opencode/memory/
-├── MEMORY.md # Global cross-project memory (auto-selected in ~)
+├── USER.md                  # User persona, communication style, developer identity
+├── MEMORY.md                # Global cross-project technical quirks & tool flags
 └── projects/
- └── <project-slug>/
- └── MEMORY.md # Project-specific curated rules (auto-selected in workspace)
+    └── <project-slug>/
+        └── MEMORY.md        # Project-specific architecture & testing conventions
 ```
 
 ### Key Highlights:
 
-- **100% Pure Markdown**: Human-readable, zero-overhead storage. Directly editable via any text editor without worrying about JSONL drift.
-- **Autonomous Agent Tool (`memory`)**: Exposes a native OpenCode tool with 4 actions:
- - `add`: Saves a new memory bullet (guarded against credential leaks).
- - `replace`: Updates existing memory via **substring matching** (`old_text`).
- - `remove`: Deletes memory via substring matching.
- - `list`: Inspects active memory bullets.
-- **Direct System Prompt Injection**: Automatically injects combined Global + Project Markdown directly into `experimental.chat.system.transform` and compaction context without loss.
-- **️ Native TUI Modal Inspector**: Full keyboard-driven inspector using OpenCode's native `api.ui.DialogSelect` & `api.ui.DialogPrompt`:
- - `Enter` $\rightarrow$ Edit / Replace text
- - `Ctrl+A` $\rightarrow$ Add new memory
- - `Ctrl+D` (2x) $\rightarrow$ Delete memory with red row confirmation
- - `↓/↑ / j/k` $\rightarrow$ Scroll & fuzzy search
+- **100% Pure Markdown**: Human-readable, zero-overhead storage directly editable with standard text editors.
+- **Autonomous Agent Tool (`memory`)**: Exposes a native OpenCode tool supporting single actions and **Hermes atomic batch operations** (`operations: [...]`):
+  - `add`: Saves a new memory bullet (guarded against credential leaks).
+  - `replace`: Updates existing memory via **substring matching** (`old_text`).
+  - `remove`: Deletes memory via substring matching.
+  - `list`: Inspects active memory bullets.
+  - `operations`: List of atomic mutations applied together with pre-validation rollback (zero dirty writes).
+- **Clean JSON Schema Override**: Injects an explicit schema via the `tool.definition` hook (`required: []`), resolving tool-call failures across strict schema models (Gemini, DeepSeek, Qwen, Llama).
+- **Hermes Visual Headers & Character Budgets**: Displays usage percentage counters (`[23% — 340/1,500 chars]`) in `experimental.chat.system.transform` with rejection protections when limits are reached.
+- **Hermes Background Self-Improvement Review**: Silently evaluates recent conversation turns in the background via local gateways and updates memory stores with a non-intrusive notification:
+  `💾 Self-improvement review: Memory updated`.
+- **Direct OpenAI-Compatible Gateway**: Distillation and background reviews query any OpenAI-compatible endpoint directly via native `fetch()` without CLI dependencies.
+- **Native TUI Modal Inspector**: Full keyboard-driven inspector using OpenCode's native `api.ui.DialogSelect` & `api.ui.DialogPrompt`:
+  - `Enter` $\rightarrow$ Edit / Replace text
+  - `Ctrl+A` $\rightarrow$ Add new memory
+  - `Ctrl+D` (2x) $\rightarrow$ Delete memory with red row confirmation
+  - `↓/↑ / j/k` $\rightarrow$ Scroll & fuzzy search
 
 ### Interactive Slash Commands:
 
-- `/memory`: Display all active memory bullets in terminal.
-- `/memory global`: View global memory.
+- `/memory`: Display all active memory bullets across all targets.
+- `/memory user`: View user profile memory (`USER.md`).
+- `/memory global`: View global technical memory (`MEMORY.md`).
 - `/memory project`: View current project memory.
-- `/memory add <note>`: Append a note to project memory (`--global` for global).
+- `/memory add [user|global|project] <note>`: Append note to specified target.
 - `/memory replace A -> B`: Replace note matching `A` with `B`.
 - `/memory remove <text>`: Remove note matching `text`.
-- `/memory capture`: Run ephemeral AI distillation worker to summarize session lessons.
+- `/memory capture`: Run AI distillation to summarize session lessons into memory bullets.
 
 ---
 

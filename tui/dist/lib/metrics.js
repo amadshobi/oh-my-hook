@@ -49,15 +49,23 @@ export function getActiveGuardsCount(config) {
 export function getStructuredMemoryStats(projectDirectory) {
 	try {
 		const entries = listMemoryEntries(projectDirectory);
-		const globalCount = entries.filter((e) => e.scope === "global").length;
-		const projectCount = entries.filter((e) => e.scope === "project").length;
+		const userCount = entries.filter(
+			(e) => (e.target || e.scope) === "user",
+		).length;
+		const globalCount = entries.filter(
+			(e) => (e.target || e.scope) === "global",
+		).length;
+		const projectCount = entries.filter(
+			(e) => (e.target || e.scope) === "project",
+		).length;
 		return {
 			count: entries.length,
+			user: userCount,
 			global: globalCount,
 			project: projectCount,
 		};
 	} catch {
-		return { count: 0, global: 0, project: 0 };
+		return { count: 0, user: 0, global: 0, project: 0 };
 	}
 }
 

@@ -1,45 +1,50 @@
-# Ephemeral AI Memory Distillation
+# Memory Distillation & Background Review
 
-The `/memory capture` workflow distills valuable architectural lessons, edge cases, and user preferences from messy chat transcripts into concise Markdown memory bullets.
+The `/memory capture` workflow and background review loop distill valuable architectural lessons, edge cases, and user preferences from chat turns into concise Markdown memory stores across `user`, `global`, and `project` targets.
 
 ---
 
-## Pluggable AI Adapters
+## Direct OpenAI-Compatible Gateway Architecture
 
-Memory distillation operates out-of-band using pluggable AI harness adapters located in `memory/ai/`:
+Memory reflection operates out-of-band using a high-performance native `fetch()` HTTP client connecting directly to any OpenAI-compatible gateway (e.g. Oh-My-Pi `:4000`, Local Gateway `:4010`, Ollama `:11434`, or remote endpoints):
 
-| Adapter ID | Runner Binary | Isolation Flags | Use Case |
+| Feature | Execution Trigger | Engine | Action |
 | :--- | :--- | :--- | :--- |
-| `commandcode` *(default)* | `cmd -p` | `--no-session` | Zero-session overhead with fast local models. |
-| `opencode` | `opencode run` | Ephemeral session delete | Uses native OpenCode CLI runtime. |
-| `omp` | `omp -p` | `--no-session` | Delegates to Oh-My-Pi multi-model daemon. |
+| **Hermes Background Review** | Automatic (post-turn idle) | Gateway `fetch()` | Analyzes turn excerpt, returns `{ operations: [...] }`, updates `USER.md` / `MEMORY.md`. |
+| **Manual Capture** | Slash command `/memory capture` | Gateway `fetch()` | Distills complete session transcript into 3-5 bullet points. |
 
 ---
 
 ## Zero Ephemeral Footprint
 
 To prevent database clutter and session pollution:
-- `cmd` and `omp` are invoked with `--no-session`.
-- `opencode run` creates a temporary session ID and deletes it immediately after distillation completes via `opencode session delete <id>`.
+- Queries are executed directly against the local HTTP gateway loopback without spawning OS child processes.
+- No dummy session records are created in OpenCode's SQLite database.
+- Results undergo local secret-scanning and character budget validation before being written to disk.
 
 ---
 
-## ️ Configuration in `omh.jsonc`
+## ⚙️ Configuration in `omh.jsonc`
 
 ```jsonc
 // ~/.config/opencode/omh.jsonc
 {
- "memory": {
- "enabled": true,
- "captureAdapter": "commandcode", // "commandcode" | "opencode" | "omp"
- "captureModels": {
- "commandcode": "", // blank uses Command Code default model
- "opencode": "omp/hy3:free",
- "omp": "gemini-3.6-flash"
- },
- "maxBullets": 10,
- "injectToSubagents": false,
- "captureAuto": false // set true to auto-distill when session goes idle
- }
+  "memory": {
+    "enabled": true,
+    "baseURL": "http://127.0.0.1:4000/v1",
+    "model": "google-antigravity/gemini-2.5-flash",
+    "apiKey": "dummy",
+    "maxBullets": 10,
+    "injectToSubagents": false,
+    "budgets": {
+      "user": 1500,
+      "global": 2500,
+      "project": 3500
+    },
+    "review": {
+      "enabled": true,
+      "idleDelayMs": 3000
+    }
+  }
 }
 ```

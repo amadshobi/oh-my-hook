@@ -8,6 +8,8 @@ import { memoryHooks } from "../memory/index.js";
 import {
 	readMemory,
 	GLOBAL_FILE,
+	getGlobalFile,
+	getUserFile,
 	projectMemoryFile,
 	parseBullets,
 	listMemoryEntries,
@@ -273,4 +275,168 @@ test("memory/index: memoryHooks exports tool.memory when enabled, omits when dis
 		undefined,
 		"tool.memory should be omitted when disabled",
 	);
+});
+
+test("memory/tool: target 'user' writes directly to USER.md", async () => {
+	const env = makeIsolatedEnv();
+	try {
+		const res = await executeMemoryTool({
+			target: "user",
+			action: "add",
+			content: "Panggil user dengan sebutan BOSS",
+		});
+
+		assert.ok(res.output.includes("Memory added successfully"));
+		assert.ok(res.output.includes("user store"));
+
+		const userFile = getUserFile();
+		const text = readMemory(userFile);
+		assert.ok(text.includes("Panggil user dengan sebutan BOSS"));
+	} finally {
+		env.cleanup();
+	}
+});
+
+test("memory/tool: Hermes batch operations execute atomically across targets", async () => {
+	const env = makeIsolatedEnv();
+	const projectDir = "/tmp/test-project-batch";
+
+	try {
+		// Execute batch add across user, global, and project
+		const batchRes = await executeMemoryTool(
+			{
+				operations: [
+					{
+						action: "add",
+						target: "user",
+						content: "Prefer Indonesian for user interaction",
+					},
+					{
+						action: "add",
+						target: "global",
+						content: "Global tool note: bun test is preferred",
+					},
+					{
+						action: "add",
+						target: "project",
+						content: "Repo note: zero dependencies in core modules",
+					},
+				],
+			},
+			{ directory: projectDir },
+		);
+
+		assert.ok(batchRes.output.includes("Batch memory update applied"));
+		assert.ok(batchRes.output.includes("3 added"));
+
+		// Verify files
+		assert.ok(readMemory(getUserFile()).includes("Prefer Indonesian"));
+		assert.ok(readMemory(getGlobalFile()).includes("bun test"));
+		assert.ok(
+			readMemory(projectMemoryFile(projectDir)).includes("zero dependencies"),
+		);
+
+		// Now test batch with replace, remove, and add together
+		const updateBatch = await executeMemoryTool(
+			{
+				operations: [
+					{
+						action: "replace",
+						target: "user",
+						old_text: "Prefer Indonesian",
+						content: "Bahasa Indonesia HANYA untuk interaksi user",
+					},
+					{
+						action: "remove",
+						target: "global",
+						old_text: "bun test",
+					},
+					{
+						action: "add",
+						target: "project",
+						content: "Follow Conventional Commits with trailer",
+					},
+				],
+			},
+			{ directory: projectDir },
+		);
+
+		assert.ok(updateBatch.output.includes("1 added, 1 replaced, 1 removed"));
+		assert.ok(
+			readMemory(getUserFile()).includes(
+				"Bahasa Indonesia HANYA untuk interaksi user",
+			),
+		);
+		assert.ok(!readMemory(getGlobalFile()).includes("bun test"));
+		assert.ok(
+			readMemory(projectMemoryFile(projectDir)).includes(
+				"Conventional Commits",
+			),
+		);
+	} finally {
+		env.cleanup();
+	}
+});
+
+test("memory/tool: Hermes batch pre-validation rejects atomicity on failure (0 writes)", async () => {
+	const env = makeIsolatedEnv();
+	const projectDir = "/tmp/test-project-batch-atomic";
+
+	try {
+		// Initial memory
+		await executeMemoryTool(
+			{ target: "user", action: "add", content: "Initial safe note" },
+			{ directory: projectDir },
+		);
+
+		// Attempt batch where item 2 fails validation (missing old_text for replace)
+		const invalidBatch = await executeMemoryTool(
+			{
+				operations: [
+					{ action: "add", target: "user", content: "Should not be saved" },
+					{ action: "replace", target: "user", content: "Missing old text" },
+				],
+			},
+			{ directory: projectDir },
+		);
+
+		assert.ok(
+			invalidBatch.output.includes(
+				"Error: Operation #2 ('replace') requires 'old_text'",
+			),
+		);
+		// Verify first item was NOT added
+		assert.ok(!readMemory(getUserFile()).includes("Should not be saved"));
+	} finally {
+		env.cleanup();
+	}
+});
+
+test("memory/tool: Character budget overflow is rejected with clear error", async () => {
+	const env = makeIsolatedEnv();
+	const projectDir = "/tmp/test-project-budget";
+
+	try {
+		const smallBudgets = { user: 50, global: 50, project: 50 };
+		const largeContent = "A".repeat(80);
+
+		const res = await executeMemoryTool(
+			{
+				target: "user",
+				action: "add",
+				content: largeContent,
+			},
+			{ directory: projectDir, budgets: smallBudgets },
+		);
+
+		assert.ok(
+			res.output.includes("Error: Target 'user' memory budget exceeded"),
+		);
+		assert.ok(
+			res.output.includes("Please consolidate or remove older memories first"),
+		);
+		assert.equal(readMemory(getUserFile()).trim(), "");
+	} finally {
+		env.cleanup();
+	}
 });

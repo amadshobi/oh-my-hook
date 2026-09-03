@@ -30,12 +30,12 @@ test("omh.yaml loads and merges", () => {
 	try {
 		writeFileSync(
 			configPath("yaml"),
-			`memory:\n  maxBullets: 3\n  captureAdapter: opencode\nsandbox:\n  dangerousBash: false\n`,
+			`memory:\n  maxBullets: 3\n  model: google-antigravity/gemini-2.5-flash\nsandbox:\n  dangerousBash: false\n`,
 		);
 		const { config, source } = loadConfig();
 		assert.ok(source?.endsWith("omh.yaml"), `expected omh.yaml, got ${source}`);
 		assert.equal(config.memory.maxBullets, 3);
-		assert.equal(config.memory.captureAdapter, "opencode");
+		assert.equal(config.memory.model, "google-antigravity/gemini-2.5-flash");
 		assert.equal(config.sandbox.dangerousBash, false);
 		assert.equal(config.sandbox.staleWrite, true, "defaults preserved");
 	} finally {

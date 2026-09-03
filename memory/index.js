@@ -1,27 +1,35 @@
 /**
- * memory/index.js — Pure Markdown Memory hooks & unified /memory command suite.
+ * memory/index.js — Hermes-Style Pure Markdown Memory hooks & unified /memory command suite.
  *
  * Provides:
- *   - File-backed Markdown stores: ~/.config/opencode/memory/MEMORY.md (global) & projects/<slug>/MEMORY.md
- *   - Native OpenCode agent tool (`memory`) with 4 actions (add, replace, remove, list)
- *   - Direct Markdown injection into System Prompt and Compaction context
- *   - Unified Slash Command: `/memory [all|global|project|add|replace|remove|capture]`
+ *   - File-backed Markdown stores across 3 distinct targets:
+ *       ~/.config/opencode/memory/USER.md (user profile)
+ *       ~/.config/opencode/memory/MEMORY.md (global notes)
+ *       projects/<slug>/MEMORY.md (project conventions)
+ *   - Native OpenCode agent tool (`memory`) supporting atomic batch operations
+ *   - Strict JSON Schema override via `tool.definition` hook
+ *   - Visual system prompt injection with percentage & character budgets
+ *   - Unified Slash Command: `/memory [all|user|global|project|add|replace|remove|capture]`
+ *   - Hermes background self-improvement review loop via OpenAI-compatible gateway
  */
 import {
 	readMemory,
-	readAllMemory,
+	formatSystemMemory,
 	appendMemory,
 	replaceMemory,
 	removeMemory,
-	GLOBAL_FILE,
 	getGlobalFile,
+	getUserFile,
 	projectSlug,
 	projectMemoryFile,
 	resolveTargetMemoryFile,
 	parseBullets,
 	listMemoryEntries,
+	normalizeTarget,
+	getMemoryUsage,
+	isGlobalDirectory,
 } from "./store.js";
-import { capture } from "./ai/index.js";
+import { distillTranscript, analyzeTurnReview } from "./client.js";
 import { loadConfig } from "../share/config.js";
 import { execFileSync } from "node:child_process";
 import {
@@ -31,7 +39,12 @@ import {
 } from "../share/agent.js";
 import { createNotifier } from "../share/notify.js";
 import { createHandledError, deliverCommandOutput } from "../share/handled.js";
-import { createMemoryTool } from "./tool.js";
+import {
+	createMemoryTool,
+	executeMemoryTool,
+	MEMORY_JSON_SCHEMA,
+	loadToolDescription,
+} from "./tool.js";
 
 /** Get the latest OpenCode session ID (from `opencode session list`). */
 function latestSessionID() {
@@ -80,30 +93,16 @@ function getSessionTranscript(sessionID) {
 
 /** Run the AI distill over a transcript and append bullets to memory. */
 async function distillToMemory(transcript, notify, memCfg, directory) {
-	const project = directory ? directory.split("/").pop() : "unknown";
-	const prompt =
-		`Berikut adalah transcript session coding terakhir dari project ${project}.\n\n` +
-		`TRANSCRIPT:\n${transcript.slice(0, 8000)}\n\n` +
-		`Pilih 3-5 poin penting yang layak diingat untuk pekerjaan selanjutnya ` +
-		`(keputusan arsitektur, konvensi, gotchas, preferensi user). ` +
-		`Output format: satu bullet per baris, diawali "- ", dalam bahasa Indonesia singkat. ` +
-		`Jangan sertakan detail yang gak penting.`;
-	const model = memCfg.captureModels?.[memCfg.captureAdapter] ?? "";
-	const result = await capture(prompt, {
-		cwd: directory,
-		prefer: memCfg.captureAdapter,
-		model,
+	const bullets = await distillTranscript(transcript, {
+		gatewayUrl: memCfg.baseURL,
+		model: memCfg.model,
+		apiKey: memCfg.apiKey,
+		maxBullets: memCfg.maxBullets ?? 5,
 	});
-	const bullets = result
-		.split("\n")
-		.map((l) => l.trim())
-		.filter((l) => l.startsWith("- "))
-		.slice(0, memCfg.maxBullets ?? 5);
 	if (bullets.length === 0) return 0;
 	const file = resolveTargetMemoryFile(directory);
 	for (const b of bullets) {
-		const clean = b.replace(/^-\s*/, "");
-		appendMemory(file, clean);
+		appendMemory(file, b);
 	}
 	return bullets.length;
 }
@@ -114,17 +113,65 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 	const memCfg = config.memory || {};
 	const agentModes = loadAgentModes(directory);
 
+	let reviewTimer = null;
+	const recentTurns = [];
+
+	const scheduleBackgroundReview = (sessionID) => {
+		if (memCfg.review?.enabled === false) return;
+		if (recentTurns.length === 0) return;
+
+		clearTimeout(reviewTimer);
+		const delay = memCfg.review?.idleDelayMs ?? 3000;
+
+		reviewTimer = setTimeout(async () => {
+			try {
+				const excerpt = recentTurns.slice(-4).join("\n");
+				const slug = projectSlug(directory).split("/").pop() || "workspace";
+
+				const ops = await analyzeTurnReview(excerpt, {
+					gatewayUrl: memCfg.baseURL,
+					model: memCfg.model,
+					apiKey: memCfg.apiKey,
+					projectSlug: slug,
+				});
+
+				if (Array.isArray(ops) && ops.length > 0) {
+					const res = await executeMemoryTool(
+						{ operations: ops },
+						{ directory, budgets: memCfg.budgets },
+					);
+					if (res.output && !res.output.startsWith("Error:")) {
+						await notify("💾 Self-improvement review: Memory updated", "info");
+					}
+				}
+			} catch (e) {
+				try {
+					client?.app?.log?.(`[memory] background review error: ${e.message}`);
+				} catch {}
+			}
+		}, delay);
+	};
+
 	return {
 		// --- native agent tool (OpenCode tool registry pattern) ---
 		...(memCfg.enabled !== false
 			? {
 					tool: {
-						memory: createMemoryTool({ directory }),
+						memory: createMemoryTool({ directory, budgets: memCfg.budgets }),
 					},
 				}
 			: {}),
 
-		// --- register slash command in server catalog ---
+		// --- explicit JSON schema definition override ---
+		"tool.definition": async ({ toolID }, output) => {
+			if (memCfg.enabled === false) return;
+			if (toolID === "memory") {
+				output.description = loadToolDescription();
+				output.jsonSchema = MEMORY_JSON_SCHEMA;
+			}
+		},
+
+		// --- register slash commands in server catalog ---
 		config: async (input) => {
 			if (memCfg.enabled === false) return;
 			const cfg = input ?? {};
@@ -132,7 +179,7 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 			cfg.command.memory = {
 				template: "/memory $ARGUMENTS",
 				description:
-					"Kelola memory: /memory (semua) | global | project | add <note> | replace <old> -> <new> | remove <text> | capture",
+					"Kelola memory: /memory (semua) | user | global | project | add [target] <note> | replace | remove | capture",
 			};
 			cfg.command.remember = {
 				template: "/remember <note>",
@@ -141,18 +188,41 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 			};
 		},
 
-		// --- track session agent mode ---
-		"chat.message": async (input) => {
+		// --- track session agent mode & capture turns for background review ---
+		"chat.message": async (input, output) => {
 			if (!input?.sessionID) return;
 			rememberSessionAgent(input.sessionID, input.agent);
+
+			const parts = output?.parts || [];
+			const text = parts
+				.filter((p) => p.type === "text" && p.text)
+				.map((p) => p.text)
+				.join(" ");
+			if (text) {
+				recentTurns.push(`User: ${text.slice(0, 1000)}`);
+				if (recentTurns.length > 8) recentTurns.shift();
+			}
 		},
 
-		// --- direct Markdown injection into system prompt ---
+		// --- background self-improvement review triggered on turn completion ---
+		event: async ({ event }) => {
+			if (memCfg.review?.enabled === false) return;
+			if (!event) return;
+
+			if (event.type === "message.updated") {
+				const info = event.properties?.info;
+				if (info?.role === "assistant") {
+					scheduleBackgroundReview(event.properties?.sessionID);
+				}
+			}
+		},
+
+		// --- direct Markdown injection into system prompt with Hermes visual headers ---
 		"experimental.chat.system.transform": async (input, output) => {
 			if (memCfg.enabled === false) return;
 			if (isSubagent(input, agentModes) && !memCfg.injectToSubagents) return;
 
-			const memoryText = readAllMemory(directory);
+			const memoryText = formatSystemMemory(directory, memCfg.budgets);
 			if (!memoryText || !memoryText.trim()) return;
 
 			output.system = output.system || [];
@@ -162,7 +232,7 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 		// --- inject memory into compaction context (lossless) ---
 		"experimental.session.compacting": async (input, output) => {
 			if (memCfg.enabled === false) return;
-			const memoryText = readAllMemory(directory);
+			const memoryText = formatSystemMemory(directory, memCfg.budgets);
 			if (!memoryText || !memoryText.trim()) return;
 
 			output.context = output.context || [];
@@ -194,12 +264,11 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 				}
 				const isGlobal = rawArgs.startsWith("--global ");
 				const clean = rawArgs.replace(/^--global\s+/, "").trim();
-				const file = isGlobal
-					? getGlobalFile()
-					: resolveTargetMemoryFile(directory);
+				const target = isGlobal ? "global" : "project";
+				const file = resolveTargetMemoryFile(target, directory);
 				appendMemory(file, clean);
-				const scopeName = isGlobal ? "global" : "project";
-				await respond(`Memory saved (${scopeName}): ${clean}`);
+				const usage = getMemoryUsage(file, target, memCfg.budgets);
+				await respond(`Memory saved (${target}, ${usage.usage}): ${clean}`);
 			}
 
 			if (cmd === "memory") {
@@ -207,19 +276,45 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 				const sub = (subcmd || "").toLowerCase();
 				const rest = restParts.join(" ").trim();
 
-				// 1. /memory add [--global] <note>
+				// 1. /memory add [user|global|project|--global] <note>
 				if (sub === "add") {
 					if (!rest) {
-						await respond("Usage: /memory add [--global] <note>", "warn");
+						await respond(
+							"Usage: /memory add [user|global|project] <note>",
+							"warn",
+						);
 					}
-					const isGlobal = rest.startsWith("--global ");
-					const clean = rest.replace(/^--global\s+/, "").trim();
-					const file = isGlobal
-						? getGlobalFile()
-						: resolveTargetMemoryFile(directory);
-					appendMemory(file, clean);
-					const scopeName = isGlobal ? "global" : "project";
-					await respond(`Memory saved (${scopeName}): ${clean}`);
+
+					let target = "project";
+					let note = rest;
+
+					if (rest.startsWith("--global ")) {
+						target = "global";
+						note = rest.replace(/^--global\s+/, "").trim();
+					} else {
+						const [firstWord, ...remaining] = rest.split(/\s+/);
+						const lowerFirst = (firstWord || "").toLowerCase();
+						if (["user", "global", "project"].includes(lowerFirst)) {
+							target = lowerFirst;
+							note = remaining.join(" ").trim();
+						} else if (isGlobalDirectory(directory)) {
+							target = "global";
+						}
+					}
+
+					if (!note) {
+						await respond(
+							"Error: memory note content cannot be empty.",
+							"warn",
+						);
+					}
+
+					const file = resolveTargetMemoryFile(target, directory);
+					appendMemory(file, note);
+					const usage = getMemoryUsage(file, target, memCfg.budgets);
+					await respond(
+						`Memory saved (${target} store, ${usage.usage}): ${note}`,
+					);
 				}
 
 				// 2. /memory replace <old_text> -> <new_text>
@@ -252,16 +347,22 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 					}
 
 					replaceMemory(match.file, match.content, newText);
+					const usage = getMemoryUsage(
+						match.file,
+						match.target,
+						memCfg.budgets,
+					);
 					await respond(
-						`Memory updated (${match.scope}):\n  Old: ${match.content}\n  New: ${newText}`,
+						`Memory updated (${match.target} store, ${usage.usage}):\n  Old: ${match.content}\n  New: ${newText}`,
 					);
 				}
 
-				// 3. /memory remove <substring> | /memory rm <substring>
-				if (sub === "remove" || sub === "rm" || sub === "delete") {
+				// 3. /memory remove <text>
+				if (sub === "remove") {
 					if (!rest) {
-						await respond("Usage: /memory remove <substring>", "warn");
+						await respond("Usage: /memory remove <substring_to_match>", "warn");
 					}
+
 					const entries = listMemoryEntries(directory);
 					const match = entries.find((e) =>
 						e.content.toLowerCase().includes(rest.toLowerCase()),
@@ -274,39 +375,71 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 					}
 
 					removeMemory(match.file, match.content);
-					await respond(`Memory removed (${match.scope}): ${match.content}`);
+					const usage = getMemoryUsage(
+						match.file,
+						match.target,
+						memCfg.budgets,
+					);
+					await respond(
+						`Memory removed (${match.target} store, ${usage.usage}):\n  "${match.content}"`,
+					);
 				}
 
-				// 4. /memory global
+				// 4. /memory user
+				if (sub === "user") {
+					const userFile = getUserFile();
+					const text = readMemory(userFile).trim();
+					const bullets = parseBullets(text);
+					const usage = getMemoryUsage(userFile, "user", memCfg.budgets);
+					if (!text || bullets.length === 0) {
+						await respond(`(User profile kosong [${usage.usage}])`);
+					} else {
+						await respond(
+							`👤 User Profile (${bullets.length} entries, ${usage.usage}):\n\n${text}`,
+						);
+					}
+				}
+
+				// 5. /memory global
 				if (sub === "global") {
 					const globalFile = getGlobalFile();
 					const text = readMemory(globalFile).trim();
 					const bullets = parseBullets(text);
+					const usage = getMemoryUsage(globalFile, "global", memCfg.budgets);
 					if (!text || bullets.length === 0) {
-						await respond("(Global memory kosong)");
+						await respond(`(Global memory kosong [${usage.usage}])`);
 					} else {
 						await respond(
-							`🌍 Global Memory (${bullets.length} bullets):\n\n${text}`,
+							`🌐 Global Memory (${bullets.length} entries, ${usage.usage}):\n\n${text}`,
 						);
 					}
 				}
 
-				// 5. /memory project [optional-path]
+				// 6. /memory project
 				if (sub === "project") {
-					const targetDir = rest || directory;
+					const targetDir = directory || process.cwd();
+					if (isGlobalDirectory(targetDir)) {
+						await respond(
+							"Workspace saat ini adalah Home (~), tidak ada project memory tersendiri.",
+							"warn",
+						);
+					}
 					const projFile = projectMemoryFile(targetDir);
 					const text = readMemory(projFile).trim();
 					const bullets = parseBullets(text);
+					const usage = getMemoryUsage(projFile, "project", memCfg.budgets);
 					if (!text || bullets.length === 0) {
-						await respond(`(Project memory kosong untuk ${targetDir})`);
+						await respond(
+							`(Project memory kosong untuk ${targetDir} [${usage.usage}])`,
+						);
 					} else {
 						await respond(
-							`🎯 Project Memory (${bullets.length} bullets):\n\n${text}`,
+							`🎯 Project Memory (${bullets.length} entries, ${usage.usage}):\n\n${text}`,
 						);
 					}
 				}
 
-				// 6. /memory capture
+				// 7. /memory capture
 				if (sub === "capture") {
 					try {
 						const sessID =
@@ -339,19 +472,19 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 					}
 				}
 
-				// 7. /memory all (atau default /memory tanpa argumen)
+				// 8. /memory all (atau default /memory tanpa argumen)
 				if (!sub || sub === "all") {
-					const allText = readAllMemory(directory);
-					const bullets = parseBullets(allText);
+					const allText = formatSystemMemory(directory, memCfg.budgets);
+					const entries = listMemoryEntries(directory);
 
-					if (!allText.trim() || bullets.length === 0) {
+					if (entries.length === 0) {
 						await respond(
-							"(Memory kosong — gunakan /memory add <note> atau tool memory)",
+							"(Memory kosong — gunakan /memory add [user|global|project] <note> atau tool memory)",
 						);
 					}
 
 					await respond(
-						`📋 Active Memory (${bullets.length} bullets total):\n\n${allText.trim()}`,
+						`📋 Active Memories (${entries.length} entries total across targets):\n\n${allText.trim()}`,
 					);
 				}
 
@@ -359,15 +492,18 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 				await respond(
 					`❓ Perintah tidak dikenal: "/memory ${rawArgs}"\n` +
 						`💡 Usage:\n` +
-						`  • /memory                 (Tampilkan semua memory aktif)\n` +
-						`  • /memory global          (Tampilkan global memory)\n` +
-						`  • /memory project         (Tampilkan project memory)\n` +
-						`  • /memory add <note>      (Tambah memory ke project, --global untuk global)\n` +
-						`  • /memory replace A -> B  (Ganti memory A dengan B)\n` +
-						`  • /memory remove <text>   (Hapus memory yang cocok)\n` +
-						`  • /memory capture         (Auto-capture via AI)`,
+						`  • /memory                        (Tampilkan semua memory aktif)\n` +
+						`  • /memory user                   (Tampilkan user profile)\n` +
+						`  • /memory global                 (Tampilkan global memory)\n` +
+						`  • /memory project                (Tampilkan project memory)\n` +
+						`  • /memory add [target] <note>    (Tambah memory ke user, global, atau project)\n` +
+						`  • /memory replace A -> B         (Ganti memory A dengan B)\n` +
+						`  • /memory remove <text>          (Hapus memory yang cocok)\n` +
+						`  • /memory capture                (Auto-capture via gateway)`,
 				);
 			}
 		},
 	};
 };
+
+export default memoryHooks;

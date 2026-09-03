@@ -148,6 +148,7 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 	const messagesConfig = opts?.messages ?? opts?.config?.messages ?? {};
 	const plansDir = resolvePlansDir(config, directory || process.cwd());
 	const notify = createNotifier(client, "plans", "info");
+	const assistantMessageIDs = new Set();
 
 	const handleIntent = async (sessionID, text, source = "event") => {
 		if (!planModeEnabled || !sessionID || !text) return;
@@ -434,10 +435,34 @@ export const planHooks = async ({ client, directory }, opts = {}) => {
 
 		// 4. Detect intent from message streams and chat turns
 		event: async ({ event }) => {
-			if (!intentDetectionEnabled) return;
-			if (event?.type !== "message.part.updated") return;
+			if (!intentDetectionEnabled || !event) return;
+
+			// Track assistant messages so their parts are ignored
+			if (event.type === "message.updated") {
+				const info = event.properties?.info;
+				if (info?.role === "assistant" && info.id) {
+					assistantMessageIDs.add(info.id);
+					if (assistantMessageIDs.size > 200) {
+						const first = assistantMessageIDs.values().next().value;
+						assistantMessageIDs.delete(first);
+					}
+				}
+				return;
+			}
+
+			if (event.type !== "message.part.updated") return;
 			const part = event.properties?.part;
 			if (part?.type !== "text" || !part.text) return;
+
+			// Ignore assistant message parts to prevent agent triggering its own mode change
+			if (
+				part.role === "assistant" ||
+				event.properties?.role === "assistant" ||
+				(part.messageID && assistantMessageIDs.has(part.messageID))
+			) {
+				return;
+			}
+
 			const text = part.text.trim();
 			const sessionID = event.properties?.sessionID;
 			await handleIntent(sessionID, text, "event");

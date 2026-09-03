@@ -373,6 +373,11 @@ function SidebarWidget(props) {
     return _el$9;
   })();
 }
+const MEMORY_CATEGORY_LABELS = {
+  user: "USER PROFILE",
+  global: "GLOBAL MEMORY",
+  project: "PROJECT MEMORY"
+};
 
 /**
  * Native OpenCode DialogSelect & DialogPrompt based Memory Inspector.
@@ -389,12 +394,14 @@ function MemoryModal(props) {
   const entries = createMemo(() => {
     refreshKey(); // reactive dependency
     const all = listMemoryEntries(props.directory);
-    if (currentScope() === "global") return all.filter(e => e.scope === "global");
-    if (currentScope() === "project") return all.filter(e => e.scope === "project");
+    if (currentScope() === "user") return all.filter(e => (e.target || e.scope) === "user");
+    if (currentScope() === "global") return all.filter(e => (e.target || e.scope) === "global");
+    if (currentScope() === "project") return all.filter(e => (e.target || e.scope) === "project");
     return all;
   });
   const projectName = () => props.directory.split("/").pop() || "project";
   const modalTitle = () => {
+    if (currentScope() === "user") return "User Profile";
     if (currentScope() === "global") return "Global Memory";
     if (currentScope() === "project") return "Project Memory";
     return "Memory Inspector";
@@ -557,7 +564,7 @@ function MemoryModal(props) {
         title: isDeleting ? "Yakin mau hapus? Tekan Ctrl+D lagi untuk konfirmasi" : e.content,
         value: e,
         bg: isDeleting ? theme.error || "#ef4444" : undefined,
-        category: currentScope() === "all" ? e.scope === "global" ? "GLOBAL MEMORY" : "PROJECT MEMORY" : undefined,
+        category: currentScope() === "all" ? MEMORY_CATEGORY_LABELS[e.target || e.scope] || "PROJECT MEMORY" : undefined,
         footer: isDeleting ? "Tekan Ctrl+D lagi" : undefined
       };
     });
