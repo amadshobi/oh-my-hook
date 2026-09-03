@@ -1,36 +1,45 @@
 # Memory Configuration
 
-Configuration options for the Markdown-backed curated memory engine and AI distillation worker.
+Configuration options for the Hermes-style multi-target curated memory engine and background self-improvement reviewer.
 
 ---
 
-## ️ Full Schema
+## ⚙️ Full Schema
 
 ```jsonc
 // ~/.config/opencode/omh.jsonc
 {
- "memory": {
- // Enable or disable the memory engine
- "enabled": true,
+  "memory": {
+    // Enable or disable the memory engine
+    "enabled": true,
 
- // AI adapter harness for /memory capture ("commandcode" | "opencode" | "omp")
- "captureAdapter": "commandcode",
+    // OpenAI-compatible gateway endpoint (OMP :4000, Local Gateway :4010, Ollama :11434, etc.)
+    "baseURL": "http://127.0.0.1:4000/v1",
 
- // Model configurations per capture adapter
- "captureModels": {
- "commandcode": "", // Blank uses Command Code default model
- "opencode": "omp/hy3:free",
- "omp": "gemini-3.6-flash"
- },
+    // Model used for distillation and background self-improvement reviews
+    "model": "google-antigravity/gemini-2.5-flash",
 
- // Maximum memory bullets displayed in summaries
- "maxBullets": 10,
+    // API key for gateway authorization (default: dummy or reads OMP_API_KEY / OPENAI_API_KEY)
+    "apiKey": "dummy",
 
- // When false, keeps subagent contexts clean by injecting memory only to the main agent
- "injectToSubagents": false,
+    // Maximum memory bullets stored per distillation run
+    "maxBullets": 10,
 
- // Automatically trigger AI distillation when sessions enter idle
- "captureAuto": false
- }
+    // When false, keeps subagent contexts clean by injecting memory only to the main agent
+    "injectToSubagents": false,
+
+    // Bounded character limits per target (Hermes style)
+    "budgets": {
+      "user": 1500,     // ~/.config/opencode/memory/USER.md
+      "global": 2500,   // ~/.config/opencode/memory/MEMORY.md
+      "project": 3500   // projects/<slug>/MEMORY.md
+    },
+
+    // Hermes-style background self-improvement review loop
+    "review": {
+      "enabled": true,
+      "idleDelayMs": 3000 // Background review triggers 3s after turn finishes
+    }
+  }
 }
 ```
