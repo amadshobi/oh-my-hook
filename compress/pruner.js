@@ -55,25 +55,26 @@ export function pruneMessages(messages, cfg = {}, sessionID = null) {
 		return { prunedCount: 0, totalBytesPruned: 0 };
 	}
 
-	const recentTurns = cfg.recentTurns ?? 2;
+	const recentTurns = cfg.recentTurns ?? 1;
 	const minOutputChars = cfg.minOutputChars ?? 2000;
+	const massiveOutputChars = cfg.massiveOutputChars ?? 10000;
 	const keepHeadChars = cfg.keepHeadChars ?? 500;
 	const keepTailChars = cfg.keepTailChars ?? 1500;
 	const keepImportantLines = cfg.keepImportantLines ?? true;
 
 	const cutoffIndex = calculateCutoffIndex(messages, recentTurns);
-	if (cutoffIndex <= 0) {
-		return { prunedCount: 0, totalBytesPruned: 0 };
-	}
 
 	let prunedCount = 0;
 	let totalBytesPruned = 0;
 
-	for (let i = 0; i < cutoffIndex; i++) {
+	for (let i = 0; i < messages.length; i++) {
 		const msg = messages[i];
 		if (msg?.info?.role !== "assistant" || !Array.isArray(msg.parts)) {
 			continue;
 		}
+
+		// Messages at or after cutoffIndex are within the protected recent window
+		const isRecent = cutoffIndex <= 0 || i >= cutoffIndex;
 
 		for (const part of msg.parts) {
 			if (part?.type !== "tool" || part?.state?.status !== "completed") {
@@ -91,6 +92,12 @@ export function pruneMessages(messages, cfg = {}, sessionID = null) {
 
 			const rawOutput =
 				typeof part.state.output === "string" ? part.state.output : "";
+
+			// In recent turns, only prune if output is massive
+			if (isRecent && rawOutput.length < massiveOutputChars) {
+				continue;
+			}
+
 			if (rawOutput.length < minOutputChars) {
 				continue;
 			}
@@ -146,24 +153,30 @@ export function pruneMessages(messages, cfg = {}, sessionID = null) {
 			prunedCount += 1;
 			totalBytesPruned += collapsedChars;
 
+			const partId =
+				part.id ||
+				part.callID ||
+				`${msg.info?.id || i}:${toolName}:${cmd.slice(0, 30)}:${rawOutput.length}`;
+
 			try {
-				recordPruning(sessionID, {
+				const isNewPrune = recordPruning(sessionID, {
 					charsPruned: collapsedChars,
 					tool: toolName,
 					commandClass: cmd.slice(0, 50),
+					partId,
 				});
-			} catch {}
 
-			try {
-				appendDebugEvent(
-					sessionID,
-					{
-						kind: "prune",
-						type: "PRUNE",
-						detail: `Pruned ${collapsedChars} chars (~${Math.round(collapsedChars / 4)} tok) from ${toolName}${cmd ? ` ("${cmd.slice(0, 30)}")` : ""}`,
-					},
-					cfg,
-				);
+				if (isNewPrune) {
+					appendDebugEvent(
+						sessionID,
+						{
+							kind: "prune",
+							type: "PRUNE",
+							detail: `Pruned ${collapsedChars} chars (~${Math.round(collapsedChars / 4)} tok) from ${toolName}${cmd ? ` ("${cmd.slice(0, 30)}")` : ""}`,
+						},
+						cfg,
+					);
+				}
 			} catch {}
 		}
 	}

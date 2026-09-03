@@ -28,6 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - **TUI Compress Panel**: `/compress panel` + palette command opens a modal with a `█░` context usage bar, pruning stats, and tool breakdown.
     - **Manual `/compress` Now Actually Compresses**: `/compress` (no args) now runs the oh-my-hook pipeline first (fetch messages → prune tool outputs → auto range compress to ~50% → persist), then triggers OpenCode's native compaction. Previously it only called `client.session.compact()` which often did nothing.
 
+### Fixed
+
+- **CI Runner Failure & Babel Path Hardcoding (Issue #28)**:
+  - Dynamically resolve Babel compiler and presets across standard module imports and global locations, with graceful fallback to pre-built `tui/dist/tui.js` when compiler dependencies are absent in CI runners.
+- **Stale Pruning Toast Spamming & Active Turn Handling (Issue #29)**:
+  - Added part ID deduplication in `compress/stats.js` and `compress/pruner.js` so historical tool outputs re-transformed across conversation steps never re-trigger notifications.
+  - Added event ID caching in `tui/src/lib/compress-watch.js`.
+  - Tuned `recentTurns: 1` default and added `massiveOutputChars: 10000` to fold huge logs immediately in active turns while protecting standard outputs.
+
 ## [0.5.1] - 2026-09-01
 
 ### Fixed

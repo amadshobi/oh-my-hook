@@ -37,7 +37,8 @@ export function watchCompressStats(onPrune, options = {}) {
 			const eventTime = evt.at ? new Date(evt.at).getTime() : 0;
 			if (eventTime <= lastEventAt) return;
 
-			const key = `${evt.at}|${evt.count}|${evt.tool}|${evt.command || ""}`;
+			const key =
+				evt.id || `${evt.at}|${evt.count}|${evt.tool}|${evt.command || ""}`;
 			if (key === lastEventKey) return;
 			lastEventKey = key;
 

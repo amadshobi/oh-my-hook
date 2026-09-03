@@ -41,15 +41,20 @@ export function saveCompressStats(stats) {
 
 /**
  * Record a pruning event for a session.
+ * Returns true if a new pruning event was recorded, false if deduplicated.
  */
 export function recordPruning(
 	sessionID,
-	{ charsPruned = 0, tool = "bash", commandClass = "command" } = {},
+	{
+		charsPruned = 0,
+		tool = "bash",
+		commandClass = "command",
+		partId = null,
+	} = {},
 ) {
-	if (charsPruned <= 0) return;
+	if (charsPruned <= 0) return false;
 
 	const stats = loadCompressStats();
-	const tokensSaved = estimateTokens(charsPruned);
 	const now = new Date().toISOString();
 
 	const sid = sessionID || "global";
@@ -60,8 +65,26 @@ export function recordPruning(
 		compactions: 0,
 		lastUpdated: now,
 		tools: {},
+		prunedPartIds: [],
 	};
 
+	if (!Array.isArray(currentSession.prunedPartIds)) {
+		currentSession.prunedPartIds = [];
+	}
+
+	// De-duplicate: If this part has already been recorded in this session, do not update stats or lastPruneEvent
+	if (partId && currentSession.prunedPartIds.includes(partId)) {
+		return false;
+	}
+
+	if (partId) {
+		currentSession.prunedPartIds.push(partId);
+		if (currentSession.prunedPartIds.length > 200) {
+			currentSession.prunedPartIds.shift();
+		}
+	}
+
+	const tokensSaved = estimateTokens(charsPruned);
 	currentSession.prunedCount += 1;
 	currentSession.bytesSaved += charsPruned;
 	currentSession.tokensSaved += tokensSaved;
@@ -74,6 +97,7 @@ export function recordPruning(
 	stats.totalTokensSaved += tokensSaved;
 	stats.lastPrunedAt = now;
 	stats.lastPruneEvent = {
+		id: partId || `${sid}:${currentSession.prunedCount}`,
 		count: currentSession.prunedCount,
 		tokens: tokensSaved,
 		tool,
@@ -97,6 +121,7 @@ export function recordPruning(
 	}
 
 	saveCompressStats(stats);
+	return true;
 }
 
 /**

@@ -20,10 +20,11 @@ protection, live TUI toast notifications, and post-push auto-compaction.
  // Generic size-based dynamic pruning configuration
  "pruning": {
  "enabled": true,
- "recentTurns": 2, // Number of recent turns completely protected
+ "recentTurns": 1, // Number of recent turns completely protected (default: 1)
  "keepHeadChars": 500, // Head chars preserved when collapsing
  "keepTailChars": 1500, // Tail chars preserved (success/error output)
  "minOutputChars": 2000, // Minimum size before collapsing ANY eligible tool output
+ "massiveOutputChars": 10000, // Massive outputs (>10k chars) pruned even in recent turns
  "keepImportantLines": true, // Preserve error/pass/summary lines from the middle
 
  // Automatic strategies (DCP-style)

@@ -56,10 +56,11 @@ export const DEFAULTS = {
 		mode: "hybrid",
 		pruning: {
 			enabled: true,
-			recentTurns: 2,
+			recentTurns: 1,
 			keepHeadChars: 500,
 			keepTailChars: 1500,
 			minOutputChars: 2000,
+			massiveOutputChars: 10000,
 			keepImportantLines: true,
 			toast: {
 				enabled: true,
