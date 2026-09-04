@@ -64,9 +64,94 @@ export function markRead(ledger, filePath, meta, sessionID = "global") {
 	ledger[sessionKey][filePath] = { readAt: Date.now(), ...meta };
 }
 
+/**
+ * Lookup read entry for a file in the ledger.
+ * Prioritizes direct session match, then falls back to newest match across other sessions.
+ *
+ * @param {object} ledger
+ * @param {string} filePath
+ * @param {string} [sessionID="global"]
+ * @returns {{ entry: object, sourceSession: string, isDirect: boolean } | null}
+ */
+export function getReadRecord(ledger, filePath, sessionID = "global") {
+	if (!ledger || !filePath) return null;
+	const sessionKey = sessionID || "global";
+
+	// 1. Direct session key lookup
+	if (ledger[sessionKey]?.[filePath]) {
+		return {
+			entry: ledger[sessionKey][filePath],
+			sourceSession: sessionKey,
+			isDirect: true,
+		};
+	}
+
+	// 2. Legacy root-level key lookup
+	if (
+		ledger[filePath] &&
+		typeof ledger[filePath] === "object" &&
+		!Array.isArray(ledger[filePath])
+	) {
+		return {
+			entry: ledger[filePath],
+			sourceSession: "legacy",
+			isDirect: true,
+		};
+	}
+
+	// 3. Cross-session lookup: find the newest read entry across all other sessions
+	let newestEntry = null;
+	let newestSession = null;
+
+	for (const key of Object.keys(ledger)) {
+		if (key === sessionKey) continue;
+		const candidate = ledger[key]?.[filePath];
+		if (candidate && typeof candidate === "object") {
+			if (!newestEntry || (candidate.readAt || 0) > (newestEntry.readAt || 0)) {
+				newestEntry = candidate;
+				newestSession = key;
+			}
+		}
+	}
+
+	if (newestEntry) {
+		return {
+			entry: newestEntry,
+			sourceSession: newestSession,
+			isDirect: false,
+		};
+	}
+
+	return null;
+}
+
 export function wasRead(ledger, filePath, sessionID = "global") {
 	const sessionKey = sessionID || "global";
-	return Boolean(ledger[sessionKey]?.[filePath] || ledger[filePath]);
+	const match = getReadRecord(ledger, filePath, sessionKey);
+	if (!match) return false;
+
+	// Direct session hit is always considered read
+	if (match.isDirect) return true;
+
+	// Cross-session fallback: verify file freshness on disk
+	try {
+		const st = statSync(filePath);
+		const entry = match.entry;
+		const mtimeMatch =
+			entry.mtimeMs === undefined || Math.abs(st.mtimeMs - entry.mtimeMs) <= 1;
+		const sizeMatch = entry.size === undefined || st.size === entry.size;
+
+		if (mtimeMatch && sizeMatch) {
+			// Re-sync to active session so subsequent checks are direct
+			if (sessionKey) {
+				ledger[sessionKey] = ledger[sessionKey] || {};
+				ledger[sessionKey][filePath] = { ...entry, readAt: Date.now() };
+			}
+			return true;
+		}
+	} catch {}
+
+	return false;
 }
 
 /**
@@ -74,8 +159,10 @@ export function wasRead(ledger, filePath, sessionID = "global") {
  */
 export function isStale(ledger, filePath, sessionID = "global") {
 	const sessionKey = sessionID || "global";
-	const entry = ledger[sessionKey]?.[filePath] || ledger[filePath];
-	if (!entry) return false;
+	const match = getReadRecord(ledger, filePath, sessionKey);
+	if (!match) return false;
+
+	const entry = match.entry;
 	try {
 		const st = statSync(filePath);
 		if (entry.mtimeMs !== undefined && Math.abs(st.mtimeMs - entry.mtimeMs) > 1)

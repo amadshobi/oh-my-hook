@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Read-Guard Cross-Session State Preservation (Issue #24)**:
+  - **Cross-Session Fallback (`getReadRecord`)**: Implemented multi-session lookup when a file is queried under a detached, reconnected, or restarted `sessionID`.
+  - **Disk Freshness Verification**: Verifies physical file `mtimeMs` and `size` via `statSync` against the historical read record before permitting mutation; strictly rejects stale files modified externally.
+  - **Active Session Re-sync**: Automatically projects and persists valid read records into the active session ledger (`ledger[sessionKey]`), eliminating false-positive `readGuardUnread` blocks across runner restarts.
 - **OpenCode Auth Provider Slot Overwrite**:
   - Implemented `methods[].authorize` returning `{ type: "success", provider: VANS_PROVIDER_ID, ... }` to save credentials into their dedicated `auth.json` provider slots instead of overwriting `local-gateway`.
   - Resolved `TypeError: undefined is not an object (evaluating 'r.label.toLowerCase')` by maintaining a single object root `auth` hook structure per OpenCode engine specification.

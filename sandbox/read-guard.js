@@ -148,6 +148,9 @@ export function createReadGuard({ directory, config, messages } = {}) {
 					),
 				);
 			}
+
+			// Persist any re-sync performed by wasRead into the active session
+			saveLedger(ledger);
 		},
 	};
 }
