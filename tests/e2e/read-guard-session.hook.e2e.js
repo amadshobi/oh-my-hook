@@ -131,7 +131,7 @@ try {
 		"Expected edit in Session 3 to be BLOCKED because on-disk state changed",
 	);
 	assert(
-		/unread|stale|belum dibaca|berubah/i.test(errorMsg),
+		/read before you edit|unread|stale|belum dibaca|berubah/i.test(errorMsg),
 		`Block message should indicate unread or stale: ${errorMsg.slice(0, 100)}`,
 	);
 	console.log("  → Mutation correctly BLOCKED on stale external change");

@@ -121,10 +121,11 @@ test("formatBlockMessage and formatWarnMessage output proper guardrail formattin
 	const block = formatBlockMessage("commitGuard", {
 		reason: "Need feat/fix prefix",
 	});
-	assert.ok(block.includes("🚫 Invalid Commit Format"));
-	assert.ok(block.includes("Need feat/fix prefix"));
+	assert.ok(block.includes("🛑 BLOCKED: Invalid commit format"));
+	assert.ok(block.includes("Reason: Need feat/fix prefix"));
+	assert.ok(block.includes("Action: Use Conventional Commits"));
 
 	const warn = formatWarnMessage("strayMarkdown", { file: "notes.md" });
-	assert.ok(warn.includes("⚠️ Non-standard Markdown"));
+	assert.ok(warn.includes("⚠️ WARN: Non-standard Markdown"));
 	assert.ok(warn.includes("notes.md"));
 });

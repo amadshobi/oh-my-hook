@@ -1,34 +1,32 @@
 # Style Guide Pesan Guardrail — OpenCode
 
 Saat LLM menerima pesan guardrail (dari `throw new Error` pada hook `tool.execute.before`),
-tampilkan ke user dengan format konsisten di bawah ini.
+format output dibuat ringkas, tegas, dan langsung dapat ditindaklanjuti.
 
-## Format Block (aksi diblokir)
+## Format Block (aksi diblokir keras)
 
-```markdown
-#### 🚫 <JUDUL SINGKAT>
-
-> *<alasan singkat dan jelas>*
-> *<saran atau langkah selanjutnya>*
+```
+🛑 BLOCKED: <JUDUL SINGKAT>
+Reason: <alasan singkat dan jelas>
+Action: <instruksi tegas / langkah wajib yang harus diambil>
 ```
 
 **Aturan:**
-- Jangan tambah penjelasan panjang di luar format di atas.
-- Judul singkat (maks 5 kata), diawali emoji 🚫.
-- Alasan & saran dalam bentuk italic (blockquote `>` + `*italic*`).
-- Jika tidak ada saran, gunakan: `Tunggu persetujuan user sebelum melanjutkan.`
+- Format 2-3 baris padat, tanpa markdown blockquote yang bertele-tele.
+- Diawali `🛑 BLOCKED:` agar model AI memahami ini adalah hard-stop, bukan saran opsional.
+- `Reason:` menjelaskan apa yang memicu pemblokiran.
+- `Action:` memberikan instruksi langsung dan spesifik tindakan apa yang wajib dilakukan selanjutnya.
 
-## Format Warning (tidak block)
+## Format Warning (peringatan non-block)
 
-```markdown
-#### ⚠️ <JUDUL SINGKAT>
-
-> *<penjelasan singkat>*
+```
+⚠️ WARN: <JUDUL SINGKAT>
+Reason: <penjelasan singkat>
 ```
 
 **Aturan:**
 - Jangan tambah penjelasan panjang.
-- Judul diawali emoji ⚠️.
+- Diawali `⚠️ WARN:`.
 
 ## Format Info / Reminder
 
@@ -41,7 +39,7 @@ tampilkan ke user dengan format konsisten di bawah ini.
 
 ## Prinsip
 
-- **Singkat dan langsung ke inti** — user tidak butuh esai, butuh aksi.
-- **Tegas** — kalau block, jangan dilemahkan dengan kata-kata seperti "mungkin", "sebaiknya".
-- **Konsisten** — selalu pakai format yang sama untuk level yang sama.
-- **Bahasa Indonesia casual** — sesuai gaya komunikasi user.
+- **Singkat dan langsung ke inti** — model dan user butuh kejelasan aksi, bukan esai.
+- **Tegas dan Otoritatif** — blokir keras tidak boleh terdengar seperti saran opsional.
+- **Actionable** — selalu sertakan `Action:` yang menyebut nama tool atau perintah konkret yang harus dijalankan.
+- **Bahasa Inggris untuk pesan sistem teknis** — konsisten dan mudah dipahami oleh seluruh model LLM.
