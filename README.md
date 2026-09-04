@@ -192,29 +192,66 @@ Prompt templates support custom overrides and dynamic macros (`{plan_file}`, `{p
 
 ---
 
-## 📦 Installation
+## 📦 Installation & Platform Support
 
-Add `oh-my-hook` to your OpenCode configuration files:
+### Supported Platforms
 
-### 1. Server Hooks (`~/.config/opencode/opencode.jsonc`)
+| Platform | Support | Details |
+| :--- | :---: | :--- |
+| **Linux** (Ubuntu, Debian, Arch, Fedora) | ✅ Native | First-class citizen & primary target runtime. |
+| **macOS** (Apple Silicon / Intel) | ✅ Native | Fully compatible (POSIX compliant, verified in CI matrix). |
+| **Windows** | 🟡 via WSL2 | Native PowerShell/CMD is **not supported**. Run inside **WSL2** (Ubuntu/Debian) for seamless POSIX guardrails. |
+
+---
+
+### Method 1: Automatic Plugin Registration (Recommended via Bun / NPM)
+
+OpenCode automatically installs and resolves plugins declared in your config via its embedded Bun/npm engine. Simply declare `@amadshobi/oh-my-hook`:
+
+#### 1. Server Guardrails (`~/.config/opencode/opencode.jsonc`)
 
 ```jsonc
 {
- "$schema": "https://opencode.ai/config.json",
- "plugin": [
- "oh-my-hook", // or "/path/to/oh-my-hook" for local development
- ],
+	"$schema": "https://opencode.ai/config.json",
+	"plugin": [
+		"@amadshobi/oh-my-hook"
+	]
 }
 ```
 
-### 2. TUI Surface (`~/.config/opencode/tui.jsonc`)
+#### 2. TUI Status Badge & Sidebar (`~/.config/opencode/tui.jsonc`)
 
 ```jsonc
 {
- "$schema": "https://opencode.ai/tui.json",
- "plugin": [
- "oh-my-hook", // or "/path/to/oh-my-hook" for local development
- ],
+	"$schema": "https://opencode.ai/tui.json",
+	"plugin": [
+		"@amadshobi/oh-my-hook"
+	]
+}
+```
+
+---
+
+### Method 2: Local Git Clone (Development & Fast Hacking)
+
+If you prefer installing from source or contributing locally:
+
+```bash
+# Clone the repository
+git clone https://github.com/amadshobi/oh-my-hook.git ~/projects/oh-my-hook
+
+# Install dependencies via Bun or NPM
+cd ~/projects/oh-my-hook
+bun install   # or: npm install
+```
+
+Then register the local path in `opencode.jsonc` and `tui.jsonc`:
+
+```jsonc
+{
+	"plugin": [
+		"file:///home/<user>/projects/oh-my-hook"
+	]
 }
 ```
 

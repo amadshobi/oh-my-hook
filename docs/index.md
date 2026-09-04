@@ -15,20 +15,20 @@ Add `oh-my-hook` to both your server hooks and TUI surface:
 ```jsonc
 // ~/.config/opencode/opencode.jsonc
 {
- "$schema": "https://opencode.ai/config.json",
- "plugin": [
- "oh-my-hook" // or local absolute path: "/path/to/oh-my-hook"
- ]
+	"$schema": "https://opencode.ai/config.json",
+	"plugin": [
+		"@amadshobi/oh-my-hook" // or local absolute path: "/path/to/oh-my-hook"
+	]
 }
 ```
 
 ```jsonc
 // ~/.config/opencode/tui.jsonc
 {
- "$schema": "https://opencode.ai/tui.json",
- "plugin": [
- "oh-my-hook" // or local absolute path: "/path/to/oh-my-hook"
- ]
+	"$schema": "https://opencode.ai/tui.json",
+	"plugin": [
+		"@amadshobi/oh-my-hook" // or local absolute path: "/path/to/oh-my-hook"
+	]
 }
 ```
 
