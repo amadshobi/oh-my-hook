@@ -364,6 +364,8 @@ test("isDevServer: precise patterns prevent false-positives on air and vite", ()
 	assert.equal(isDevServer("air_quality_check"), false);
 	assert.equal(isDevServer("vite build"), false);
 	assert.equal(isDevServer("echo air"), false);
+	assert.equal(isDevServer('gh pr review 34 -b "vite dev"'), false);
+	assert.equal(isDevServer('git commit -m "fix vite dev"'), false);
 });
 
 test("dangerousBashPatterns: honors granular toggle overrides", () => {

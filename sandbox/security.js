@@ -92,7 +92,15 @@ const DEV_SERVER_PATTERNS = [
 
 export function isDevServer(command) {
 	if (!command || typeof command !== "string") return false;
-	// Safe commands like help, grep, echo are not running servers
+	// Safe commands like git, gh, grep, cat, echo are not running servers
+	if (
+		/^(?:git|gh|grep|cat|echo)\s+/i.test(command.trim()) &&
+		!command.includes(";") &&
+		!command.includes("&&") &&
+		!command.includes("|")
+	) {
+		return false;
+	}
 	if (
 		/\b(?:grep|cat|echo|--help|-h)\b/.test(command) &&
 		!command.includes(";") &&
