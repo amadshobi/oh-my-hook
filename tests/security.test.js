@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { securityHooks } from "../sandbox/security.js";
+import {
+	securityHooks,
+	dangerousBashPatterns,
+	isDevServer,
+} from "../sandbox/security.js";
 
 async function makeHooks(opts = {}) {
 	const hooks = await securityHooks({ client: null }, { config: opts });
@@ -139,4 +143,272 @@ test("allows normal git push without throwing", async () => {
 	};
 
 	await assert.doesNotReject(() => before(input, {}));
+});
+
+test("protectedFiles: blocks tool read on blacklisted file (.env, auth.json)", async () => {
+	const before = await makeHooks();
+
+	await assert.rejects(
+		() => before({ tool: "read", args: { filePath: "/path/to/.env" } }, {}),
+		/Protected sensitive file/i,
+	);
+
+	await assert.rejects(
+		() =>
+			before(
+				{ tool: "read", args: { filePath: "~/.config/opencode/auth.json" } },
+				{},
+			),
+		/Protected sensitive file/i,
+	);
+});
+
+test("protectedFiles: allows tool read on whitelisted file (.env.example, .env.sample)", async () => {
+	const before = await makeHooks();
+
+	await assert.doesNotReject(() =>
+		before({ tool: "read", args: { filePath: "/path/to/.env.example" } }, {}),
+	);
+
+	await assert.doesNotReject(() =>
+		before({ tool: "read", args: { filePath: "/path/to/.env.sample" } }, {}),
+	);
+});
+
+test("protectedFiles: blocks bash reading of blacklisted files (cat, head, grep)", async () => {
+	const before = await makeHooks();
+
+	await assert.rejects(
+		() => before({ tool: "bash", args: { command: "cat .env" } }, {}),
+		/Protected sensitive file/i,
+	);
+
+	await assert.rejects(
+		() =>
+			before(
+				{
+					tool: "bash",
+					args: { command: "head -n 20 ~/.config/opencode/auth.json" },
+				},
+				{},
+			),
+		/Protected sensitive file/i,
+	);
+
+	await assert.rejects(
+		() =>
+			before({ tool: "bash", args: { command: "grep SECRET exports.sh" } }, {}),
+		/Protected sensitive file/i,
+	);
+});
+
+test("protectedFiles: allows bash reading of whitelisted files (cat .env.example)", async () => {
+	const before = await makeHooks();
+
+	await assert.doesNotReject(() =>
+		before({ tool: "bash", args: { command: "cat .env.example" } }, {}),
+	);
+});
+
+test("dangerousBash: blocks destructive git and recursive wipes", async () => {
+	const before = await makeHooks();
+
+	await assert.rejects(
+		() => before({ tool: "bash", args: { command: "rm -rf ~" } }, {}),
+		/Dangerous/i,
+	);
+	await assert.rejects(
+		() => before({ tool: "bash", args: { command: "rm -rf $HOME" } }, {}),
+		/Dangerous/i,
+	);
+	await assert.rejects(
+		() => before({ tool: "bash", args: { command: "rm -rf .git" } }, {}),
+		/Dangerous/i,
+	);
+	await assert.rejects(
+		() => before({ tool: "bash", args: { command: "rm -rf ." } }, {}),
+		/Dangerous/i,
+	);
+	await assert.rejects(
+		() =>
+			before(
+				{ tool: "bash", args: { command: "git reset --hard HEAD~1" } },
+				{},
+			),
+		/Dangerous/i,
+	);
+	await assert.rejects(
+		() => before({ tool: "bash", args: { command: "git clean -fdx" } }, {}),
+		/Dangerous/i,
+	);
+});
+
+test("commitGuard: respects custom maxChars from config", async () => {
+	const beforeStrict = await makeHooks({
+		sandbox: { commitGuard: { maxChars: 50 } },
+	});
+
+	// 55 chars message -> fails when maxChars is 50
+	const msg55 = "feat(core): this is a commit message that has 55 chars";
+	await assert.rejects(
+		() =>
+			beforeStrict(
+				{ tool: "bash", args: { command: `git commit -m "${msg55}"` } },
+				{},
+			),
+		/Subject line is/i,
+	);
+
+	const beforeLenient = await makeHooks({
+		sandbox: { commitGuard: { maxChars: 100 } },
+	});
+	await assert.doesNotReject(() =>
+		beforeLenient(
+			{ tool: "bash", args: { command: `git commit -m "${msg55}"` } },
+			{},
+		),
+	);
+});
+
+test("commitGuard: blocks --no-verify and -n bypass flags", async () => {
+	const before = await makeHooks();
+
+	await assert.rejects(
+		() =>
+			before(
+				{
+					tool: "bash",
+					args: { command: 'git commit --no-verify -m "feat: bypass hooks"' },
+				},
+				{},
+			),
+		/no-verify/i,
+	);
+
+	await assert.rejects(
+		() =>
+			before(
+				{
+					tool: "bash",
+					args: { command: 'git commit -n -m "feat: bypass hooks"' },
+				},
+				{},
+			),
+		/no-verify/i,
+	);
+});
+
+test("secretScanner: blocks bash command containing secrets", async () => {
+	const before = await makeHooks();
+	const token = "ghp_" + "abcdefghijklmnopqrstuvwxyz1234567890ABCD";
+
+	await assert.rejects(
+		() =>
+			before(
+				{
+					tool: "bash",
+					args: {
+						command: `curl -H "Authorization: token ${token}" https://api.github.com`,
+					},
+				},
+				{},
+			),
+		/Secret/i,
+	);
+});
+
+test("commitGuard: enforces requireCoAuthor when configured", async () => {
+	const before = await makeHooks({
+		sandbox: { commitGuard: { requireCoAuthor: true } },
+	});
+
+	// Plain commit without trailer should reject
+	await assert.rejects(
+		() =>
+			before(
+				{
+					tool: "bash",
+					args: { command: 'git commit -m "feat(core): new capability"' },
+				},
+				{},
+			),
+		/Co-Author/i,
+	);
+
+	// Commit with trailer should pass
+	await assert.doesNotReject(() =>
+		before(
+			{
+				tool: "bash",
+				args: {
+					command:
+						'git commit -m "feat(core): new capability" --trailer "Co-authored-by: bot <bot@example.com>"',
+				},
+			},
+			{},
+		),
+	);
+});
+
+test("isDevServer: precise patterns prevent false-positives on air and vite", () => {
+	// True dev server triggers
+	assert.ok(isDevServer("air"));
+	assert.ok(isDevServer("air -c .air.toml"));
+	assert.ok(isDevServer("go build && air"));
+	assert.ok(isDevServer("npm run dev"));
+	assert.ok(isDevServer("vite dev"));
+	assert.ok(isDevServer("vite"));
+
+	// False-positive prevention
+	assert.equal(isDevServer("airflow webserver"), false);
+	assert.equal(isDevServer("air_quality_check"), false);
+	assert.equal(isDevServer("vite build"), false);
+	assert.equal(isDevServer("echo air"), false);
+	assert.equal(isDevServer('gh pr review 34 -b "vite dev"'), false);
+	assert.equal(isDevServer('git commit -m "fix vite dev"'), false);
+});
+
+test("dangerousBashPatterns: honors granular toggle overrides", () => {
+	// Default (all enabled)
+	assert.ok(dangerousBashPatterns("rm -rf ~"));
+	assert.ok(dangerousBashPatterns("rm -rf .git"));
+	assert.ok(dangerousBashPatterns("rm -rf ."));
+	assert.ok(dangerousBashPatterns("git reset --hard"));
+	assert.ok(dangerousBashPatterns("rm -rf /"));
+
+	// Selectively disabled
+	assert.equal(
+		dangerousBashPatterns("rm -rf ~", { blockWipeHome: false }),
+		false,
+	);
+	assert.equal(
+		dangerousBashPatterns("rm -rf .git", { blockWipeGit: false }),
+		false,
+	);
+	assert.equal(
+		dangerousBashPatterns("rm -rf .", { blockWipeWorkspace: false }),
+		false,
+	);
+	assert.equal(
+		dangerousBashPatterns("git reset --hard", { blockGitDestructive: false }),
+		false,
+	);
+
+	// Root wipe and fork bomb always blocked regardless of toggles
+	assert.ok(
+		dangerousBashPatterns("rm -rf /", {
+			blockWipeHome: false,
+			blockWipeGit: false,
+			blockWipeWorkspace: false,
+			blockGitDestructive: false,
+		}),
+	);
+	assert.ok(
+		dangerousBashPatterns(":(){ :|:& };:", {
+			blockWipeHome: false,
+			blockWipeGit: false,
+			blockWipeWorkspace: false,
+			blockGitDestructive: false,
+		}),
+	);
 });

@@ -23,14 +23,33 @@ If no configuration file is present, `oh-my-hook` initializes with production-re
 
 User settings are deep-merged on a per-section basis over built-in `DEFAULTS`. You only need to declare the specific properties you wish to customize.
 
+> 💡 **Default `true` Behavior**:
+> By design, all security guards, memory engines, compression rules, and barriers have `true` as their default value. You **never need to explicitly write `"enabled": true` or individual `true` flags**. An empty configuration file `{}` already runs with 100% of protections active. Only specify keys when you wish to turn a feature off (`false`) or tune a parameter (e.g. `maxChars`, `budgets`, `routes`).
+
 ```jsonc
-// Minimal omh.jsonc example: customize only sandbox
+// Minimal omh.jsonc example: turn off commitGuard without touching other guards
 {
+ "$schema": "https://amadshobi.github.io/oh-my-hook/schema.json",
  "sandbox": {
  "commitGuard": false
  }
 }
 ```
+
+---
+
+## JSON Schema & Autocompletion
+
+To enable instant schema validation, hover documentation, and autocomplete in editors like VS Code, Cursor, Zed, or Neovim, specify the official `$schema` header in your `omh.jsonc`:
+
+```jsonc
+{
+ "$schema": "https://amadshobi.github.io/oh-my-hook/schema.json"
+}
+```
+
+Alternatively, you can reference the namespaced URL:
+`https://amadshobi.github.io/oh-my-hook/schemas/omh.schema.json`
 
 ---
 

@@ -10,47 +10,53 @@ import { blockMessage, warnMessage } from "./block.js";
 
 export const DEFAULT_MESSAGES = {
 	modePlanTool: {
-		title: "Plan Mode Active",
+		title: "Plan Mode active",
 		reason: "Cannot modify project code while session is in Plan Mode.",
-		suggestion: "Run '/approve' or wait for execution trigger to modify files.",
+		suggestion: "Run '/approve' or provide explicit execution trigger.",
 	},
 	modePlanBash: {
-		title: "Plan Mode Active",
+		title: "Plan Mode active",
 		reason: 'Command "{command}" mutates state, but session is in Plan Mode.',
 		suggestion: "Run read-only inspection commands or run '/approve'.",
 	},
 	readGuardUnread: {
-		title: "Unread File",
+		title: "Read before you edit",
 		reason: 'File "{file}" has not been read in this session.',
-		suggestion: "Use read tool to inspect file before editing.",
+		suggestion: "Call `read` tool first. Shell bypass is forbidden.",
 	},
 	readGuardStale: {
-		title: "Stale File",
+		title: "Stale file detected",
 		reason: 'File "{file}" changed on disk after last read.',
 		suggestion: "Re-read file to fetch latest changes before writing.",
 	},
 	secretDetected: {
-		title: "Secret Detected",
+		title: "Secret detected in payload",
 		reason: "Payload contains sensitive credentials:\n{detail}",
-		suggestion: "Use environment variables or .env files instead.",
+		suggestion: "Remove credentials immediately. Use environment variables.",
+	},
+	protectedFile: {
+		title: "Protected sensitive file",
+		reason: 'Direct access to "{file}" is blocked by security policy.',
+		suggestion: "Inspect .env.example or ask user for non-secret schema.",
 	},
 	dangerousBash: {
-		title: "Dangerous Command Blocked",
-		reason: 'Command "{command}" matches destructive system patterns.',
-		suggestion: "Action requires explicit user confirmation.",
+		title: "Dangerous command blocked",
+		reason:
+			'Command "{command}" matches destructive wipe or system overwrite signature.',
+		suggestion: "Action forbidden. Ask user for manual execution if needed.",
 	},
 	commitGuard: {
-		title: "Invalid Commit Format",
+		title: "Invalid commit format",
 		reason: "{reason}",
-		suggestion: "Use Conventional Commits: type(scope): description",
+		suggestion: "Use Conventional Commits: `type(scope): description`",
 	},
 	devServerGuard: {
-		title: "Dev Server Blocked",
+		title: "Dev server blocked",
 		reason: 'Command "{command}" cannot run as orphan foreground process.',
-		suggestion: "Run dev servers inside a tmux or screen session.",
+		suggestion: 'Run inside tmux: `tmux new -d -s dev "{command}"`',
 	},
 	pushWarning: {
-		title: "Git Push Warning",
+		title: "Git push warning",
 		reason: "{warning}",
 		suggestion: "Verify remote branch target before pushing.",
 	},
@@ -65,7 +71,7 @@ export const DEFAULT_MESSAGES = {
 		suggestion: "Track implementation milestones with todowrite.",
 	},
 	toolBlocked: {
-		title: "Tool Blocked",
+		title: "Tool restricted",
 		reason: "Tool '{tool}' is restricted by policy ({policy}).",
 		suggestion: "Check sandbox/tool configuration in omh.jsonc.",
 	},

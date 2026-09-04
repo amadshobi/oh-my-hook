@@ -18,6 +18,27 @@ export const CONFIG_BASENAME = "omh";
 
 const EXTENSIONS = ["jsonc", "json", "yaml", "yml"];
 
+export const DEFAULT_PROTECTED_FILES = {
+	enabled: true,
+	blacklist: [
+		"**/.env*",
+		"**/auth.json",
+		"**/settings.json",
+		"**/*.pem",
+		"**/*.key",
+		"**/id_rsa*",
+		"**/id_ed25519*",
+		"**/exports.sh",
+		"**/secrets.sh",
+	],
+	whitelist: [
+		"**/.env.example",
+		"**/.env.sample",
+		"**/.env.template",
+		"**/.env.dist",
+	],
+};
+
 export const DEFAULTS = {
 	memory: {
 		enabled: true,
@@ -37,12 +58,41 @@ export const DEFAULTS = {
 		},
 	},
 	sandbox: {
+		enabled: true,
 		readBeforeWrite: true,
 		staleWrite: true,
 		secretScanner: true,
 		commitGuard: true,
 		devServerGuard: true,
 		dangerousBash: true,
+		readGuard: {
+			enabled: true,
+			readBeforeWrite: true,
+			staleWrite: true,
+			interceptBashMutation: true,
+		},
+		secretScannerConfig: {
+			enabled: true,
+			scanBash: true,
+			protectedFiles: DEFAULT_PROTECTED_FILES,
+		},
+		commitGuardConfig: {
+			enabled: true,
+			maxChars: 72,
+			requireCoAuthor: false,
+			blockNoVerify: true,
+			interceptGh: true,
+		},
+		dangerousBashConfig: {
+			enabled: true,
+			blockWipeHome: true,
+			blockWipeGit: true,
+			blockWipeWorkspace: true,
+			blockGitDestructive: true,
+		},
+		devServerGuardConfig: {
+			enabled: true,
+		},
 	},
 	plans: {
 		enabled: true,
@@ -329,6 +379,132 @@ export function loadConfig() {
 	}
 }
 
+/**
+ * Determine if a feature or guardrail is enabled from its configuration value.
+ * Supports boolean (true/false), object with .enabled property, or fallback.
+ *
+ * @param {boolean|object|undefined} cfg
+ * @param {boolean} [fallback=true]
+ * @returns {boolean}
+ */
+export function isFeatureEnabled(cfg, fallback = true) {
+	if (cfg === false) return false;
+	if (cfg === true) return true;
+	if (cfg && typeof cfg === "object") {
+		return cfg.enabled !== false;
+	}
+	return fallback;
+}
+
+export function normalizeSandboxConfig(raw = {}) {
+	const cfg = structuredClone(raw || {});
+
+	// 1. readGuard
+	const rg = typeof cfg.readGuard === "object" ? cfg.readGuard : {};
+	const rbw =
+		typeof raw.readBeforeWrite === "boolean"
+			? raw.readBeforeWrite
+			: (rg.readBeforeWrite ?? cfg.readBeforeWrite ?? true);
+	const sw =
+		typeof raw.staleWrite === "boolean"
+			? raw.staleWrite
+			: (rg.staleWrite ?? cfg.staleWrite ?? true);
+	const ibm = rg.interceptBashMutation ?? true;
+
+	cfg.readGuard = {
+		enabled: rg.enabled ?? (rbw || sw),
+		readBeforeWrite: rbw,
+		staleWrite: sw,
+		interceptBashMutation: ibm,
+	};
+	cfg.readBeforeWrite = rbw;
+	cfg.staleWrite = sw;
+
+	// 2. secretScanner
+	if (typeof raw.secretScanner === "boolean") {
+		cfg.secretScanner = raw.secretScanner;
+	} else {
+		const sec = typeof cfg.secretScanner === "object" ? cfg.secretScanner : {};
+		cfg.secretScanner = {
+			enabled: sec.enabled ?? true,
+			scanBash: sec.scanBash ?? true,
+			protectedFiles: {
+				enabled: sec.protectedFiles?.enabled ?? true,
+				blacklist: Array.isArray(sec.protectedFiles?.blacklist)
+					? sec.protectedFiles.blacklist
+					: DEFAULT_PROTECTED_FILES.blacklist,
+				whitelist: Array.isArray(sec.protectedFiles?.whitelist)
+					? sec.protectedFiles.whitelist
+					: DEFAULT_PROTECTED_FILES.whitelist,
+			},
+		};
+	}
+
+	// 3. commitGuard
+	if (typeof raw.commitGuard === "boolean") {
+		cfg.commitGuard = raw.commitGuard;
+	} else {
+		const commit = typeof cfg.commitGuard === "object" ? cfg.commitGuard : {};
+		cfg.commitGuard = {
+			enabled: commit.enabled ?? true,
+			maxChars: Number(commit.maxChars) || 72,
+			requireCoAuthor: commit.requireCoAuthor === true,
+			blockNoVerify: commit.blockNoVerify ?? true,
+			interceptGh: commit.interceptGh ?? true,
+		};
+	}
+
+	// 4. dangerousBash
+	if (typeof raw.dangerousBash === "boolean") {
+		cfg.dangerousBash = raw.dangerousBash;
+	} else {
+		const bash = typeof cfg.dangerousBash === "object" ? cfg.dangerousBash : {};
+		const bashEnabled = bash.enabled ?? true;
+		cfg.dangerousBash = {
+			enabled: bashEnabled,
+			blockWipeHome: bash.blockWipeHome ?? bashEnabled,
+			blockWipeGit: bash.blockWipeGit ?? bashEnabled,
+			blockWipeWorkspace: bash.blockWipeWorkspace ?? bashEnabled,
+			blockGitDestructive: bash.blockGitDestructive ?? bashEnabled,
+		};
+	}
+
+	// 5. devServerGuard
+	if (typeof raw.devServerGuard === "boolean") {
+		cfg.devServerGuard = raw.devServerGuard;
+	} else {
+		const dev =
+			typeof cfg.devServerGuard === "object" ? cfg.devServerGuard : {};
+		cfg.devServerGuard = {
+			enabled: dev.enabled ?? true,
+		};
+	}
+
+	return cfg;
+}
+
+function deepMergeHelper(base, override) {
+	if (!override || typeof override !== "object") return override;
+	if (Array.isArray(override)) return [...override];
+	const out = structuredClone(base || {});
+	for (const [k, v] of Object.entries(override)) {
+		if (Array.isArray(v)) {
+			out[k] = [...v];
+		} else if (
+			v &&
+			typeof v === "object" &&
+			out[k] &&
+			typeof out[k] === "object" &&
+			!Array.isArray(out[k])
+		) {
+			out[k] = deepMergeHelper(out[k], v);
+		} else {
+			out[k] = v;
+		}
+	}
+	return out;
+}
+
 /** Deep-merge user config over defaults (section by section). */
 export function mergeConfig(base, override) {
 	const out = structuredClone(base);
@@ -338,7 +514,10 @@ export function mergeConfig(base, override) {
 			out[section] = values;
 			continue;
 		}
-		out[section] = { ...(out[section] ?? {}), ...values };
+		out[section] = deepMergeHelper(out[section] ?? {}, values);
+	}
+	if (out.sandbox) {
+		out.sandbox = normalizeSandboxConfig(out.sandbox);
 	}
 	return out;
 }

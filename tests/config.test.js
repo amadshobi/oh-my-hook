@@ -57,7 +57,10 @@ test("mergeConfig deep-merges per section over defaults", () => {
 test("loadConfig returns defaults when no file exists", () => {
 	const { config, source } = loadConfig();
 	assert.equal(config.memory.enabled, true);
-	assert.equal(config.sandbox.secretScanner, true);
+	assert.ok(
+		config.sandbox.secretScanner === true ||
+			config.sandbox.secretScanner?.enabled === true,
+	);
 	assert.ok(source === null || typeof source === "string");
 });
 
