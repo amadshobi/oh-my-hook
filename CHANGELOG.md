@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-09-04
+
+### Added
+
+- **Modular Sandbox Architecture**:
+  - Reorganized flat sandbox configuration into modular subsections (`readGuard`, `secretScanner`, `commitGuard`, `dangerousBash`, `devServerGuard`) with 100% backward compatibility for legacy flat keys via `normalizeSandboxConfig`.
+- **Protected Sensitive Files Shield (`protectedFiles`)**:
+  - Implemented ACL-based wildcard path matching in `share/path.js` (`isPathBlocked`, `matchPathPattern`, `globToRegex`) supporting glob patterns (`**`, `*`, `?`), tilde expansion (`~`), and path normalizations.
+  - Configurable `blacklist` (defaults: `**/.env*`, `**/auth.json`, `**/settings.json`, `**/*.pem`, `**/*.key`, `**/id_rsa*`, `**/id_ed25519*`, `**/exports.sh`, `**/secrets.sh`) preventing credential exposure.
+  - Configurable `whitelist` (defaults: `**/.env.example`, `**/.env.sample`, `**/.env.template`, `**/.env.dist`) allowing safe inspection of schema templates without exposing real secrets.
+  - Dual-surface interception: blocks direct inspection via native `read` tool and terminal commands (`cat`, `head`, `tail`, `grep`, `awk`, `less`, `more`, `source`, `< file`).
+- **Bash File-Mutation Interceptor**:
+  - Extended `read-guard` to intercept file mutations attempted via terminal redirections (`cat >`, `echo >`, `tee`) and inline edits (`sed -i`), closing shell bypass loopholes on unread files.
+- **Configurable Commit Guard**:
+  - Added customizable subject line character limit via `sandbox.commitGuard.maxChars` (defaults to 72).
+  - Added optional mandatory Co-Author Attribution trailer enforcement via `requireCoAuthor: true`.
+  - Added hard block against git hook bypass flags (`--no-verify`, `-n`).
+  - Added interception for PR merge subjects via `gh pr merge --subject`.
+- **Enhanced Destructive Bash Guard**:
+  - Expanded blacklist patterns to intercept recursive wipes against home directory (`rm -rf ~`, `rm -rf $HOME`), repository corruption (`rm -rf .git`), workspace root wipe (`rm -rf .`, `rm -rf *`), and destructive git operations (`git reset --hard`, `git clean -fdx`).
+- **Bash Secret Scanner**:
+  - Extended `secretScanner` to inspect bash command payloads (`curl -H`, `export KEY=`) to prevent leaking plain-text credentials in terminal invocations.
+- **Authoritative Block Message Format**:
+  - Standardized all guardrail block messages into a concise 3-line format: `🛑 BLOCKED: <title>\nReason: <reason>\nAction: <action>` for unambiguous machine comprehension.
+
+### Fixed
+
+- **Read-Guard Cross-Session State Preservation (Issue #24)**:
+  - **Cross-Session Fallback (`getReadRecord`)**: Implemented multi-session lookup when a file is queried under a detached, reconnected, or restarted `sessionID`.
+  - **Disk Freshness Verification**: Verifies physical file `mtimeMs` and `size` via `statSync` against the historical read record before permitting mutation; strictly rejects stale files modified externally.
+  - **Active Session Re-sync**: Automatically projects and persists valid read records into the active session ledger (`ledger[sessionKey]`), eliminating false-positive `readGuardUnread` blocks across runner restarts.
+
 ## [0.7.1] - 2026-09-04
 
 ### Added
@@ -16,10 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Read-Guard Cross-Session State Preservation (Issue #24)**:
-  - **Cross-Session Fallback (`getReadRecord`)**: Implemented multi-session lookup when a file is queried under a detached, reconnected, or restarted `sessionID`.
-  - **Disk Freshness Verification**: Verifies physical file `mtimeMs` and `size` via `statSync` against the historical read record before permitting mutation; strictly rejects stale files modified externally.
-  - **Active Session Re-sync**: Automatically projects and persists valid read records into the active session ledger (`ledger[sessionKey]`), eliminating false-positive `readGuardUnread` blocks across runner restarts.
 - **OpenCode Auth Provider Slot Overwrite**:
   - Implemented `methods[].authorize` returning `{ type: "success", provider: VANS_PROVIDER_ID, ... }` to save credentials into their dedicated `auth.json` provider slots instead of overwriting `local-gateway`.
   - Resolved `TypeError: undefined is not an object (evaluating 'r.label.toLowerCase')` by maintaining a single object root `auth` hook structure per OpenCode engine specification.

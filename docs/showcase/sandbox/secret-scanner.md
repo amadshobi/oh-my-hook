@@ -1,12 +1,63 @@
-# Secret Scanner
+# Secret Scanner & Protected Files Shield
 
-The `secretScanner` guardrail intercepts tool arguments across `write`, `edit`, and `patch` operations to prevent hardcoded credentials from being written to disk or committed to source control.
+The `secretScanner` module provides dual-layer protection:
+1. **Payload Scanner**: Intercepts `write`, `edit`, `patch`, and `bash` commands containing raw API keys, private keys, or tokens.
+2. **Protected Files Shield**: Blocks reading or inspecting sensitive files (`.env`, `auth.json`, `*.pem`, `id_rsa`) via native tools or terminal utilities, with configurable exceptions for template files.
+
+---
+
+## 🛡️ Protected Sensitive Files Shield
+
+Prevents agents from reading or echoing credential stores to terminal output or session context:
+
+```jsonc
+// ~/.config/opencode/omh.jsonc
+{
+  "sandbox": {
+    "secretScanner": {
+      "enabled": true,
+      "scanBash": true, // Intercepts curl -H "Authorization: ..." or export KEY=...
+      "protectedFiles": {
+        "enabled": true,
+        "blacklist": [
+          "**/.env*",
+          "**/auth.json",
+          "**/settings.json",
+          "**/*.pem",
+          "**/*.key",
+          "**/id_rsa*",
+          "**/id_ed25519*",
+          "**/exports.sh",
+          "**/secrets.sh"
+        ],
+        "whitelist": [
+          "**/.env.example",
+          "**/.env.sample",
+          "**/.env.template",
+          "**/.env.dist"
+        ]
+      }
+    }
+  }
+}
+```
+
+### Dual-Surface Interception:
+- **Native Tools**: Calling `read({ filePath: ".env" })` is blocked immediately.
+- **Terminal Utilities**: Intercepts `cat .env`, `head auth.json`, `tail`, `grep`, `source`, and redirection `< .env`.
+- **Whitelisted Templates**: Allows inspecting `.env.example` so the agent can discover environment variable names without accessing real values.
+
+```
+🛑 BLOCKED: Protected sensitive file
+Reason: Direct access to ".env" is blocked by security policy.
+Action: Inspect .env.example or ask user for non-secret schema.
+```
 
 ---
 
 ## Supported Secret Signatures
 
-`sandbox/security.js` scans tool inputs against high-precision regular expression signatures covering major cloud providers, identity providers, and cryptographic keys:
+Tool inputs and bash command payloads are scanned against high-precision regular expression signatures:
 
 | Secret Category | Pattern Signature / Prefix | Example Pattern Form |
 | :--- | :--- | :--- |
@@ -22,32 +73,13 @@ The `secretScanner` guardrail intercepts tool arguments across `write`, `edit`, 
 
 ---
 
-## Terminal Block Output
+## Authoritative Terminal Block Output
 
-When a secret signature is detected in a tool payload, execution is halted immediately:
+When a secret signature is detected in a payload or command:
 
 ```
-#### GUARDRAIL BLOCK: Secret Detected
-> *Payload contains sensitive credentials:*
-> * - Line 42: Anthropic API Key*
-> *Use environment variables or .env files instead.*
-```
-
----
-
-## Custom Message Configuration
-
-You can override the rejection message or route it through an external template file in `omh.jsonc`:
-
-```jsonc
-// ~/.config/opencode/omh.jsonc
-{
- "messages": {
- "secretDetected": {
- "title": "Credential Leak Blocked",
- "reason": "Hardcoded token detected in payload:\n{detail}",
- "suggestion": "Store secrets securely in environment variables or a .env file."
- }
- }
-}
+🛑 BLOCKED: Secret detected in payload
+Reason: Payload contains sensitive credentials:
+  - Line 42: Anthropic API Key
+Action: Remove credentials immediately. Use environment variables.
 ```

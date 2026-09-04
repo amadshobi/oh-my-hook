@@ -13,6 +13,7 @@ import {
 	cleanupSessionLedger,
 	getReadRecord,
 } from "../share/state.js";
+import { extractBashMutationTargets } from "../sandbox/read-guard.js";
 
 // The ledger file is global (~/.config/opencode/...). To keep tests
 // isolated, we point LEDGER_FILE indirectly by monkeypatching is not
@@ -167,4 +168,20 @@ test("saveLedger/loadLedger round-trip", () => {
 	} finally {
 		saveLedger(before);
 	}
+});
+
+test("extractBashMutationTargets parses redirection, tee, and sed targets", () => {
+	assert.deepEqual(extractBashMutationTargets("echo 'hello' > src/app.ts"), [
+		"src/app.ts",
+	]);
+	assert.deepEqual(extractBashMutationTargets("cat << 'EOF' >> config.json"), [
+		"config.json",
+	]);
+	assert.deepEqual(extractBashMutationTargets("echo 'data' | tee -a log.txt"), [
+		"log.txt",
+	]);
+	assert.deepEqual(extractBashMutationTargets("sed -i 's/a/b/g' file.txt"), [
+		"file.txt",
+	]);
+	assert.deepEqual(extractBashMutationTargets("echo 'ok' > /dev/null"), []);
 });

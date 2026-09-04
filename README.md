@@ -233,15 +233,42 @@ Dedicated configuration file located at `~/.config/opencode/omh.jsonc`:
 		}
 	},
 
- // Sandbox Pre-Execution Safety & Integrity
- "sandbox": {
- "readBeforeWrite": true, // Enforce READ -> UNDERSTAND -> EDIT loop
- "staleWrite": true, // Prevent race conditions on changed files
- "secretScanner": true, // Block hardcoded API keys, JWTs, private keys
- "commitGuard": true, // Enforce Conventional Commits format
- "devServerGuard": true, // Prevent orphan background servers outside tmux
- "dangerousBash": true, // Block rm -rf, fork bombs, disk overwrites
- },
+	// Sandbox Pre-Execution Safety & Security Suite
+	"sandbox": {
+		"enabled": true, // Master toggle for all sandbox guardrails
+		"readGuard": {
+			"enabled": true, // File inspection verification before mutations
+			"readBeforeWrite": true, // Enforce READ -> UNDERSTAND -> EDIT loop
+			"staleWrite": true, // Prevent race conditions on changed files
+			"interceptBashMutation": true // Intercept cat >, echo >, tee, sed -i on unread files
+		},
+		"secretScanner": {
+			"enabled": true, // Scan tool payloads for credentials
+			"scanBash": true, // Intercept plain-text secrets in terminal commands
+			"protectedFiles": {
+				"enabled": true, // Block reading sensitive files
+				"blacklist": ["**/.env*", "**/auth.json", "**/settings.json", "**/*.pem", "**/*.key", "**/id_rsa*", "**/id_ed25519*", "**/exports.sh", "**/secrets.sh"],
+				"whitelist": ["**/.env.example", "**/.env.sample", "**/.env.template", "**/.env.dist"]
+			}
+		},
+		"commitGuard": {
+			"enabled": true, // Enforce Conventional Commits
+			"maxChars": 72, // Configurable subject line length limit
+			"requireCoAuthor": true, // Enforce Co-authored-by attribution trailer
+			"blockNoVerify": true, // Block --no-verify and -n bypass flags
+			"interceptGh": true // Intercept PR merge subjects via gh pr merge
+		},
+		"dangerousBash": {
+			"enabled": true, // Block destructive system commands
+			"blockWipeHome": true, // Block rm -rf ~, $HOME
+			"blockWipeGit": true, // Block rm -rf .git
+			"blockWipeWorkspace": true, // Block rm -rf . or rm -rf *
+			"blockGitDestructive": true // Block git reset --hard, git clean -fdx
+		},
+		"devServerGuard": {
+			"enabled": true // Prevent orphan background servers outside tmux
+		}
+	},
 
  // ️ Plans & Archiving Configuration
  "plans": {
@@ -306,42 +333,72 @@ Dedicated configuration file located at `~/.config/opencode/omh.jsonc`:
 
 ## 🔒 Sandbox Suite
 
-### 1. Read-Before-Write & Stale-Write Protection
+### 1. Read-Before-Write, Stale-Write & Bash Mutation Guard
 
-Forces the agent to read and understand the file in the current session before applying any modifications. If another process modifies the file on disk after the agent read it, the write is immediately rejected. Auto-syncs read ledger on successful self-mutations to prevent self-stale lockouts.
-
-```
-#### GUARDRAIL BLOCK: Read-Before-Write
-> *File 'src/auth/token.js' belum pernah dibaca dalam session ini.*
-> *Gunakan tool read/grep terlebih dahulu sebelum memodifikasi file.*
-```
-
-### 2. Plan Mode Whitelist Gate
-
-When Plan Mode is active, all mutating tools (`edit`, `write`, `delete`, mutating `bash`) are blocked, **except** for files targeting `~/.opencode/plans/`.
+Forces the agent to read and understand existing files before modifying them, preserves read records across session reconnects, and intercepts bypass attempts via shell redirection (`cat >`, `echo >`, `tee`, `sed -i`):
 
 ```
-GUARDRAIL BLOCK: Plan Mode
-
-Alasan: On plan mode, don't write or edit files without a specific trigger.
-Saran: Use '/approve' or wait for explicit trigger before modifying code.
+🛑 BLOCKED: Read before you edit
+Reason: File "src/auth/token.js" has not been read in this session.
+Action: Call `read` tool first. Shell bypass is forbidden.
 ```
 
-### 3. Secret Scanner
+### 2. Protected Sensitive Files Shield (`protectedFiles`)
 
-Scans tool input arguments (`write`, `edit`, `patch`) against production regex signatures for:
+Blocks inspection of credential stores (`.env*`, `auth.json`, `settings.json`, `*.pem`, `id_rsa`) via native tools and terminal utilities (`cat`, `head`, `tail`, `grep`), while whitelisting schema templates (`.env.example`):
 
-- GitHub Personal Access Tokens (`ghp_`, `gho_`, `github_pat_`)
-- OpenAI / Anthropic / Google AI API keys
-- AWS Access Key IDs, Session STS Keys & Secret Access Keys
-- RSA / OpenSSH / PKCS#8 Private Keys (`-----BEGIN PRIVATE KEY-----`)
-- Database Connection Strings (`postgres://`, `postgresql://`, `mongodb+srv://`)
-- JSON Web Tokens (JWT)
+```
+🛑 BLOCKED: Protected sensitive file
+Reason: Direct access to ".env" is blocked by security policy.
+Action: Inspect .env.example or ask user for non-secret schema.
+```
 
-### 4. Native OpenCode Integration (`permission.ask` & `shell.env`)
+### 3. Plan Mode Whitelist Gate
 
-- **`permission.ask`**: Automatically intercepts and denies risky actions at the core permission gate before annoying modal popups appear.
-- **`shell.env`**: Propagates `OMH_SANDBOX=1`, `OMH_SESSION_ID`, and `NO_COLOR=1` into all subshells.
+When Plan Mode is active, all mutating tools (`edit`, `write`, `delete`, mutating `bash`) are blocked, **except** for files targeting `~/.opencode/plans/`:
+
+```
+🛑 BLOCKED: Plan Mode active
+Reason: Cannot modify project code while session is in Plan Mode.
+Action: Run '/approve' or provide explicit execution trigger.
+```
+
+### 4. Secret Scanner (Tool Payloads & Terminal Commands)
+
+Scans tool arguments and terminal commands against regex signatures for API keys, AWS credentials, private keys, database connection URIs, and JWTs:
+
+```
+🛑 BLOCKED: Secret detected in payload
+Reason: Payload contains sensitive credentials:
+  - Line 12: GitHub Token
+Action: Remove credentials immediately. Use environment variables.
+```
+
+### 5. Conventional Commit Guard & Co-Author Attribution
+
+Validates commit messages with configurable length (`maxChars`, default 72), enforces Co-authored-by attribution trailers, blocks `--no-verify` / `-n` bypass flags, and intercepts PR merge subjects:
+
+```
+🛑 BLOCKED: Invalid commit format
+Reason: Commit message issues:
+  - Subject line is 84 chars (max 72)
+Action: Use Conventional Commits: `type(scope): description`
+```
+
+### 6. Destructive Bash Command Barrier
+
+Neutralizes destructive commands before execution (`rm -rf ~`, `rm -rf .git`, `rm -rf .`, `git reset --hard`, `git clean -fdx`, block device overwrites, and fork bombs):
+
+```
+🛑 BLOCKED: Dangerous command blocked
+Reason: Command "rm -rf .git" matches destructive wipe or system overwrite signature.
+Action: Action forbidden. Ask user for manual execution if needed.
+```
+
+### 7. Native OpenCode Integration (`permission.ask` & `shell.env`)
+
+- **`permission.ask`**: Automatically intercepts and denies risky actions at the core permission gate before modal popups appear.
+- **`shell.env`**: Injects `OMH_SANDBOX=1`, `OMH_SESSION_ID`, and `NO_COLOR=1` into all subshells.
 
 ---
 

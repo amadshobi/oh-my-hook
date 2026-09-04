@@ -34,6 +34,11 @@ export const DEFAULT_MESSAGES = {
 		reason: "Payload contains sensitive credentials:\n{detail}",
 		suggestion: "Remove credentials immediately. Use environment variables.",
 	},
+	protectedFile: {
+		title: "Protected sensitive file",
+		reason: 'Direct access to "{file}" is blocked by security policy.',
+		suggestion: "Inspect .env.example or ask user for non-secret schema.",
+	},
 	dangerousBash: {
 		title: "Dangerous command blocked",
 		reason:
