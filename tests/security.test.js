@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { securityHooks } from "../sandbox/security.js";
+import {
+	securityHooks,
+	dangerousBashPatterns,
+	isDevServer,
+} from "../sandbox/security.js";
 
 async function makeHooks(opts = {}) {
 	const hooks = await securityHooks({ client: null }, { config: opts });
@@ -343,5 +347,66 @@ test("commitGuard: enforces requireCoAuthor when configured", async () => {
 			},
 			{},
 		),
+	);
+});
+
+test("isDevServer: precise patterns prevent false-positives on air and vite", () => {
+	// True dev server triggers
+	assert.ok(isDevServer("air"));
+	assert.ok(isDevServer("air -c .air.toml"));
+	assert.ok(isDevServer("go build && air"));
+	assert.ok(isDevServer("npm run dev"));
+	assert.ok(isDevServer("vite dev"));
+	assert.ok(isDevServer("vite"));
+
+	// False-positive prevention
+	assert.equal(isDevServer("airflow webserver"), false);
+	assert.equal(isDevServer("air_quality_check"), false);
+	assert.equal(isDevServer("vite build"), false);
+	assert.equal(isDevServer("echo air"), false);
+});
+
+test("dangerousBashPatterns: honors granular toggle overrides", () => {
+	// Default (all enabled)
+	assert.ok(dangerousBashPatterns("rm -rf ~"));
+	assert.ok(dangerousBashPatterns("rm -rf .git"));
+	assert.ok(dangerousBashPatterns("rm -rf ."));
+	assert.ok(dangerousBashPatterns("git reset --hard"));
+	assert.ok(dangerousBashPatterns("rm -rf /"));
+
+	// Selectively disabled
+	assert.equal(
+		dangerousBashPatterns("rm -rf ~", { blockWipeHome: false }),
+		false,
+	);
+	assert.equal(
+		dangerousBashPatterns("rm -rf .git", { blockWipeGit: false }),
+		false,
+	);
+	assert.equal(
+		dangerousBashPatterns("rm -rf .", { blockWipeWorkspace: false }),
+		false,
+	);
+	assert.equal(
+		dangerousBashPatterns("git reset --hard", { blockGitDestructive: false }),
+		false,
+	);
+
+	// Root wipe and fork bomb always blocked regardless of toggles
+	assert.ok(
+		dangerousBashPatterns("rm -rf /", {
+			blockWipeHome: false,
+			blockWipeGit: false,
+			blockWipeWorkspace: false,
+			blockGitDestructive: false,
+		}),
+	);
+	assert.ok(
+		dangerousBashPatterns(":(){ :|:& };:", {
+			blockWipeHome: false,
+			blockWipeGit: false,
+			blockWipeWorkspace: false,
+			blockGitDestructive: false,
+		}),
 	);
 });

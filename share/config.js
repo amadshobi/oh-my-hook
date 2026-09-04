@@ -380,11 +380,12 @@ export function loadConfig() {
 }
 
 /**
- * Normalize modular and flat sandbox configuration into a unified structure.
- * Supports backward-compatible flat booleans and modern nested modules.
+ * Determine if a feature or guardrail is enabled from its configuration value.
+ * Supports boolean (true/false), object with .enabled property, or fallback.
  *
- * @param {object} raw
- * @returns {object}
+ * @param {boolean|object|undefined} cfg
+ * @param {boolean} [fallback=true]
+ * @returns {boolean}
  */
 export function isFeatureEnabled(cfg, fallback = true) {
 	if (cfg === false) return false;

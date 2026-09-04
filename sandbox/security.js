@@ -25,13 +25,11 @@ import { scanContentForSecrets } from "../share/security.js";
 
 export { scanContentForSecrets };
 
-const DANGEROUS_PATTERNS = [
+const DANGEROUS_ROOT_RES = [
 	/rm\s+-(?:r[a-z]*f|f[a-z]*r)\s+\/(?:\*|\s|$)/i, // rm -rf /, rm -fr /*
-	/rm\s+-(?:r[a-z]*f|f[a-z]*r)\s+(?:~|\$HOME|\${HOME})(?:\/|\s|$)/i, // rm -rf ~ or $HOME
-	/rm\s+-(?:r[a-z]*f|f[a-z]*r)\s+\.git(?:\/|\s|$)/i, // rm -rf .git
-	/rm\s+-(?:r[a-z]*f|f[a-z]*r)\s+(?:\.|\*)(?:\s|$)/i, // rm -rf . or rm -rf *
-	/git\s+reset\s+--hard/i, // git reset --hard
-	/git\s+clean\s+-[a-z]*f/i, // git clean -fd, git clean -f
+];
+
+const DANGEROUS_SYSTEM_RES = [
 	/mkfs\./i,
 	/dd\s+if=.*of=\/dev\/(?:sd|nvme|vd)/i,
 	/:\(\)\s*\{\s*:\|:&\s*\};:/, // fork bomb
@@ -40,16 +38,48 @@ const DANGEROUS_PATTERNS = [
 	/(?:curl|wget)[^\n|&;]*\|\s*(?:ba|z)?sh/i,
 ];
 
-export function dangerousBashPatterns(command) {
+const DANGEROUS_HOME_RE =
+	/rm\s+-(?:r[a-z]*f|f[a-z]*r)\s+(?:~|\$HOME|\${HOME})(?:\/|\s|$)/i;
+const DANGEROUS_GIT_RE = /rm\s+-(?:r[a-z]*f|f[a-z]*r)\s+\.git(?:\/|\s|$)/i;
+const DANGEROUS_WORKSPACE_RE =
+	/rm\s+-(?:r[a-z]*f|f[a-z]*r)\s+(?:\.|\*)(?:\s|$)/i;
+const DANGEROUS_GIT_OPS = [/git\s+reset\s+--hard/i, /git\s+clean\s+-[a-z]*f/i];
+
+export function dangerousBashPatterns(command, opts = {}) {
 	if (!command || typeof command !== "string") return false;
-	return DANGEROUS_PATTERNS.some((re) => re.test(command));
+
+	// Always blocked system destroyers
+	if (DANGEROUS_ROOT_RES.some((re) => re.test(command))) return true;
+	if (DANGEROUS_SYSTEM_RES.some((re) => re.test(command))) return true;
+
+	// Granular configurable wipeouts
+	if (opts.blockWipeHome !== false && DANGEROUS_HOME_RE.test(command)) {
+		return true;
+	}
+	if (opts.blockWipeGit !== false && DANGEROUS_GIT_RE.test(command)) {
+		return true;
+	}
+	if (
+		opts.blockWipeWorkspace !== false &&
+		DANGEROUS_WORKSPACE_RE.test(command)
+	) {
+		return true;
+	}
+	if (
+		opts.blockGitDestructive !== false &&
+		DANGEROUS_GIT_OPS.some((re) => re.test(command))
+	) {
+		return true;
+	}
+
+	return false;
 }
 
 const DEV_SERVER_PATTERNS = [
 	/\b(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?dev\b/i,
 	/\b(?:npm|pnpm|yarn|bun)\s+start\b/i,
 	/\bnext\s+dev\b/i,
-	/\bvite(?:\s+serve)?\b/i,
+	/\bvite(?:\s+(?:dev|serve))?\s*(?:$|--)/i,
 	/\bwebpack\s+serve\b/i,
 	/\bnodemon\b/i,
 	/\bts-node-dev\b/i,
@@ -57,7 +87,7 @@ const DEV_SERVER_PATTERNS = [
 	/\bflask\s+run\b/i,
 	/\buvicorn\b/i,
 	/\bcargo\s+watch\b/i,
-	/\bair\b/i,
+	/(?:^|[\s;&|])air(?:\s|$)/i,
 ];
 
 export function isDevServer(command) {
@@ -390,7 +420,7 @@ export const securityHooks = async ({ client, directory }, opts = {}) => {
 				}
 
 				// 3c. Dangerous bash destructive patterns
-				if (bashEnabled && dangerousBashPatterns(command)) {
+				if (bashEnabled && dangerousBashPatterns(command, bashConfig)) {
 					await notify(
 						`Blocked dangerous bash command: ${command.slice(0, 120)}`,
 					);

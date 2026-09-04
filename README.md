@@ -553,7 +553,7 @@ Deterministic `/usage` slash command (0-token LLM — output is `ignored` transc
 
 ## 🧪 Testing & Development
 
-`oh-my-hook` includes **181 unit tests** and **7 deterministic E2E hook pipeline test suites**.
+`oh-my-hook` includes **183 unit tests** and **7 deterministic E2E hook pipeline test suites**.
 
 ```bash
 # Run unit tests

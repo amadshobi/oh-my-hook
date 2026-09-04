@@ -95,6 +95,28 @@ export function getStoredAuth(providerId = PROVIDER_ID) {
 	return {};
 }
 
+function buildModelsMap(discovered) {
+	const map = {};
+	for (const [key, m] of Object.entries(discovered)) {
+		map[key] = {
+			id: m.id,
+			name: m.name,
+			tool_call: m.capabilities.toolcall,
+			reasoning: m.capabilities.reasoning,
+			temperature: m.capabilities.temperature,
+			interleaved:
+				typeof m.capabilities.interleaved === "object" &&
+				m.capabilities.interleaved !== null
+					? m.capabilities.interleaved.field
+					: m.capabilities.interleaved,
+			limit: m.limit,
+			cost: m.cost,
+			variants: m.variants,
+		};
+	}
+	return map;
+}
+
 /**
  * OpenCode Plugin Factory for Local AI Gateway integration
  * Supports Dual-Provider setup: `local-gateway` (OMP) and `vans-gateway` (VansRouter)
@@ -118,7 +140,9 @@ export function gatewayHooks(_input, opts = {}) {
 			// ── 1. Register Local Gateway (OMP / GN Gateway) ────────────────
 			const localAuth = getStoredAuth(PROVIDER_ID);
 			const localTarget =
-				localAuth.target || process.env.OPENCODE_GATEWAY_URL || DEFAULT_GATEWAY_PORT;
+				localAuth.target ||
+				process.env.OPENCODE_GATEWAY_URL ||
+				DEFAULT_GATEWAY_PORT;
 			const localApiKey = localAuth.apiKey || DUMMY_GATEWAY_KEY;
 			const localName = localAuth.name || "gn gateway";
 			const localUrl = resolveGatewayUrl(localTarget, DEFAULT_GATEWAY_URL);
@@ -129,24 +153,7 @@ export function gatewayHooks(_input, opts = {}) {
 				PROVIDER_ID,
 			);
 
-			const localModelsMap = {};
-			for (const [key, m] of Object.entries(localDiscovered)) {
-				localModelsMap[key] = {
-					id: m.id,
-					name: m.name,
-					tool_call: m.capabilities.toolcall,
-					reasoning: m.capabilities.reasoning,
-					temperature: m.capabilities.temperature,
-					interleaved:
-						typeof m.capabilities.interleaved === "object" &&
-						m.capabilities.interleaved !== null
-							? m.capabilities.interleaved.field
-							: m.capabilities.interleaved,
-					limit: m.limit,
-					cost: m.cost,
-					variants: m.variants,
-				};
-			}
+			const localModelsMap = buildModelsMap(localDiscovered);
 
 			cfg.provider[PROVIDER_ID] = {
 				name: localName,
@@ -162,7 +169,9 @@ export function gatewayHooks(_input, opts = {}) {
 			// ── 2. Register Vans Gateway (VansRouter) ───────────────────────
 			const vansAuth = getStoredAuth(VANS_PROVIDER_ID);
 			const vansTarget =
-				vansAuth.target || process.env.OPENCODE_VANS_GATEWAY_URL || DEFAULT_VANS_PORT;
+				vansAuth.target ||
+				process.env.OPENCODE_VANS_GATEWAY_URL ||
+				DEFAULT_VANS_PORT;
 			const vansApiKey = vansAuth.apiKey || DUMMY_GATEWAY_KEY;
 			const vansName = vansAuth.name || "vans router";
 			const vansUrl = resolveGatewayUrl(vansTarget, DEFAULT_VANS_URL);
@@ -173,24 +182,7 @@ export function gatewayHooks(_input, opts = {}) {
 				VANS_PROVIDER_ID,
 			);
 
-			const vansModelsMap = {};
-			for (const [key, m] of Object.entries(vansDiscovered)) {
-				vansModelsMap[key] = {
-					id: m.id,
-					name: m.name,
-					tool_call: m.capabilities.toolcall,
-					reasoning: m.capabilities.reasoning,
-					temperature: m.capabilities.temperature,
-					interleaved:
-						typeof m.capabilities.interleaved === "object" &&
-						m.capabilities.interleaved !== null
-							? m.capabilities.interleaved.field
-							: m.capabilities.interleaved,
-					limit: m.limit,
-					cost: m.cost,
-					variants: m.variants,
-				};
-			}
+			const vansModelsMap = buildModelsMap(vansDiscovered);
 
 			cfg.provider[VANS_PROVIDER_ID] = {
 				name: vansName,
