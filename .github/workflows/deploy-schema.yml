@@ -66,10 +66,7 @@ jobs:
             </ul>
             <h3>Usage in omh.jsonc</h3>
             <pre><code>{
-  "$schema": "https://amadshobi.github.io/oh-my-hook/schema.json",
-  "sandbox": {
-    "enabled": true
-  }
+  "$schema": "https://amadshobi.github.io/oh-my-hook/schema.json"
 }</code></pre>
           </body>
           </html>
