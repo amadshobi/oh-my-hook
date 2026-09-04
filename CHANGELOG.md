@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Official JSON Schema & GitHub Pages Distribution (`schemas/omh.schema.json`)**:
+  - Implemented comprehensive JSON Schema Draft-07 covering 100% of `DEFAULTS` and modular sandbox configurations with rich typing, boundary limits, and editor hover documentation.
+  - Distributed at zero cost via GitHub Pages with clean vanity URL `https://amadshobi.github.io/oh-my-hook/schema.json` and namespaced endpoint `https://amadshobi.github.io/oh-my-hook/schemas/omh.schema.json`.
+  - Added automated GitHub Actions deployment workflow (`.github/workflows/deploy-schema.yml`) with lightweight landing page.
+  - Bundled `schemas` directory into npm package distribution via `package.json` `"files"`.
+  - Added schema integrity and specification test suite (`tests/schema.test.js`).
 - **Modular Sandbox Architecture**:
   - Reorganized flat sandbox configuration into modular subsections (`readGuard`, `secretScanner`, `commitGuard`, `dangerousBash`, `devServerGuard`) with 100% backward compatibility for legacy flat keys via `normalizeSandboxConfig`.
 - **Protected Sensitive Files Shield (`protectedFiles`)**:

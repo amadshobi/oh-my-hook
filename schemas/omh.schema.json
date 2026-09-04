@@ -1,0 +1,667 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://amadshobi.github.io/oh-my-hook/schemas/omh.schema.json",
+	"title": "oh-my-hook configuration",
+	"description": "Configuration schema for oh-my-hook plugin suite for OpenCode coding agents.",
+	"type": "object",
+	"additionalProperties": false,
+	"properties": {
+		"$schema": {
+			"type": "string",
+			"description": "URL to the JSON schema for validation and editor autocompletion."
+		},
+		"memory": {
+			"type": "object",
+			"description": "Hermes-style multi-target curated persistent memory with AI distillation & review loop.",
+			"additionalProperties": false,
+			"properties": {
+				"enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable or disable persistent memory management."
+				},
+				"baseURL": {
+					"type": "string",
+					"default": "http://127.0.0.1:4000/v1",
+					"description": "OpenAI-compatible gateway endpoint for memory capture distillation and review."
+				},
+				"model": {
+					"type": "string",
+					"default": "google-antigravity/gemini-2.5-flash",
+					"description": "Model identifier for memory capture and consolidation."
+				},
+				"apiKey": {
+					"type": "string",
+					"default": "dummy",
+					"description": "API key for memory gateway endpoint (if required)."
+				},
+				"maxBullets": {
+					"type": "integer",
+					"minimum": 1,
+					"default": 10,
+					"description": "Maximum bullet points captured in single memory pass."
+				},
+				"injectToSubagents": {
+					"type": "boolean",
+					"default": false,
+					"description": "Whether to inject memory into subagent system prompts. Default is false (main agent only)."
+				},
+				"budgets": {
+					"type": "object",
+					"description": "Character budget limits per memory scope target.",
+					"additionalProperties": false,
+					"properties": {
+						"user": {
+							"type": "integer",
+							"minimum": 100,
+							"default": 1500,
+							"description": "Max characters for user profile memory."
+						},
+						"global": {
+							"type": "integer",
+							"minimum": 100,
+							"default": 2500,
+							"description": "Max characters for global cross-project notes."
+						},
+						"project": {
+							"type": "integer",
+							"minimum": 100,
+							"default": 3500,
+							"description": "Max characters for active project repository memory."
+						}
+					}
+				},
+				"review": {
+					"type": "object",
+					"description": "Hermes-style background self-improvement memory review loop.",
+					"additionalProperties": false,
+					"properties": {
+						"enabled": {
+							"type": "boolean",
+							"default": true,
+							"description": "Enable background memory quality review."
+						},
+						"idleDelayMs": {
+							"type": "integer",
+							"minimum": 500,
+							"default": 3000,
+							"description": "Idle delay in milliseconds before initiating background memory review."
+						}
+					}
+				}
+			}
+		},
+		"sandbox": {
+			"type": "object",
+			"description": "Pre-execution security barrier, temporal integrity, and guardrail settings.",
+			"additionalProperties": false,
+			"properties": {
+				"enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Master toggle for all sandbox protections."
+				},
+				"readBeforeWrite": {
+					"type": "boolean",
+					"default": true,
+					"description": "(Flat toggle) Require reading a file via read tool before edit/write."
+				},
+				"staleWrite": {
+					"type": "boolean",
+					"default": true,
+					"description": "(Flat toggle) Block write/edit if file modified on disk since read."
+				},
+				"readGuard": {
+					"type": "object",
+					"description": "Read-before-write, stale detection, and bash mutation interception.",
+					"additionalProperties": false,
+					"properties": {
+						"enabled": {
+							"type": "boolean",
+							"default": true,
+							"description": "Enable read guard module."
+						},
+						"readBeforeWrite": {
+							"type": "boolean",
+							"default": true,
+							"description": "Require reading target file before modifying via tool write/edit."
+						},
+						"staleWrite": {
+							"type": "boolean",
+							"default": true,
+							"description": "Block mutation if external process modified file after agent read it."
+						},
+						"interceptBashMutation": {
+							"type": "boolean",
+							"default": true,
+							"description": "Intercept unread file mutations via bash (cat >, echo >, tee, sed -i)."
+						}
+					}
+				},
+				"secretScanner": {
+					"description": "Secret and credential leak detection. Can be boolean or configuration object.",
+					"oneOf": [
+						{
+							"type": "boolean",
+							"description": "Enable or disable secret scanner."
+						},
+						{
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"enabled": {
+									"type": "boolean",
+									"default": true,
+									"description": "Enable secret scanner."
+								},
+								"scanBash": {
+									"type": "boolean",
+									"default": true,
+									"description": "Scan bash commands for exposed credentials, keys, or authorization headers."
+								},
+								"protectedFiles": {
+									"type": "object",
+									"description": "Sensitive file shield blocking unauthorized read or inspection.",
+									"additionalProperties": false,
+									"properties": {
+										"enabled": {
+											"type": "boolean",
+											"default": true,
+											"description": "Enable protected files shield."
+										},
+										"blacklist": {
+											"type": "array",
+											"items": { "type": "string" },
+											"description": "Glob patterns for confidential files forbidden from reading."
+										},
+										"whitelist": {
+											"type": "array",
+											"items": { "type": "string" },
+											"description": "Glob patterns for safe files allowed to be read (e.g. templates)."
+										}
+									}
+								}
+							}
+						}
+					]
+				},
+				"secretScannerConfig": {
+					"type": "object",
+					"description": "Alternative key for secretScanner configuration object.",
+					"additionalProperties": false,
+					"properties": {
+						"enabled": { "type": "boolean", "default": true },
+						"scanBash": { "type": "boolean", "default": true },
+						"protectedFiles": {
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"enabled": { "type": "boolean", "default": true },
+								"blacklist": { "type": "array", "items": { "type": "string" } },
+								"whitelist": { "type": "array", "items": { "type": "string" } }
+							}
+						}
+					}
+				},
+				"commitGuard": {
+					"description": "Conventional Commit standards & Co-Author attribution enforcer. Can be boolean or configuration object.",
+					"oneOf": [
+						{
+							"type": "boolean",
+							"description": "Enable or disable commit guard."
+						},
+						{
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"enabled": {
+									"type": "boolean",
+									"default": true,
+									"description": "Enable commit guard."
+								},
+								"maxChars": {
+									"type": "integer",
+									"minimum": 20,
+									"maximum": 200,
+									"default": 72,
+									"description": "Maximum character length for the commit subject line."
+								},
+								"requireCoAuthor": {
+									"type": "boolean",
+									"default": false,
+									"description": "Require Co-authored-by trailer in commit messages."
+								},
+								"blockNoVerify": {
+									"type": "boolean",
+									"default": true,
+									"description": "Block commit verification bypass flags (--no-verify, -n)."
+								},
+								"interceptGh": {
+									"type": "boolean",
+									"default": true,
+									"description": "Inspect and guard commits created via GitHub CLI (gh pr create, gh pr merge)."
+								}
+							}
+						}
+					]
+				},
+				"commitGuardConfig": {
+					"type": "object",
+					"description": "Alternative key for commitGuard configuration object.",
+					"additionalProperties": false,
+					"properties": {
+						"enabled": { "type": "boolean", "default": true },
+						"maxChars": { "type": "integer", "default": 72 },
+						"requireCoAuthor": { "type": "boolean", "default": false },
+						"blockNoVerify": { "type": "boolean", "default": true },
+						"interceptGh": { "type": "boolean", "default": true }
+					}
+				},
+				"dangerousBash": {
+					"description": "Destructive bash barrier. Can be boolean or configuration object.",
+					"oneOf": [
+						{
+							"type": "boolean",
+							"description": "Enable or disable dangerous bash blocker."
+						},
+						{
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"enabled": {
+									"type": "boolean",
+									"default": true,
+									"description": "Enable dangerous bash blocker."
+								},
+								"blockWipeHome": {
+									"type": "boolean",
+									"default": true,
+									"description": "Block destructive deletion targeting user home directory (rm -rf ~, $HOME)."
+								},
+								"blockWipeGit": {
+									"type": "boolean",
+									"default": true,
+									"description": "Block deletion targeting .git directory (rm -rf .git)."
+								},
+								"blockWipeWorkspace": {
+									"type": "boolean",
+									"default": true,
+									"description": "Block root workspace wipeouts (rm -rf ., rm -rf *)."
+								},
+								"blockGitDestructive": {
+									"type": "boolean",
+									"default": true,
+									"description": "Block unrecoverable git commands (git reset --hard, git clean -fdx)."
+								}
+							}
+						}
+					]
+				},
+				"dangerousBashConfig": {
+					"type": "object",
+					"description": "Alternative key for dangerousBash configuration object.",
+					"additionalProperties": false,
+					"properties": {
+						"enabled": { "type": "boolean", "default": true },
+						"blockWipeHome": { "type": "boolean", "default": true },
+						"blockWipeGit": { "type": "boolean", "default": true },
+						"blockWipeWorkspace": { "type": "boolean", "default": true },
+						"blockGitDestructive": { "type": "boolean", "default": true }
+					}
+				},
+				"devServerGuard": {
+					"description": "Orphan dev server process guardrail. Can be boolean or configuration object.",
+					"oneOf": [
+						{
+							"type": "boolean",
+							"description": "Enable or disable dev server guard."
+						},
+						{
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"enabled": {
+									"type": "boolean",
+									"default": true,
+									"description": "Enable dev server guard."
+								}
+							}
+						}
+					]
+				},
+				"devServerGuardConfig": {
+					"type": "object",
+					"description": "Alternative key for devServerGuard configuration object.",
+					"additionalProperties": false,
+					"properties": {
+						"enabled": { "type": "boolean", "default": true }
+					}
+				}
+			}
+		},
+		"plans": {
+			"type": "object",
+			"description": "Dual-mode planning suite, mutation barriers, and plan versioning.",
+			"additionalProperties": false,
+			"properties": {
+				"enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable or disable plans module."
+				},
+				"planMode": {
+					"type": "boolean",
+					"default": true,
+					"description": "Activate PLAN mode barrier blocking source code modifications until /approve."
+				},
+				"autoDetectIntent": {
+					"type": "boolean",
+					"default": true,
+					"description": "Automatically detect plan or execute mode intent from user messages."
+				},
+				"directory": {
+					"type": "string",
+					"default": "~/.opencode/plans",
+					"description": "Directory where active plan files and drafts are stored."
+				},
+				"versionLimit": {
+					"type": "integer",
+					"minimum": 1,
+					"default": 20,
+					"description": "Maximum number of plan revisions preserved in plans/versions/."
+				}
+			}
+		},
+		"compress": {
+			"type": "object",
+			"description": "Context compression suite, dynamic pruning, and post-push auto-compaction.",
+			"additionalProperties": false,
+			"properties": {
+				"enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable compression suite."
+				},
+				"mode": {
+					"type": "string",
+					"enum": ["auto", "model", "hybrid"],
+					"default": "hybrid",
+					"description": "Compression execution mode: 'auto' (deterministic), 'model' (tool-driven), or 'hybrid'."
+				},
+				"pruning": {
+					"type": "object",
+					"description": "Dynamic tool-output trimming and deduplication.",
+					"additionalProperties": false,
+					"properties": {
+						"enabled": { "type": "boolean", "default": true },
+						"recentTurns": { "type": "integer", "default": 1 },
+						"keepHeadChars": { "type": "integer", "default": 500 },
+						"keepTailChars": { "type": "integer", "default": 1500 },
+						"minOutputChars": { "type": "integer", "default": 2000 },
+						"massiveOutputChars": { "type": "integer", "default": 10000 },
+						"keepImportantLines": { "type": "boolean", "default": true },
+						"toast": {
+							"type": "object",
+							"properties": {
+								"enabled": { "type": "boolean", "default": true },
+								"cooldownMs": { "type": "integer", "default": 30000 }
+							}
+						},
+						"debug": {
+							"type": "object",
+							"properties": {
+								"enabled": { "type": "boolean", "default": true },
+								"maxSessions": { "type": "integer", "default": 20 }
+							}
+						},
+						"compress": {
+							"type": "object",
+							"properties": {
+								"recentTurns": { "type": "integer", "default": 2 },
+								"targetSaveRatio": { "type": "number", "default": 0.5 },
+								"minTokensToCompress": { "type": "integer", "default": 30000 },
+								"triggerRatio": { "type": "number", "default": 0.8 }
+							}
+						},
+						"strategies": {
+							"type": "object",
+							"properties": {
+								"deduplication": {
+									"type": "object",
+									"properties": {
+										"enabled": { "type": "boolean", "default": true },
+										"protectedTools": {
+											"type": "array",
+											"items": { "type": "string" }
+										}
+									}
+								},
+								"purgeErrors": {
+									"type": "object",
+									"properties": {
+										"enabled": { "type": "boolean", "default": true },
+										"turns": { "type": "integer", "default": 4 }
+									}
+								}
+							}
+						},
+						"idempotent": { "type": "boolean", "default": true },
+						"protectedTools": { "type": "object" },
+						"eligibleTools": { "type": "object" },
+						"commandPatterns": {
+							"type": "object",
+							"properties": {
+								"alwaysPrune": {
+									"type": "array",
+									"items": { "type": "string" }
+								},
+								"neverPrune": { "type": "array", "items": { "type": "string" } }
+							}
+						},
+						"failureSignals": { "type": "object" }
+					}
+				},
+				"milestones": {
+					"type": "object",
+					"description": "Post-push and idle auto-compaction rules.",
+					"additionalProperties": false,
+					"properties": {
+						"enabled": { "type": "boolean", "default": true },
+						"pushAutoCompress": { "type": "boolean", "default": true },
+						"snapshotEnabled": { "type": "boolean", "default": true },
+						"snapshotMaxChars": { "type": "integer", "default": 2500 },
+						"minMessages": { "type": "integer", "default": 30 },
+						"minTurnsAfterPush": { "type": "integer", "default": 2 },
+						"idleCooldownMs": { "type": "integer", "default": 600000 },
+						"maxAutoCompressPerSession": { "type": "integer", "default": 2 }
+					}
+				},
+				"commands": {
+					"type": "object",
+					"properties": {
+						"compress": { "type": "boolean", "default": true }
+					}
+				},
+				"snapshot": {
+					"type": "object",
+					"properties": {
+						"compactionSnapshot": { "type": "boolean", "default": true },
+						"promptCheck": { "type": "boolean", "default": true },
+						"compactThreshold": { "type": "integer", "default": 50 }
+					}
+				},
+				"agent": {
+					"type": "object",
+					"properties": {
+						"enabled": { "type": "boolean", "default": true },
+						"main": { "type": "array", "items": { "type": "string" } },
+						"subagent": { "type": "array", "items": { "type": "string" } }
+					}
+				}
+			}
+		},
+		"context": {
+			"type": "object",
+			"description": "Session awareness, compact warnings, and scoped context limits.",
+			"additionalProperties": false,
+			"properties": {
+				"compactionSnapshot": { "type": "boolean", "default": true },
+				"promptCheck": { "type": "boolean", "default": true },
+				"compactThreshold": {
+					"type": "integer",
+					"default": 50,
+					"description": "Number of edits before soft-nudging to /compact."
+				},
+				"agentEnabled": { "type": "boolean", "default": true },
+				"agent": {
+					"type": "object",
+					"properties": {
+						"main": { "type": "array", "items": { "type": "string" } },
+						"subagent": { "type": "array", "items": { "type": "string" } }
+					}
+				}
+			}
+		},
+		"reminder": {
+			"type": "object",
+			"description": "Soft verification reminders and pre-completion checklists.",
+			"additionalProperties": false,
+			"properties": {
+				"verify": {
+					"type": "boolean",
+					"default": true,
+					"description": "Nudge agent to run tests or verification commands before concluding."
+				},
+				"checklist": {
+					"type": "boolean",
+					"default": true,
+					"description": "Remind agent to maintain actionable task progress."
+				}
+			}
+		},
+		"gateway": {
+			"type": "object",
+			"description": "Local gateway bridge, model discovery, and thinking variants.",
+			"additionalProperties": false,
+			"properties": {
+				"enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable local gateway discovery and auth bridge."
+				}
+			}
+		},
+		"prompts": {
+			"type": "object",
+			"description": "Dynamic provider prompt router and custom persona overrides.",
+			"additionalProperties": false,
+			"properties": {
+				"enabled": { "type": "boolean", "default": true },
+				"directory": {
+					"type": "string",
+					"default": "~/.opencode/assets/provider",
+					"description": "Directory containing provider prompt assets."
+				},
+				"customDirectory": {
+					"type": "string",
+					"default": "~/.config/opencode/prompts",
+					"description": "Directory containing custom system prompt files."
+				},
+				"routes": {
+					"type": "object",
+					"description": "Model-to-prompt file routing table.",
+					"additionalProperties": { "type": "string" }
+				},
+				"overridePersona": {
+					"type": "boolean",
+					"default": false,
+					"description": "Allow custom prompts to completely override default agent persona."
+				}
+			}
+		},
+		"imgsee": {
+			"type": "object",
+			"description": "Multimodal vision engine delegating image analysis without context bloat.",
+			"additionalProperties": false,
+			"properties": {
+				"enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable imgsee tool."
+				},
+				"gatewayUrl": {
+					"type": "string",
+					"default": "http://127.0.0.1:4010/v1/chat/completions",
+					"description": "Endpoint for vision model execution."
+				},
+				"model": {
+					"type": "string",
+					"default": "google-antigravity/gemini-2.5-flash",
+					"description": "Vision model identifier."
+				},
+				"maxBytes": {
+					"type": "integer",
+					"default": 5242880,
+					"description": "Maximum allowed image file size in bytes (default: 5 MiB)."
+				},
+				"timeoutMs": {
+					"type": "integer",
+					"default": 60000,
+					"description": "Timeout in milliseconds for vision requests."
+				}
+			}
+		},
+		"usage": {
+			"type": "object",
+			"description": "Live cloud quota and token consumption tracking in TUI & slash commands.",
+			"additionalProperties": false,
+			"properties": {
+				"enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable usage tracking."
+				},
+				"tokens": {
+					"type": "object",
+					"properties": {
+						"showSubagents": {
+							"type": "boolean",
+							"default": true,
+							"description": "Show subagent token hierarchy in sidebar."
+						},
+						"subagentsCollapsed": {
+							"type": "boolean",
+							"default": true,
+							"description": "Default subagent nodes to collapsed state."
+						},
+						"toast": {
+							"type": "object",
+							"properties": {
+								"enabled": { "type": "boolean", "default": true }
+							}
+						}
+					}
+				},
+				"quota": {
+					"type": "object",
+					"properties": {
+						"ollama": {
+							"type": "object",
+							"properties": {
+								"accounts": {
+									"type": "object",
+									"additionalProperties": { "type": "string" }
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"messages": {
+			"type": "object",
+			"description": "Customizable guardrail block and warning messages.",
+			"additionalProperties": true
+		}
+	}
+}

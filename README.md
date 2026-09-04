@@ -150,6 +150,18 @@ Comprehensive architectural deep dives, developer manuals, and per-module config
 
 ## 🗺️ Dual-Mode Planning Suite
 
+```jsonc
+// Quick config snippet (~/.config/opencode/omh.jsonc)
+"plans": {
+	"enabled": true,
+	"planMode": true,
+	"autoDetectIntent": true,
+	"directory": "~/.opencode/plans"
+}
+```
+
+> 📖 For plan mode templates, directory overrides, and version limits, see [docs/config/plans.md](docs/config/plans.md).
+
 Seamlessly switch between quick conversational brainstorming, durable RFC file generation, and interactive terminal review:
 
 | Command | Mode | Behavior |
@@ -210,128 +222,55 @@ Add `oh-my-hook` to your OpenCode configuration files:
 
 ## ⚙️ Configuration (`omh.jsonc`)
 
-Dedicated configuration file located at `~/.config/opencode/omh.jsonc`:
+`oh-my-hook` is configured via `~/.config/opencode/omh.jsonc` (also supports `.json`, `.yaml`, or `.yml`). All settings are deep-merged on a per-section basis over built-in defaults.
+
+> 💡 **Default ON Philosophy**:
+> **Every guardrail, shield, and module is enabled (`true`) out of the box.** You do **not** need to declare properties unless you want to disable them (e.g. `"commitGuard": false`) or customize specific parameters (e.g. `"maxChars": 80`). If an empty config `{}` is provided or the file is missing, all protections remain fully active.
+
+Include the official `$schema` header for instant validation, hover docs, and autocompletion in your editor:
 
 ```jsonc
 {
-	// Curated Memory & Background Review Engine
-	"memory": {
-		"enabled": true,
-		"baseURL": "http://127.0.0.1:4000/v1", // OpenAI-compatible gateway (OMP :4000, Local Gateway :4010)
-		"model": "google-antigravity/gemini-2.5-flash",
-		"apiKey": "dummy",
-		"maxBullets": 10,
-		"injectToSubagents": false, // Keep subagents isolated & lightweight
-		"budgets": {
-			"user": 1500, // Character limit for ~/.config/opencode/memory/USER.md
-			"global": 2500, // Character limit for ~/.config/opencode/memory/MEMORY.md
-			"project": 3500 // Character limit for projects/<slug>/MEMORY.md
-		},
-		"review": {
-			"enabled": true, // Hermes-style background self-improvement review
-			"idleDelayMs": 3000
-		}
-	},
-
-	// Sandbox Pre-Execution Safety & Security Suite
-	"sandbox": {
-		"enabled": true, // Master toggle for all sandbox guardrails
-		"readGuard": {
-			"enabled": true, // File inspection verification before mutations
-			"readBeforeWrite": true, // Enforce READ -> UNDERSTAND -> EDIT loop
-			"staleWrite": true, // Prevent race conditions on changed files
-			"interceptBashMutation": true // Intercept cat >, echo >, tee, sed -i on unread files
-		},
-		"secretScanner": {
-			"enabled": true, // Scan tool payloads for credentials
-			"scanBash": true, // Intercept plain-text secrets in terminal commands
-			"protectedFiles": {
-				"enabled": true, // Block reading sensitive files
-				"blacklist": ["**/.env*", "**/auth.json", "**/settings.json", "**/*.pem", "**/*.key", "**/id_rsa*", "**/id_ed25519*", "**/exports.sh", "**/secrets.sh"],
-				"whitelist": ["**/.env.example", "**/.env.sample", "**/.env.template", "**/.env.dist"]
-			}
-		},
-		"commitGuard": {
-			"enabled": true, // Enforce Conventional Commits
-			"maxChars": 72, // Configurable subject line length limit
-			"requireCoAuthor": true, // Enforce Co-authored-by attribution trailer
-			"blockNoVerify": true, // Block --no-verify and -n bypass flags
-			"interceptGh": true // Intercept PR merge subjects via gh pr merge
-		},
-		"dangerousBash": {
-			"enabled": true, // Block destructive system commands
-			"blockWipeHome": true, // Block rm -rf ~, $HOME
-			"blockWipeGit": true, // Block rm -rf .git
-			"blockWipeWorkspace": true, // Block rm -rf . or rm -rf *
-			"blockGitDestructive": true // Block git reset --hard, git clean -fdx
-		},
-		"devServerGuard": {
-			"enabled": true // Prevent orphan background servers outside tmux
-		}
-	},
-
- // ️ Plans & Archiving Configuration
- "plans": {
- "enabled": true,
- "planMode": true, // Freeze file mutation during planning phase
- "autoDetectIntent": true, // Auto-detect explicit plan/execute intent from text; false = slash commands only
- "directory": "~/.opencode/plans",
- "versionLimit": 20,
- },
-
- // ️ Context Compression & Dynamic Pruning Engine
- "compress": {
- "enabled": true,
- "pruning": {
- "enabled": true,
- "recentTurns": 2, // Keep last 2 conversational turns 100% intact
- "minOutputChars": 2000, // Threshold before ANY eligible tool output is pruned
- "keepImportantLines": true, // Preserve error/pass/summary lines from the middle
- "toast": {
- "enabled": true, // Live TUI toast on pruning events
- "cooldownMs": 30000 // Anti-spam cooldown
- },
- "commandPatterns": {
- "alwaysPrune": ["npm install", "git commit"], // Force-prune noisy commands
- "neverPrune": ["git diff", "cat .*"] // Protect critical outputs
- }
- },
- "milestones": {
- "pushAutoCompress": true, // Auto-compact & snapshot when git push finishes and agent goes idle
- },
- },
-
- // Post-Execution Verification
- "reminder": {
- "verify": true, // Run auto-typecheck & linter after edits
- "checklist": true, // Nudge agents to split complex steps into todos
- },
-
- // Dynamic System Prompt Router
- "prompts": {
- "enabled": true,
- "customDirectory": "~/.config/opencode/prompts", // User custom prompt overrides (exact, family, or default.md)
- "directory": "~/.opencode/assets/provider", // Fallback provider prompt asset catalog
- "routes": {
- // "kilo/tencent/hy3:free": "hy3.md",
- // "ollama-cloud/*": "minimax.md"
- },
- },
-
- // ️ Multimodal Vision Engine
- "imgsee": {
- "enabled": true,
- "gatewayUrl": "http://127.0.0.1:4010/v1/chat/completions",
- "model": "google-antigravity/gemini-2.5-flash",
- "timeoutMs": 60000,
- "maxBytes": 5242880, // 5 MiB
- },
+	"$schema": "https://amadshobi.github.io/oh-my-hook/schema.json"
+	// All protections are active by default (true).
+	// Only declare what you want to disable or customize:
+	// "sandbox": {
+	//   "commitGuard": false
+	// }
 }
 ```
+
+### Module Configuration Reference
+
+Each module can be toggled and configured independently. Jump to the dedicated documentation for detailed schemas and examples:
+
+| Module | Description | Schema & Guide |
+| :--- | :--- | :--- |
+| **`sandbox`** | Pre-execution security, protected files shield, commit guard & bash barriers | [docs/config/sandbox.md](docs/config/sandbox.md) |
+| **`memory`** | Hermes-style curated memory, character budgets & background review | [docs/config/memory.md](docs/config/memory.md) |
+| **`plans`** | Dual-mode planning suite, intent detection & RFC whitelist gates | [docs/config/plans.md](docs/config/plans.md) |
+| **`compress`** | Dynamic tool-output pruning, post-push compaction & idle snapshots | [docs/config/compress.md](docs/config/compress.md) |
+| **`gateway`** | Local Gateway model discovery, thinking variants & Antigravity defense | [docs/config/gateway.md](docs/config/gateway.md) |
+| **`imgsee`** | Multimodal vision engine & ephemeral image analysis | [docs/config/imgsee.md](docs/config/imgsee.md) |
+| **`usage`** | Multi-provider live cloud quota & token consumption tracking | [docs/config/usage.md](docs/config/usage.md) |
+| **`prompts`** | Dynamic provider prompt router & custom persona overrides | [docs/config/prompts.md](docs/config/prompts.md) |
+| **`messages`** | Custom guardrail block and warning message template overrides | [docs/config/overview.md](docs/config/overview.md) |
 
 ---
 
 ## 🔒 Sandbox Suite
+
+```jsonc
+// Quick config snippet (~/.config/opencode/omh.jsonc)
+// All guards default to true — only declare what you want to disable or customize:
+"sandbox": {
+	"enabled": true,
+	"commitGuard": { "maxChars": 72 }, // customize limit
+	"dangerousBash": { "enabled": true }
+}
+```
+
+> 📖 For full configuration options, ACL patterns, and regex tuning, see [docs/config/sandbox.md](docs/config/sandbox.md).
 
 ### 1. Read-Before-Write, Stale-Write & Bash Mutation Guard
 
@@ -404,6 +343,19 @@ Action: Action forbidden. Ask user for manual execution if needed.
 
 ## 🧠 Curated Memory & Agent Tool
 
+```jsonc
+// Quick config snippet (~/.config/opencode/omh.jsonc)
+"memory": {
+	"enabled": true,
+	"baseURL": "http://127.0.0.1:4000/v1",
+	"model": "google-antigravity/gemini-2.5-flash",
+	"budgets": { "user": 1500, "global": 2500, "project": 3500 },
+	"review": { "enabled": true }
+}
+```
+
+> 📖 For character budget tuning, gateway endpoints, and review settings, see [docs/config/memory.md](docs/config/memory.md).
+
 > [!INFO]
 > **Hermes Agent Architecture Adoption**
 > The memory subsystem adopts the battle-tested multi-target layout from **Hermes Agent** (`tools/memory_tool.py`), featuring atomic batch operations, character budget boundaries, clean JSON schema overrides, and post-turn background self-improvement reviews.
@@ -434,10 +386,10 @@ Action: Action forbidden. Ask user for manual execution if needed.
   `💾 Self-improvement review: Memory updated`.
 - **Direct OpenAI-Compatible Gateway**: Distillation and background reviews query any OpenAI-compatible endpoint directly via native `fetch()` without CLI dependencies.
 - **Native TUI Modal Inspector**: Full keyboard-driven inspector using OpenCode's native `api.ui.DialogSelect` & `api.ui.DialogPrompt`:
-  - `Enter` $\rightarrow$ Edit / Replace text
-  - `Ctrl+A` $\rightarrow$ Add new memory
-  - `Ctrl+D` (2x) $\rightarrow$ Delete memory with red row confirmation
-  - `↓/↑ / j/k` $\rightarrow$ Scroll & fuzzy search
+  - `Enter` → Edit / Replace text
+  - `Ctrl+A` → Add new memory
+  - `Ctrl+D` (2x) → Delete memory with red row confirmation
+  - `↓/↑ / j/k` → Scroll & fuzzy search
 
 ### Interactive Slash Commands:
 
@@ -454,6 +406,19 @@ Action: Action forbidden. Ask user for manual execution if needed.
 
 ## 🧭 Dynamic System Prompt Router
 
+```jsonc
+// Quick config snippet (~/.config/opencode/omh.jsonc)
+"prompts": {
+	"enabled": true,
+	"customDirectory": "~/.config/opencode/prompts",
+	"routes": {
+		// "kilo/tencent/hy3:free": "hy3.md"
+	}
+}
+```
+
+> 📖 For model routing rules and persona overrides, see [docs/config/prompts.md](docs/config/prompts.md).
+
 When using multi-provider models or local gateway proxies (like **Oh-My-Pi / OMP**), models outside OpenCode's hardcoded tier-1 list fall back to `PROMPT_DEFAULT`, leading to tool chatter and formatting mismatches.
 
 `prompts/` hooks into `experimental.chat.system.transform` to dynamically resolve and inject appropriate system prompts:
@@ -468,6 +433,17 @@ When using multi-provider models or local gateway proxies (like **Oh-My-Pi / OMP
 ---
 
 ## 🗜️ Context Compression & Dynamic Pruning Suite
+
+```jsonc
+// Quick config snippet (~/.config/opencode/omh.jsonc)
+"compress": {
+	"enabled": true,
+	"pruning": { "enabled": true, "recentTurns": 2, "minOutputChars": 2000 },
+	"milestones": { "pushAutoCompress": true }
+}
+```
+
+> 📖 For advanced pruning strategies and milestone compact rules, see [docs/config/compress.md](docs/config/compress.md).
 
 Long coding sessions inevitably fill the LLM context window with bloated historical logs (`npm test`, `git commit`, `curl`, `gh`, `node`). `compress/` intelligently optimizes context usage:
 
@@ -489,6 +465,15 @@ Long coding sessions inevitably fill the LLM context window with bloated histori
 
 ## 🔌 Local Gateway Bridge (`gateway/`)
 
+```jsonc
+// Quick config snippet (~/.config/opencode/omh.jsonc)
+"gateway": {
+	"enabled": true
+}
+```
+
+> 📖 For port resolution and CCA sanitization details, see [docs/config/gateway.md](docs/config/gateway.md).
+
 `gateway/` acts as the native OpenCode bridge to your local AI daemon (`gn gw` on `:4010` or `:4000`), eliminating manual JSON configuration and protecting against Google CCA schema rejections.
 
 ### Key Capabilities:
@@ -498,16 +483,21 @@ Long coding sessions inevitably fill the LLM context window with bloated histori
 - **OMP Catalog Metadata Enrichment**: Enriches models with exact token pricing (`cost`), context window limits, and thinking tiers (`variants`) directly from Oh-My-Pi catalog (`models.json`).
 - **Antigravity CCA Armor**: Intercepts and normalizes tool definitions in-flight, stripping OpenAPI keywords (`$schema`, `title`, `additionalProperties`) to prevent HTTP 400 Malformed Argument errors from Google Cloud Code Assist.
 
-```jsonc
-// omh.jsonc
-"gateway": {
- "enabled": true
-}
-```
-
 ---
 
 ## 👁️ Multimodal Vision Engine (`imgsee/`)
+
+```jsonc
+// Quick config snippet (~/.config/opencode/omh.jsonc)
+"imgsee": {
+	"enabled": true,
+	"gatewayUrl": "http://127.0.0.1:4010/v1/chat/completions",
+	"model": "google-antigravity/gemini-2.5-flash",
+	"maxBytes": 5242880
+}
+```
+
+> 📖 For image byte budgets and vision gateway timeouts, see [docs/config/imgsee.md](docs/config/imgsee.md).
 
 When coding agents need to inspect UI layouts, error screenshots, diagrams, or web pages, `imgsee/` provides out-of-band visual inspection by delegating directly to a vision-capable model (like `gemini-2.5-flash` or `gemini-3.7-flash` via local OMP gateway on `:4010` / `:4000`).
 
@@ -523,6 +513,19 @@ When coding agents need to inspect UI layouts, error screenshots, diagrams, or w
 ---
 
 ## 📊 Live Quota & Token Monitor (`usage/`)
+
+```jsonc
+// Quick config snippet (~/.config/opencode/omh.jsonc)
+"usage": {
+	"enabled": true,
+	"tokens": { "showSubagents": true, "subagentsCollapsed": true },
+	"quota": {
+		"ollama": { "accounts": { /* "prefix": "Account Name" */ } }
+	}
+}
+```
+
+> 📖 For multi-key quota aggregation and custom labels, see [docs/config/usage.md](docs/config/usage.md).
 
 Deterministic `/usage` slash command (0-token LLM — output is `ignored` transcript, never read by the model):
 
@@ -550,7 +553,7 @@ Deterministic `/usage` slash command (0-token LLM — output is `ignored` transc
 
 ## 🧪 Testing & Development
 
-`oh-my-hook` includes **142 unit tests** and **5 deterministic E2E hook pipeline test suites**.
+`oh-my-hook` includes **181 unit tests** and **7 deterministic E2E hook pipeline test suites**.
 
 ```bash
 # Run unit tests

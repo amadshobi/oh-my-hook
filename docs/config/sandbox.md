@@ -76,6 +76,26 @@ Configuration options for pre-execution guardrails, payload security, protected 
 
 ---
 
+## Default ON Behavior
+
+All sandbox guards (`readGuard`, `secretScanner`, `commitGuard`, `dangerousBash`, `devServerGuard`) are enabled (`true`) by default. You **do not** need to include options with `true` values in your configuration.
+
+Only declare options when disabling a guard or tweaking its parameters:
+
+```jsonc
+// Example: disable dangerousBash and customize commit message length
+{
+  "sandbox": {
+    "dangerousBash": false,
+    "commitGuard": {
+      "maxChars": 80
+    }
+  }
+}
+```
+
+---
+
 ## Backward Compatibility
 
 Legacy flat configuration properties (`readBeforeWrite`, `staleWrite`, `secretScanner`, `commitGuard`, `devServerGuard`, `dangerousBash`) are automatically normalized into their modular counterparts via `normalizeSandboxConfig` without requiring configuration migration.
