@@ -106,6 +106,8 @@ function parseJsonSafe(text) {
 export async function analyzeTurnReview(turnConversation, opts = {}) {
 	if (!turnConversation || !turnConversation.trim()) return [];
 
+	const existingMemories = opts.existingMemories ? `\n\nALREADY STORED MEMORIES (DO NOT DUPLICATE THESE):\n${opts.existingMemories}\n` : "";
+
 	const systemPrompt =
 		`You are a Hermes-style memory reflection engine. Your job is to analyze the recent conversation ` +
 		`between the user and AI assistant and determine if ANY new persistent facts should be stored or updated.\n\n` +
@@ -115,6 +117,7 @@ export async function analyzeTurnReview(turnConversation, opts = {}) {
 		`3. "project": Repository-specific rules, architecture decisions, test commands, conventions.\n\n` +
 		`RULES:\n` +
 		`- Be selective: only capture durable, high-signal rules, corrections, and explicit preferences.\n` +
+		`- STRICTLY DO NOT repeat or duplicate facts already listed in "ALREADY STORED MEMORIES".\n` +
 		`- DO NOT save temporary task progress, file contents, code diffs, or trivial discussion.\n` +
 		`- Output STRICT JSON ONLY in the following format:\n` +
 		`{\n` +
@@ -127,7 +130,7 @@ export async function analyzeTurnReview(turnConversation, opts = {}) {
 		`If no new facts or corrections are found, return: { "operations": [] }`;
 
 	const userMessage =
-		`Project workspace: ${opts.projectSlug || "general"}\n\n` +
+		`Project workspace: ${opts.projectSlug || "general"}${existingMemories}\n\n` +
 		`RECENT CONVERSATION:\n${turnConversation.slice(-6000)}`;
 
 	try {

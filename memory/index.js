@@ -116,23 +116,35 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 	let reviewTimer = null;
 	const recentTurns = [];
 
+	// Fast heuristic classifier: check if turn excerpt contains durable memory markers
+	const MEMORY_SIGNAL_REGEX = /\b(prefer|panggil|always|never|rule|jangan|wajib|selalu|dilarang|aturan|konvensi|format|setup|alias|port|branch|path)\b/i;
+
 	const scheduleBackgroundReview = (sessionID) => {
 		if (memCfg.review?.enabled === false) return;
 		if (recentTurns.length === 0) return;
 
 		clearTimeout(reviewTimer);
-		const delay = memCfg.review?.idleDelayMs ?? 3000;
+		const delay = memCfg.review?.idleDelayMs ?? 10000;
 
 		reviewTimer = setTimeout(async () => {
 			try {
 				const excerpt = recentTurns.slice(-4).join("\n");
+
+				// Gate 1: Length filter (skip short chat/noise)
+				if (excerpt.length < 30) return;
+
+				// Gate 2: Fast heuristic signal detection (skip plain conversational turns)
+				if (!MEMORY_SIGNAL_REGEX.test(excerpt)) return;
+
 				const slug = projectSlug(directory).split("/").pop() || "workspace";
+				const existingMem = readAllMemory(directory);
 
 				const ops = await analyzeTurnReview(excerpt, {
 					gatewayUrl: memCfg.baseURL,
 					model: memCfg.model,
 					apiKey: memCfg.apiKey,
 					projectSlug: slug,
+					existingMemories: existingMem,
 				});
 
 				if (Array.isArray(ops) && ops.length > 0) {

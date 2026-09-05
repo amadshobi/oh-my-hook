@@ -29,8 +29,8 @@ async function runCmd(hooks, cmd, args = "") {
 	}
 }
 
-test("projectSlug strips leading slash", () => {
-	assert.equal(projectSlug("/home/user/proj"), "home/user/proj");
+test("projectSlug returns clean directory name", () => {
+	assert.equal(projectSlug("/home/user/proj"), "proj");
 	assert.equal(projectSlug(""), "");
 });
 
