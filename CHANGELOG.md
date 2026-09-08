@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Injected `existingMemories` into `analyzeTurnReview()` prompt in `memory/client.js` to prevent LLMs from hallucinating and re-saving existing profile facts.
 - **Flattened Project Memory Path Structure**:
   - Refactored `projectSlug()` in `memory/store.js` to return clean directory basenames (`path.basename`), eliminating deeply nested paths (e.g. `projects/home/...`) in favor of flat single-level folders (`~/.config/opencode/memory/projects/<slug>/MEMORY.md`).
+- **Google Antigravity CCA Schema Sanitizer Hardening (Issue #23)**:
+  - Normalized JSON Schema `type` keywords to uppercase (`string` -> `STRING`) recursively through nested properties and definitions in `gateway/antigravity.js`.
+  - Pruned `required` entries that reference properties absent from `cleaned.properties`, deleting the `required` key entirely when nothing survives.
+  - Injected a `{ type: "STRING" }` items fallback for bare `ARRAY` schemas missing an explicit `items` declaration.
+  - Expanded `CCA_STRIP_KEYWORDS` with 9 additional forbidden protobuf/OpenAPI keywords (`const`, `contentEncoding`, `contentMediaType`, `dependentRequired`, `dependentSchemas`, `maxContains`, `minContains`, `unevaluatedItems`, `unevaluatedProperties`).
+- **Read-Guard Ledger Preservation Across Session Attach/Detach & Runner Restarts (Issue #24)**:
+  - Preserved read-guard state with 3-tier fallback lookup (`getReadRecord`) and disk freshness verification (`mtimeMs`/`size`) before permitting cross-session mutations.
+  - Added dedicated test suite `tests/read-guard.test.js` covering per-session read recording, self-stale prevention, cross-session allow/stale block, `session.deleted` cleanup, and new-file write allowance.
 
 ## [0.8.0] - 2026-09-04
 
