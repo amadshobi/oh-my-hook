@@ -11,8 +11,40 @@ import { recordCompaction } from "./stats.js";
 import { appendDebugEvent } from "./debug.js";
 import { createNotifier } from "../share/notify.js";
 
+const MAX_AUTOMATION_SESSIONS = 100;
 const pushMilestones = new Map();
 const sessionAutoCompactState = new Map();
+
+/**
+ * Set a key-value pair in a Map, evicting the oldest key if size exceeds maxSize.
+ */
+function setBounded(map, key, value, maxSize = MAX_AUTOMATION_SESSIONS) {
+	if (map.size >= maxSize && !map.has(key)) {
+		const oldestKey = map.keys().next().value;
+		if (oldestKey !== undefined) {
+			map.delete(oldestKey);
+		}
+	}
+	map.set(key, value);
+}
+
+/**
+ * Reset module-level automation state (for test isolation).
+ */
+export function _resetAutomationState() {
+	pushMilestones.clear();
+	sessionAutoCompactState.clear();
+}
+
+/**
+ * Get current sizes of module-level automation state (for test verification).
+ */
+export function _getAutomationMapSizes() {
+	return {
+		pushMilestones: pushMilestones.size,
+		sessionAutoCompactState: sessionAutoCompactState.size,
+	};
+}
 
 /**
  * Check if a command is a successful, non-dry-run git push.
@@ -97,7 +129,7 @@ export async function automationHooks({ client, directory }, opts = {}) {
 
 			if (toolName === "bash" && isGitPushCommand(cmd)) {
 				// Record push milestone
-				pushMilestones.set(sessionID, {
+				setBounded(pushMilestones, sessionID, {
 					pushedAt: Date.now(),
 					turnCountAfterPush: 0,
 					pushPending: true,
@@ -111,20 +143,28 @@ export async function automationHooks({ client, directory }, opts = {}) {
 		},
 
 		event: async (input) => {
-			if (!enabled || !pushAutoCompress) return;
 			const eventType = input?.event?.type || input?.type;
+			const sessionID =
+				input?.sessionID ||
+				input?.event?.properties?.sessionID ||
+				input?.properties?.sessionID ||
+				"default";
+
+			// Clean up state when a session is explicitly deleted
+			if (eventType === "session.deleted") {
+				pushMilestones.delete(sessionID);
+				sessionAutoCompactState.delete(sessionID);
+				lastIdleBySession.delete(sessionID);
+				return;
+			}
+
+			if (!enabled || !pushAutoCompress) return;
 			if (eventType !== "session.status" && eventType !== "session.idle")
 				return;
 
 			const status =
 				input?.event?.properties?.status || input?.properties?.status;
 			if (eventType === "session.status" && status !== "idle") return;
-
-			const sessionID =
-				input?.sessionID ||
-				input?.event?.properties?.sessionID ||
-				input?.properties?.sessionID ||
-				"default";
 
 			// Dedup fast repeated idle events per session
 			const now = Date.now();
@@ -150,7 +190,7 @@ export async function automationHooks({ client, directory }, opts = {}) {
 			milestone.pushPending = false;
 			autoState.count += 1;
 			autoState.lastCompactAt = now;
-			sessionAutoCompactState.set(sessionID, autoState);
+			setBounded(sessionAutoCompactState, sessionID, autoState);
 
 			const cwd = directory || process.cwd();
 			const snapshotText = buildMilestoneSnapshot(cwd, snapshotMaxChars);

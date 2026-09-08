@@ -4,6 +4,8 @@ import {
 	isGitPushCommand,
 	buildMilestoneSnapshot,
 	automationHooks,
+	_resetAutomationState,
+	_getAutomationMapSizes,
 } from "../compress/automation.js";
 
 test("automation: isGitPushCommand identifies push commands and filters dry-runs", () => {
@@ -135,4 +137,55 @@ test("automation: respects maxAutoCompressPerSession", async () => {
 		properties: { status: "idle", sessionID },
 	});
 	assert.equal(calls.length, 2); // No new calls
+});
+
+test("automation: session.deleted event purges state from memory maps", async () => {
+	_resetAutomationState();
+	const hooks = await automationHooks(
+		{ client: {}, directory: process.cwd() },
+		{ config: { milestones: { enabled: true, pushAutoCompress: true } } },
+	);
+
+	const sessionID = "ses-delete-purge-test";
+
+	// 1. Register push
+	await hooks["tool.execute.after"]({
+		tool: "bash",
+		sessionID,
+		args: { command: "git push" },
+	});
+
+	let sizes = _getAutomationMapSizes();
+	assert.equal(sizes.pushMilestones, 1);
+
+	// 2. Fire session.deleted event
+	await hooks.event({
+		type: "session.deleted",
+		properties: { sessionID },
+		sessionID,
+	});
+
+	sizes = _getAutomationMapSizes();
+	assert.equal(sizes.pushMilestones, 0);
+	assert.equal(sizes.sessionAutoCompactState, 0);
+});
+
+test("automation: module-level Maps evict oldest session when exceeding cap", async () => {
+	_resetAutomationState();
+	const hooks = await automationHooks(
+		{ client: {}, directory: process.cwd() },
+		{ config: { milestones: { enabled: true, pushAutoCompress: true } } },
+	);
+
+	// Insert 105 sessions sequentially (cap is 100)
+	for (let i = 0; i < 105; i++) {
+		await hooks["tool.execute.after"]({
+			tool: "bash",
+			sessionID: `ses-cap-${i}`,
+			args: { command: "git push" },
+		});
+	}
+
+	const sizes = _getAutomationMapSizes();
+	assert.equal(sizes.pushMilestones, 100);
 });
