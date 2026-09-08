@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-09-08
+
+### Added
+
+- **feat(tui)**: Quick file path picker modal (`FilePickerModal`) triggered via `Ctrl+O`, `/file` slash command, and the Command Palette (`oh-my-hook.picker.file`). Inserts relative path directly into prompt textarea via `tui.prompt.append` and copies to clipboard with zero LLM tokens.
+- **feat(tui)**: Ultra-fast file discovery engine via `git ls-files` (`--cached --others --exclude-standard`) with non-git BFS fallback and a 30s TTL in-memory cache.
+- **feat(tui)**: Universal clipboard copy supporting the OSC 52 terminal escape sequence (works over remote SSH, tmux, and mobile) and native OS tool fallbacks (`wl-copy`, `xclip`, `pbcopy`, `clip.exe`).
+- **feat(config)**: `picker.enabled` configuration toggle in `share/config.js` and the schema.
+
 ## [0.8.2] - 2026-09-08
 
 ### Fixed

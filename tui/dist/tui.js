@@ -21,6 +21,8 @@ import { appendMemory, replaceMemory, removeMemory, resolveTargetMemoryFile, get
 import { formatTokens, formatUSD, formatDuration } from "../../usage/format.js";
 import { openReadonly, opencodeDbPath } from "../../usage/store-db.js";
 import { getAgentTree } from "../../usage/tokens/tracker.js";
+import { discoverFiles } from "./lib/file-discovery.js";
+import { writeClipboard } from "./lib/clipboard-write.js";
 function ModeBadge(props) {
   const [modeState, setModeState] = createSignal(loadModeState() || {});
   const unwatch = watchModeState(nextState => {
@@ -1621,6 +1623,115 @@ function LastTurnItem(props) {
 }
 
 /**
+ * FilePickerModal — quick file path picker (Alt+P).
+ *
+ * Lists project files from the current workspace in a native DialogSelect with
+ * fuzzy search and folder-category grouping. Selecting an entry copies its
+ * relative path to the clipboard (OSC 52 + native fallback), then closes.
+ */
+function FilePickerModal(props) {
+  const theme = () => props.api?.theme?.current || {};
+  const files = createMemo(() => discoverFiles(props.directory));
+  const options = createMemo(() => files().map(f => ({
+    title: f,
+    value: f,
+    category: f.includes("/") ? f.slice(0, f.lastIndexOf("/")) : "root"
+  })));
+  const handleSelect = async selected => {
+    const path = typeof selected === "string" ? selected : selected?.value || selected?.title || "";
+    if (!path) return;
+
+    // Format text with trailing space (quote if contains spaces)
+    const textToInsert = path.includes(" ") ? `"${path}" ` : `${path} `;
+
+    // 1. Insert directly into active prompt textarea via OpenCode's native event
+    if (props.api.client?.tui?.publish) {
+      props.api.client.tui.publish({
+        body: {
+          type: "tui.prompt.append",
+          properties: {
+            text: textToInsert
+          }
+        }
+      }).catch(() => {});
+    }
+
+    // 2. Also write to clipboard as universal fallback
+    await writeClipboard(path);
+
+    // 3. Close dialog cleanly
+    if (props.api.ui?.dialog?.clear) {
+      props.api.ui.dialog.clear();
+    }
+
+    // 4. Feedback toast
+    if (props.api.ui?.toast) {
+      props.api.ui.toast({
+        variant: "success",
+        message: `Inserted: ${path}`,
+        duration: 2500
+      });
+    }
+  };
+  return (() => {
+    var _el$188 = _$createElement("box"),
+      _el$189 = _$createElement("box"),
+      _el$190 = _$createElement("text"),
+      _el$191 = _$createElement("span"),
+      _el$193 = _$createTextNode(` `),
+      _el$194 = _$createElement("span"),
+      _el$196 = _$createElement("text"),
+      _el$197 = _$createTextNode(` files`);
+    _$insertNode(_el$188, _el$189);
+    _$setProp(_el$188, "flexDirection", "column");
+    _$setProp(_el$188, "width", "100%");
+    _$setProp(_el$188, "flexGrow", 1);
+    _$setProp(_el$188, "justifyContent", "space-between");
+    _$insert(_el$188, _$createComponent(props.api.ui.DialogSelect, {
+      title: "File Picker",
+      placeholder: "Type to search files...",
+      get options() {
+        return options();
+      },
+      onSelect: handleSelect
+    }), _el$189);
+    _$insertNode(_el$189, _el$190);
+    _$insertNode(_el$189, _el$196);
+    _$setProp(_el$189, "flexDirection", "row");
+    _$setProp(_el$189, "justifyContent", "space-between");
+    _$setProp(_el$189, "paddingLeft", 4);
+    _$setProp(_el$189, "paddingRight", 2);
+    _$setProp(_el$189, "paddingBottom", 1);
+    _$setProp(_el$189, "flexShrink", 0);
+    _$insertNode(_el$190, _el$191);
+    _$insertNode(_el$190, _el$193);
+    _$insertNode(_el$190, _el$194);
+    _$insertNode(_el$191, _$createTextNode(`insert`));
+    _$insertNode(_el$194, _$createTextNode(`enter`));
+    _$insertNode(_el$196, _el$197);
+    _$insert(_el$196, () => files().length, _el$197);
+    _$effect(_p$ => {
+      var _v$61 = {
+          fg: theme().text || "#f3f4f6"
+        },
+        _v$62 = {
+          fg: theme().textMuted || "#6b7280"
+        },
+        _v$63 = theme().textMuted || "#6b7280";
+      _v$61 !== _p$.e && (_p$.e = _$setProp(_el$191, "style", _v$61, _p$.e));
+      _v$62 !== _p$.t && (_p$.t = _$setProp(_el$194, "style", _v$62, _p$.t));
+      _v$63 !== _p$.a && (_p$.a = _$setProp(_el$196, "fg", _v$63, _p$.a));
+      return _p$;
+    }, {
+      e: undefined,
+      t: undefined,
+      a: undefined
+    });
+    return _el$188;
+  })();
+}
+
+/**
  * OpenCode TUI surface plugin entrypoint.
  */
 export const tui = async function tui(api, options, meta) {
@@ -1738,10 +1849,32 @@ export const tui = async function tui(api, options, meta) {
         }
       });
     }
+    if (config?.picker?.enabled !== false) {
+      commands.push({
+        namespace: "palette",
+        name: "oh-my-hook.picker.file",
+        title: "File Picker",
+        desc: "Insert file path into prompt (fuzzy search)",
+        category: "oh-my-hook",
+        slashName: "file",
+        run() {
+          if (api.ui?.dialog?.replace) {
+            api.ui.dialog.replace(() => _$createComponent(FilePickerModal, {
+              api: api,
+              directory: directory
+            }));
+            api.ui.dialog.setSize?.("large");
+          }
+        }
+      });
+    }
     if (commands.length > 0) {
       const unregisterLayer = api.keymap.registerLayer({
         commands,
-        bindings: []
+        bindings: [{
+          key: "ctrl+o",
+          cmd: "oh-my-hook.picker.file"
+        }]
       });
       if (api.lifecycle?.onDispose) {
         api.lifecycle.onDispose(unregisterLayer);
@@ -1763,15 +1896,15 @@ export const tui = async function tui(api, options, meta) {
         },
         sidebar_content(ctx, props) {
           return (() => {
-            var _el$188 = _$createElement("box");
-            _$setProp(_el$188, "flexDirection", "column");
-            _$setProp(_el$188, "gap", 1);
-            _$insert(_el$188, _$createComponent(SidebarWidget, {
+            var _el$198 = _$createElement("box");
+            _$setProp(_el$198, "flexDirection", "column");
+            _$setProp(_el$198, "gap", 1);
+            _$insert(_el$198, _$createComponent(SidebarWidget, {
               api: api,
               directory: directory,
               sessionID: () => props?.session_id || ctx?.session_id || activeSessionID() || resolveActiveSessionID(api) || ""
             }), null);
-            _$insert(_el$188, _$createComponent(Show, {
+            _$insert(_el$198, _$createComponent(Show, {
               get when() {
                 return config?.usage?.enabled !== false;
               },
@@ -1786,7 +1919,7 @@ export const tui = async function tui(api, options, meta) {
                 });
               }
             }), null);
-            return _el$188;
+            return _el$198;
           })();
         }
       }
