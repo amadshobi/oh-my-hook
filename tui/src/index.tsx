@@ -35,6 +35,8 @@ import {
 import { formatTokens, formatUSD, formatDuration } from "../../usage/format.js";
 import { openReadonly, opencodeDbPath } from "../../usage/store-db.js";
 import { getAgentTree } from "../../usage/tokens/tracker.js";
+import { discoverFiles } from "./lib/file-discovery.js";
+import { writeClipboard } from "./lib/clipboard-write.js";
 
 function ModeBadge(props: { api: any; sessionID: () => string }) {
 	const [modeState, setModeState] = createSignal(loadModeState() || {});
@@ -1095,6 +1097,96 @@ function LastTurnItem(props: { api: any; sessionID: () => string }) {
 }
 
 /**
+ * FilePickerModal — quick file path picker (Alt+P).
+ *
+ * Lists project files from the current workspace in a native DialogSelect with
+ * fuzzy search and folder-category grouping. Selecting an entry copies its
+ * relative path to the clipboard (OSC 52 + native fallback), then closes.
+ */
+function FilePickerModal(props: { api: any; directory: string }) {
+	const theme = () => props.api?.theme?.current || {};
+	const files = createMemo(() => discoverFiles(props.directory));
+	const options = createMemo(() =>
+		files().map((f) => ({
+			title: f,
+			value: f,
+			category: f.includes("/") ? f.slice(0, f.lastIndexOf("/")) : "root",
+		})),
+	);
+
+	const handleSelect = async (selected: any) => {
+		const path =
+			typeof selected === "string"
+				? selected
+				: selected?.value || selected?.title || "";
+		if (!path) return;
+
+		// Format text with trailing space (quote if contains spaces)
+		const textToInsert = path.includes(" ") ? `"${path}" ` : `${path} `;
+
+		// 1. Insert directly into active prompt textarea via OpenCode's native event
+		if (props.api.client?.tui?.publish) {
+			props.api.client.tui
+				.publish({
+					body: {
+						type: "tui.prompt.append",
+						properties: { text: textToInsert },
+					},
+				})
+				.catch(() => {});
+		}
+
+		// 2. Also write to clipboard as universal fallback
+		await writeClipboard(path);
+
+		// 3. Close dialog cleanly
+		if (props.api.ui?.dialog?.clear) {
+			props.api.ui.dialog.clear();
+		}
+
+		// 4. Feedback toast
+		if (props.api.ui?.toast) {
+			props.api.ui.toast({
+				variant: "success",
+				message: `Inserted: ${path}`,
+				duration: 2500,
+			});
+		}
+	};
+
+	return (
+		<box
+			flexDirection="column"
+			width="100%"
+			flexGrow={1}
+			justifyContent="space-between"
+		>
+			<props.api.ui.DialogSelect
+				title="File Picker"
+				placeholder="Type to search files..."
+				options={options()}
+				onSelect={handleSelect}
+			/>
+			{/* Footer action bar: hint + file count */}
+			<box
+				flexDirection="row"
+				justifyContent="space-between"
+				paddingLeft={4}
+				paddingRight={2}
+				paddingBottom={1}
+				flexShrink={0}
+			>
+				<text>
+					<span style={{ fg: theme().text || "#f3f4f6" }}>insert</span>{" "}
+					<span style={{ fg: theme().textMuted || "#6b7280" }}>enter</span>
+				</text>
+				<text fg={theme().textMuted || "#6b7280"}>{files().length} files</text>
+			</box>
+		</box>
+	);
+}
+
+/**
  * OpenCode TUI surface plugin entrypoint.
  */
 export const tui = async function tui(api: any, options: any, meta: any) {
@@ -1221,10 +1313,29 @@ export const tui = async function tui(api: any, options: any, meta: any) {
 			});
 		}
 
+		if (config?.picker?.enabled !== false) {
+			commands.push({
+				namespace: "palette",
+				name: "oh-my-hook.picker.file",
+				title: "File Picker",
+				desc: "Insert file path into prompt (fuzzy search)",
+				category: "oh-my-hook",
+				slashName: "file",
+				run() {
+					if (api.ui?.dialog?.replace) {
+						api.ui.dialog.replace(() => (
+							<FilePickerModal api={api} directory={directory} />
+						));
+						api.ui.dialog.setSize?.("large");
+					}
+				},
+			});
+		}
+
 		if (commands.length > 0) {
 			const unregisterLayer = api.keymap.registerLayer({
 				commands,
-				bindings: [],
+				bindings: [{ key: "ctrl+o", cmd: "oh-my-hook.picker.file" }],
 			});
 
 			if (api.lifecycle?.onDispose) {

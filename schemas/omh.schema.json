@@ -611,6 +611,18 @@
 				}
 			}
 		},
+		"picker": {
+			"type": "object",
+			"description": "Configuration for the quick file path picker modal",
+			"additionalProperties": false,
+			"properties": {
+				"enabled": {
+					"type": "boolean",
+					"description": "Enable or disable the quick file path picker modal (Alt+P)",
+					"default": true
+				}
+			}
+		},
 		"usage": {
 			"type": "object",
 			"description": "Live cloud quota and token consumption tracking in TUI & slash commands.",

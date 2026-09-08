@@ -238,6 +238,9 @@ export const DEFAULTS = {
 		maxBytes: 5242880, // 5 MiB
 		timeoutMs: 60000,
 	},
+	picker: {
+		enabled: true,
+	},
 	usage: {
 		enabled: true,
 		tokens: {
