@@ -90,6 +90,8 @@ Error(blockMessage(...))` so the model sees a clear reason. Reminders use
 - **Memory is curated only** — never auto-log conversation. Fill it via
   `/remember` or `/capture` (AI distill). Memory injects into the main
   agent's system prompt; subagents get none automatically.
+  Enforces in-process heuristic gating (`MEMORY_SIGNAL_REGEX`), bullet deduplication,
+  and flattened project paths (`~/.config/opencode/memory/projects/<slug>/MEMORY.md`).
 - **Slash commands register via the `config` hook** (`cfg.command[name] =
 { template, description }`) and are handled in `command.execute.before`
   — the opencode-quota pattern. Keep template/description short.

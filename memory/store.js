@@ -44,12 +44,13 @@ export const USER_FILE = path.join(MEMORY_ROOT, "USER.md");
 export const GLOBAL_FILE = path.join(MEMORY_ROOT, "MEMORY.md");
 
 /**
- * Slugify a project directory into a stable relative path fragment.
- * ~/projects/my-app → "home/projects/my-app" (no leading slash).
+ * Slugify a project directory into a clean, flat name.
+ * ~/civil/projects/civil-api → "civil-api"
  */
 export function projectSlug(projectDir) {
 	if (!projectDir) return "";
-	return path.resolve(projectDir).split(path.sep).join("/").replace(/^\/+/, "");
+	const resolved = path.resolve(projectDir);
+	return path.basename(resolved);
 }
 
 /** Dynamic per-project memory file path. */
@@ -287,6 +288,12 @@ export function appendMemory(file, entry) {
 	const existing = readMemory(file).trim();
 	const cleanEntry = entry.replace(/\n/g, " ").trim();
 	const line = `- ${cleanEntry}`;
+
+	// Anti-redundancy guard: skip if bullet already exists (case-insensitive)
+	const existingBullets = parseBullets(existing).map((b) => b.toLowerCase().trim());
+	if (existingBullets.includes(cleanEntry.toLowerCase())) {
+		return line;
+	}
 
 	let defaultHeader = "# Memory";
 	if (file.endsWith("USER.md")) {

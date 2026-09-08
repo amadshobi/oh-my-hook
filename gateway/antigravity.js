@@ -10,11 +10,20 @@ const CCA_STRIP_KEYWORDS = new Set([
 	"$schema",
 	"$id",
 	"title",
+	"const",
+	"contentEncoding",
+	"contentMediaType",
+	"dependentRequired",
+	"dependentSchemas",
+	"maxContains",
+	"maxProperties",
+	"minContains",
+	"minProperties",
 	"patternProperties",
 	"propertyNames",
-	"minProperties",
-	"maxProperties",
 	"additionalProperties",
+	"unevaluatedItems",
+	"unevaluatedProperties",
 ]);
 
 /**
@@ -79,12 +88,40 @@ export function normalizeSchemaForCCA(schema) {
 			continue;
 		}
 
+		// Normalize JSON Schema type keywords to uppercase (CCA expects canonical casing)
+		if (key === "type" && typeof value === "string") {
+			cleaned[key] = value.toUpperCase();
+			continue;
+		}
+
 		cleaned[key] = value;
 	}
 
-	// Ensure object types have properties defined
-	if (cleaned.type === "object" && !cleaned.properties) {
+	// Ensure object types have properties defined (guard the uppercase
+	// normalization from Milestone 1 while remaining tolerant of lowercase input)
+	if (
+		(cleaned.type === "OBJECT" || cleaned.type === "object") &&
+		!cleaned.properties
+	) {
 		cleaned.properties = {};
+	}
+
+	// Ensure array types always declare an items schema
+	if (cleaned.type === "ARRAY" && !cleaned.items) {
+		cleaned.items = { type: "STRING" };
+	}
+
+	// Prune required entries that reference properties removed/never defined
+	// Using Object.hasOwn prevents prototype pollution issues (e.g. "toString", "valueOf")
+	if (Array.isArray(cleaned.required) && cleaned.properties) {
+		const pruned = cleaned.required.filter((name) =>
+			Object.hasOwn(cleaned.properties, name),
+		);
+		if (pruned.length > 0) {
+			cleaned.required = pruned;
+		} else {
+			delete cleaned.required;
+		}
 	}
 
 	return cleaned;

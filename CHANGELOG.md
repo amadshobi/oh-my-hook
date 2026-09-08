@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-09-08
+
+### Added
+
+- **Memory Heuristic Gatekeeper**:
+  - Implemented fast in-process regex classifier (`MEMORY_SIGNAL_REGEX`) in `memory/index.js` to detect durable preference markers (`prefer`, `panggil`, `always`, `never`, `rule`, `jangan`, `wajib`, `selalu`, `dilarang`, `aturan`, `konvensi`, `format`, `setup`, `alias`, `port`, `branch`, `path`) before triggering background AI turn reviews.
+  - Added short-turn excerpt length filtering (< 30 chars) to drop conversational chatter and acknowledgement messages without consuming LLM inference tokens.
+  - Extended background review debounce timer from 3s to 10s (`idleDelayMs`), reducing background review frequency on continuous assistant output.
+
+### Fixed
+
+- **Memory Anti-Redundancy & Deduplication Guard**:
+  - Hardened `appendMemory()` in `memory/store.js` with case-insensitive bullet deduplication, rejecting exact duplicate writes to markdown stores.
+  - Injected `existingMemories` into `analyzeTurnReview()` prompt in `memory/client.js` to prevent LLMs from hallucinating and re-saving existing profile facts.
+- **Flattened Project Memory Path Structure**:
+  - Refactored `projectSlug()` in `memory/store.js` to return clean directory basenames (`path.basename`), eliminating deeply nested paths (e.g. `projects/home/...`) in favor of flat single-level folders (`~/.config/opencode/memory/projects/<slug>/MEMORY.md`).
+- **Google Antigravity CCA Schema Sanitizer Hardening (Issue #23)**:
+  - Normalized JSON Schema `type` keywords to uppercase (`string` -> `STRING`) recursively through nested properties and definitions in `gateway/antigravity.js`.
+  - Pruned `required` entries that reference properties absent from `cleaned.properties`, deleting the `required` key entirely when nothing survives.
+  - Injected a `{ type: "STRING" }` items fallback for bare `ARRAY` schemas missing an explicit `items` declaration.
+  - Expanded `CCA_STRIP_KEYWORDS` with 9 additional forbidden protobuf/OpenAPI keywords (`const`, `contentEncoding`, `contentMediaType`, `dependentRequired`, `dependentSchemas`, `maxContains`, `minContains`, `unevaluatedItems`, `unevaluatedProperties`).
+- **Read-Guard Ledger Preservation Across Session Attach/Detach & Runner Restarts (Issue #24)**:
+  - Preserved read-guard state with 3-tier fallback lookup (`getReadRecord`) and disk freshness verification (`mtimeMs`/`size`) before permitting cross-session mutations.
+  - Added dedicated test suite `tests/read-guard.test.js` covering per-session read recording, self-stale prevention, cross-session allow/stale block, `session.deleted` cleanup, and new-file write allowance.
+
 ## [0.8.0] - 2026-09-04
 
 ### Added
