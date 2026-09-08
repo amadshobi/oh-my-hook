@@ -112,9 +112,10 @@ export function normalizeSchemaForCCA(schema) {
 	}
 
 	// Prune required entries that reference properties removed/never defined
+	// Using Object.hasOwn prevents prototype pollution issues (e.g. "toString", "valueOf")
 	if (Array.isArray(cleaned.required) && cleaned.properties) {
-		const pruned = cleaned.required.filter(
-			(name) => name in cleaned.properties,
+		const pruned = cleaned.required.filter((name) =>
+			Object.hasOwn(cleaned.properties, name),
 		);
 		if (pruned.length > 0) {
 			cleaned.required = pruned;

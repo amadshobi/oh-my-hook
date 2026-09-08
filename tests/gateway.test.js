@@ -376,6 +376,14 @@ test("gateway/antigravity: prunes required entries referencing missing propertie
 		required: ["valid"],
 	});
 	assert.deepEqual(clean.required, ["valid"]);
+
+	// Case D: prototype pollution safety (e.g. "toString", "valueOf" not declared in properties)
+	const protoCheck = normalizeSchemaForCCA({
+		type: "object",
+		properties: { valid: { type: "string" } },
+		required: ["valid", "toString", "valueOf"],
+	});
+	assert.deepEqual(protoCheck.required, ["valid"]);
 });
 
 test("gateway/antigravity: injects empty properties fallback for bare object schemas after uppercase type normalization", () => {
