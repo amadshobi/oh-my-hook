@@ -88,27 +88,26 @@ export function normalizeSchemaForCCA(schema) {
 			continue;
 		}
 
-		// Normalize JSON Schema type keywords to uppercase (CCA expects canonical casing)
+		// Normalize JSON Schema type keywords to standard lowercase (draft-07 / AJV compliance)
 		if (key === "type" && typeof value === "string") {
-			cleaned[key] = value.toUpperCase();
+			cleaned[key] = value.toLowerCase();
 			continue;
 		}
 
 		cleaned[key] = value;
 	}
 
-	// Ensure object types have properties defined (guard the uppercase
-	// normalization from Milestone 1 while remaining tolerant of lowercase input)
+	// Ensure object types have properties defined
 	if (
-		(cleaned.type === "OBJECT" || cleaned.type === "object") &&
+		(cleaned.type === "object" || cleaned.type === "OBJECT") &&
 		!cleaned.properties
 	) {
 		cleaned.properties = {};
 	}
 
 	// Ensure array types always declare an items schema
-	if (cleaned.type === "ARRAY" && !cleaned.items) {
-		cleaned.items = { type: "STRING" };
+	if ((cleaned.type === "array" || cleaned.type === "ARRAY") && !cleaned.items) {
+		cleaned.items = { type: "string" };
 	}
 
 	// Prune required entries that reference properties removed/never defined

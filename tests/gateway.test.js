@@ -100,13 +100,13 @@ test("gateway/antigravity: strips forbidden CCA keywords recursively across prop
 
 	// Properties sanitized
 	assert.equal(cleaned.properties.path.title, undefined);
-	assert.equal(cleaned.properties.path.type, "STRING");
+	assert.equal(cleaned.properties.path.type, "string");
 	assert.equal(cleaned.properties.options.additionalProperties, undefined);
 	assert.equal(
 		cleaned.properties.options.properties.overwrite.title,
 		undefined,
 	);
-	assert.equal(cleaned.properties.options.properties.overwrite.type, "BOOLEAN");
+	assert.equal(cleaned.properties.options.properties.overwrite.type, "boolean");
 	assert.equal(cleaned.required[0], "path");
 });
 
@@ -312,10 +312,10 @@ test("gateway/antigravity: strips Issue #23 keywords const/contentEncoding/conte
 	assert.equal(cleaned.properties.flag.const, undefined);
 	assert.equal(cleaned.properties.flag.contentEncoding, undefined);
 	assert.equal(cleaned.properties.flag.contentMediaType, undefined);
-	assert.equal(cleaned.properties.flag.type, "STRING");
+	assert.equal(cleaned.properties.flag.type, "string");
 });
 
-test("gateway/antigravity: normalizes primitive type keywords to uppercase including nested properties", () => {
+test("gateway/antigravity: normalizes primitive type keywords to lowercase including nested properties", () => {
 	const cleaned = normalizeSchemaForCCA({
 		type: "object",
 		properties: {
@@ -328,28 +328,28 @@ test("gateway/antigravity: normalizes primitive type keywords to uppercase inclu
 		},
 	});
 
-	assert.equal(cleaned.type, "OBJECT");
-	assert.equal(cleaned.properties.name.type, "STRING");
-	assert.equal(cleaned.properties.count.type, "INTEGER");
-	assert.equal(cleaned.properties.ratio.type, "NUMBER");
-	assert.equal(cleaned.properties.active.type, "BOOLEAN");
-	assert.equal(cleaned.properties.tags.type, "ARRAY");
-	assert.equal(cleaned.properties.meta.type, "OBJECT");
+	assert.equal(cleaned.type, "object");
+	assert.equal(cleaned.properties.name.type, "string");
+	assert.equal(cleaned.properties.count.type, "integer");
+	assert.equal(cleaned.properties.ratio.type, "number");
+	assert.equal(cleaned.properties.active.type, "boolean");
+	assert.equal(cleaned.properties.tags.type, "array");
+	assert.equal(cleaned.properties.meta.type, "object");
 });
 
-test("gateway/antigravity: injects STRING items fallback for bare arrays and preserves normalized existing items", () => {
-	// Bare array without items gets a STRING fallback
+test("gateway/antigravity: injects string items fallback for bare arrays and preserves normalized existing items", () => {
+	// Bare array without items gets a string fallback
 	const bare = normalizeSchemaForCCA({ type: "array" });
-	assert.equal(bare.type, "ARRAY");
-	assert.deepEqual(bare.items, { type: "STRING" });
+	assert.equal(bare.type, "array");
+	assert.deepEqual(bare.items, { type: "string" });
 
-	// Existing items are preserved and normalized to uppercase
+	// Existing items are preserved and normalized to lowercase
 	const withItems = normalizeSchemaForCCA({
 		type: "array",
 		items: { type: "number" },
 	});
-	assert.equal(withItems.type, "ARRAY");
-	assert.deepEqual(withItems.items, { type: "NUMBER" });
+	assert.equal(withItems.type, "array");
+	assert.deepEqual(withItems.items, { type: "number" });
 });
 
 test("gateway/antigravity: prunes required entries referencing missing properties", () => {
@@ -386,15 +386,15 @@ test("gateway/antigravity: prunes required entries referencing missing propertie
 	assert.deepEqual(protoCheck.required, ["valid"]);
 });
 
-test("gateway/antigravity: injects empty properties fallback for bare object schemas after uppercase type normalization", () => {
-	// Lowercase input type is uppercased AND gets the properties fallback.
+test("gateway/antigravity: injects empty properties fallback for bare object schemas after lowercase type normalization", () => {
+	// Lowercase input type remains lowercase AND gets the properties fallback.
 	const lower = normalizeSchemaForCCA({ type: "object" });
-	assert.equal(lower.type, "OBJECT");
+	assert.equal(lower.type, "object");
 	assert.deepEqual(lower.properties, {});
 
-	// Already-uppercase input type also gets the properties fallback.
+	// Already-uppercase input type is normalized to lowercase and gets the properties fallback.
 	const upper = normalizeSchemaForCCA({ type: "OBJECT" });
-	assert.equal(upper.type, "OBJECT");
+	assert.equal(upper.type, "object");
 	assert.deepEqual(upper.properties, {});
 
 	// Nested object properties without properties also receive the fallback.
@@ -404,7 +404,7 @@ test("gateway/antigravity: injects empty properties fallback for bare object sch
 			meta: { type: "object" },
 		},
 	});
-	assert.equal(nested.properties.meta.type, "OBJECT");
+	assert.equal(nested.properties.meta.type, "object");
 	assert.deepEqual(nested.properties.meta.properties, {});
 
 	// Existing properties are preserved untouched.
@@ -412,6 +412,6 @@ test("gateway/antigravity: injects empty properties fallback for bare object sch
 		type: "object",
 		properties: { name: { type: "string" } },
 	});
-	assert.equal(withProps.type, "OBJECT");
-	assert.deepEqual(withProps.properties, { name: { type: "STRING" } });
+	assert.equal(withProps.type, "object");
+	assert.deepEqual(withProps.properties, { name: { type: "string" } });
 });
