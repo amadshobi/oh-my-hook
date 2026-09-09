@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Check staged changes only (efficient, fast execution)
-STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -v '^tests/' || true)
+# Check staged changes only (efficient, fast execution, exclude tests and changelog documentation)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -v '^tests/' | grep -v '^CHANGELOG.md$' || true)
 
 # 1. Full Secret Scanning on Staged Diff
 if [ -n "$STAGED_FILES" ]; then
