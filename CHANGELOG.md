@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-09-12
+
+### Fixed
+
+- **Gateway Discovery Resilience & Extended Fallback Timeout (`gateway/discovery.js`)**:
+  - Increased discovery HTTP timeout from 3000ms to 5000ms (`timeoutMs = 5000`) to prevent premature aborts when local proxy gateways (like NexusRoute) handle upstream fallbacks or dead upstreams.
+  - Hardened snapshot disk cache validation to verify parsed cache object is non-empty before returning it as a fallback.
+
 ## [0.9.1] - 2026-09-08
 
 ### Fixed

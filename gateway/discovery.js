@@ -27,7 +27,7 @@ export async function fetchGatewayModels(
 	baseUrl,
 	apiKey = "dummy",
 	providerId = "local-gateway",
-	timeoutMs = 3000,
+	timeoutMs = 5000,
 	opts = {},
 ) {
 	const cachePath = opts.cachePath || getSnapshotCachePath(providerId);
@@ -84,7 +84,13 @@ export async function fetchGatewayModels(
 	if (existsSync(cachePath)) {
 		try {
 			const cached = JSON.parse(readFileSync(cachePath, "utf8"));
-			return cached;
+			if (
+				cached &&
+				typeof cached === "object" &&
+				Object.keys(cached).length > 0
+			) {
+				return cached;
+			}
 		} catch {
 			// ignore malformed cache
 		}
