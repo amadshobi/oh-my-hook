@@ -86,6 +86,48 @@ export function isReasoningModel(rawId) {
 }
 
 /**
+ * Heuristic & catalog check if model supports multimodal image/vision inputs.
+ *
+ * @param {string} rawId
+ * @param {any} [catalogModel]
+ * @param {any} [rawModel]
+ * @returns {boolean}
+ */
+export function isVisionModel(rawId, catalogModel = null, rawModel = null) {
+	if (
+		Array.isArray(rawModel?.input_modalities) &&
+		rawModel.input_modalities.includes("image")
+	) {
+		return true;
+	}
+	if (
+		Array.isArray(rawModel?.modalities?.input) &&
+		rawModel.modalities.input.includes("image")
+	) {
+		return true;
+	}
+	if (
+		Array.isArray(catalogModel?.input) &&
+		catalogModel.input.includes("image")
+	) {
+		return true;
+	}
+
+	const lower = rawId.toLowerCase();
+	return (
+		lower.includes("gemini") ||
+		lower.includes("claude") ||
+		lower.includes("gpt-4o") ||
+		lower.includes("gpt-5") ||
+		lower.includes("vision") ||
+		lower.includes("vl") ||
+		lower.includes("omni") ||
+		lower.includes("pixtral") ||
+		lower.includes("qwen-vl")
+	);
+}
+
+/**
  * Context window size estimator based on known model family architectures.
  */
 export function estimateContextWindow(rawId) {
@@ -160,6 +202,7 @@ export function normalizeGatewayModels(
 
 		const displayName = formatModelDisplayName(rawId, catalogModel?.name);
 		const variants = generateModelVariants(rawId);
+		const hasVision = isVisionModel(rawId, catalogModel, m);
 
 		normalized[modelKey] = {
 			id: rawId,
@@ -172,15 +215,19 @@ export function normalizeGatewayModels(
 				url: baseUrl,
 				npm: "@ai-sdk/openai-compatible",
 			},
+			modalities: {
+				input: hasVision ? ["text", "image"] : ["text"],
+				output: ["text"],
+			},
 			capabilities: {
 				temperature: !(lower.includes("o1") || lower.includes("o3")),
 				reasoning,
-				attachment: false,
+				attachment: hasVision,
 				toolcall: true,
 				input: {
 					text: true,
 					audio: false,
-					image: false,
+					image: hasVision,
 					video: false,
 					pdf: false,
 				},

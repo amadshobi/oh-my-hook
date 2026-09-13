@@ -44,10 +44,19 @@ export const imgseeModule = async (input, opts = {}) => {
 			};
 		},
 
-		// --- 3. System Prompt Guidance: Force agents to use `imgsee` for images ---
+		// --- 3. System Prompt Guidance: Adaptively guide agents on vision capabilities ---
 		"experimental.chat.system.transform": async (sysInput, sysOutput) => {
 			if (imgseeCfg.enabled === false) return;
 			if (isSubagent(sysInput, agentModes)) return;
+
+			// Auto-rotate: if the active model already supports native multimodal vision,
+			// do NOT inject the restrictive imgsee-only prompt rule so it can process images natively.
+			const model = sysInput?.model;
+			const hasNativeVision = Boolean(
+				model?.capabilities?.input?.image === true ||
+				model?.modalities?.input?.includes("image")
+			);
+			if (hasNativeVision) return;
 
 			sysOutput.system = sysOutput.system || [];
 			sysOutput.system.push(

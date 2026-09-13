@@ -104,6 +104,9 @@ function buildModelsMap(discovered) {
 			tool_call: m.capabilities.toolcall,
 			reasoning: m.capabilities.reasoning,
 			temperature: m.capabilities.temperature,
+			attachment: m.capabilities.attachment,
+			modalities: m.modalities,
+			capabilities: m.capabilities,
 			interleaved:
 				typeof m.capabilities.interleaved === "object" &&
 				m.capabilities.interleaved !== null

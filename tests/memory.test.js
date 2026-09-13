@@ -197,3 +197,55 @@ test("memoryHooks: tool.definition supplies explicit Hermes JSON schema", async 
 	]);
 	assert.deepEqual(output.jsonSchema.required, []);
 });
+
+test("memoryHooks: actionable Hermes banner and post-compaction sync guidance", async () => {
+	const project = makeProject();
+	const hooks = await memoryHooks({ client: {}, directory: project });
+
+	// Add an entry so Hermes block renders
+	await runCmd(hooks, "memory", "add sync-check");
+
+	// 1. Check system transform has actionable CTA
+	const normalSysOut = { system: [] };
+	await hooks["experimental.chat.system.transform"](
+		{ sessionID: "s1" },
+		normalSysOut,
+	);
+	assert.ok(
+		normalSysOut.system.some((s) =>
+			s.includes("ACTIONABLE: Call native tool 'memory'"),
+		),
+	);
+	// Normal turn does NOT have post-compaction sync notice
+	assert.ok(
+		!normalSysOut.system.some((s) => s.includes("POST-COMPACTION MEMORY SYNC")),
+	);
+
+	// 2. Post-compaction continue turn receives explicit sync guidance
+	const postCompactSysOut = { system: [] };
+	await hooks["experimental.chat.system.transform"](
+		{
+			sessionID: "s1",
+			message: { metadata: { compaction_continue: true } },
+		},
+		postCompactSysOut,
+	);
+	assert.ok(
+		postCompactSysOut.system.some((s) =>
+			s.includes("POST-COMPACTION MEMORY SYNC"),
+		),
+	);
+
+	// 3. Autocontinue hook keeps output.enabled true
+	const autoOut = { enabled: false };
+	await hooks["experimental.compaction.autocontinue"](
+		{ sessionID: "s1" },
+		autoOut,
+	);
+	assert.equal(autoOut.enabled, true);
+
+	rmSync(path.dirname(projectMemoryFile(project)), {
+		recursive: true,
+		force: true,
+	});
+});

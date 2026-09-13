@@ -10,6 +10,7 @@ import { normalizeSchemaForCCA } from "../gateway/antigravity.js";
 import {
 	formatModelDisplayName,
 	isReasoningModel,
+	isVisionModel,
 	estimateContextWindow,
 	normalizeGatewayModels,
 } from "../gateway/normalizer.js";
@@ -414,4 +415,58 @@ test("gateway/antigravity: injects empty properties fallback for bare object sch
 	});
 	assert.equal(withProps.type, "object");
 	assert.deepEqual(withProps.properties, { name: { type: "string" } });
+});
+
+test("gateway/normalizer: isVisionModel correctly classifies multimodal vs text-only models", () => {
+	// 1. Upstream payload declaration
+	assert.equal(
+		isVisionModel("custom/model", null, { input_modalities: ["text", "image"] }),
+		true,
+	);
+	assert.equal(
+		isVisionModel("custom/model", null, { modalities: { input: ["image"] } }),
+		true,
+	);
+
+	// 2. OMP catalog declaration
+	assert.equal(
+		isVisionModel("custom/model", { input: ["text", "image"] }, null),
+		true,
+	);
+
+	// 3. Known multimodal heuristics
+	assert.equal(isVisionModel("google-antigravity/gemini-3.8-flash"), true);
+	assert.equal(isVisionModel("google-antigravity/claude-sonnet-4-6"), true);
+	assert.equal(isVisionModel("openrouter/openai/gpt-4o"), true);
+	assert.equal(isVisionModel("openrouter/qwen/qwen-2.5-vl-72b"), true);
+
+	// 4. Text-only models
+	assert.equal(isVisionModel("cmc/deepseek/deepseek-v4-flash"), false);
+	assert.equal(isVisionModel("openrouter/z-ai/glm-5.3-flash"), false);
+	assert.equal(isVisionModel("unknown/plain-llm"), false);
+});
+
+test("gateway/normalizer: normalizeGatewayModels assigns image modalities and attachment capabilities", () => {
+	const models = normalizeGatewayModels([
+		{
+			id: "google-antigravity/gemini-3.8-flash",
+			input_modalities: ["text", "image"],
+		},
+		{
+			id: "cmc/deepseek/deepseek-v4-flash",
+			input_modalities: ["text"],
+		},
+	]);
+
+	const gemini = models["google-antigravity/gemini-3.8-flash"];
+	assert.ok(gemini);
+	assert.equal(gemini.capabilities.attachment, true);
+	assert.equal(gemini.capabilities.input.image, true);
+	assert.deepEqual(gemini.modalities.input, ["text", "image"]);
+
+	const deepseek = models["cmc/deepseek/deepseek-v4-flash"];
+	assert.ok(deepseek);
+	assert.equal(deepseek.capabilities.attachment, false);
+	assert.equal(deepseek.capabilities.input.image, false);
+	assert.deepEqual(deepseek.modalities.input, ["text"]);
 });

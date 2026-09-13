@@ -229,7 +229,7 @@ function renderHermesBlock(title, rawContent, limit) {
 	const current = content.length;
 	const pct =
 		limit > 0 ? Math.min(100, Math.round((current / limit) * 100)) : 0;
-	const header = `${title} [${pct}% — ${current.toLocaleString()}/${limit.toLocaleString()} chars]`;
+	const header = `${title} [${pct}% — ${current.toLocaleString()}/${limit.toLocaleString()} chars]\n[ACTIONABLE: Call native tool 'memory' to save/update entries when persistent facts emerge]`;
 	const separator = "═".repeat(46);
 	return `${separator}\n${header}\n${separator}\n${content}`;
 }

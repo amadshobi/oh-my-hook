@@ -119,13 +119,45 @@ test("imgsee: module factory registers tool, command, and system prompt guidance
 	assert.ok(cfg.command?.imgsee);
 	assert.equal(cfg.command.imgsee.template, "/imgsee $ARGUMENTS");
 
-	// System prompt injected for main session
-	const sysOutput = { system: [] };
+	// System prompt injected for main session when model is text-only
+	const sysOutputTextOnly = { system: [] };
 	await mod["experimental.chat.system.transform"](
 		{ sessionID: "s1", model: {} },
-		sysOutput,
+		sysOutputTextOnly,
 	);
 	assert.ok(
-		sysOutput.system.some((s) => s.includes("VISION & IMAGE INSPECTION RULE")),
+		sysOutputTextOnly.system.some((s) => s.includes("VISION & IMAGE INSPECTION RULE")),
 	);
+
+	// System prompt skipped when model supports native multimodal vision
+	const sysOutputMultimodal = { system: [] };
+	await mod["experimental.chat.system.transform"](
+		{
+			sessionID: "s2",
+			model: {
+				capabilities: {
+					input: {
+						image: true,
+					},
+				},
+			},
+		},
+		sysOutputMultimodal,
+	);
+	assert.equal(sysOutputMultimodal.system.length, 0);
+
+	// System prompt skipped when model declares image modalities
+	const sysOutputModalities = { system: [] };
+	await mod["experimental.chat.system.transform"](
+		{
+			sessionID: "s3",
+			model: {
+				modalities: {
+					input: ["text", "image"],
+				},
+			},
+		},
+		sysOutputModalities,
+	);
+	assert.equal(sysOutputModalities.system.length, 0);
 });

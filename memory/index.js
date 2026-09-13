@@ -239,6 +239,14 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 
 			output.system = output.system || [];
 			output.system.push(`\n${memoryText.trim()}\n`);
+
+			// If turn is post-compaction continue, inject explicit sync reminder
+			if (input?.message?.metadata?.compaction_continue) {
+				output.system.push(
+					`\n[POST-COMPACTION MEMORY SYNC]\n` +
+						`Context was just compacted. Inspect the summary above: if any new environment setups (ports, runners, domains), user preferences, or architectural decisions were established, call \`memory(operations)\` now to persist them before continuing.\n`,
+				);
+			}
 		},
 
 		// --- inject memory into compaction context (lossless) ---
@@ -249,6 +257,13 @@ export const memoryHooks = async ({ client, directory }, opts = {}) => {
 
 			output.context = output.context || [];
 			output.context.push(memoryText.trim());
+		},
+
+		// --- post-compaction autocontinue guidance hook ---
+		"experimental.compaction.autocontinue": async (input, output) => {
+			if (memCfg.enabled === false) return;
+			// Keep autocontinue enabled but inform the agent to review memory
+			output.enabled = true;
 		},
 
 		// --- unified /memory & /remember execution without LLM prompt ---
